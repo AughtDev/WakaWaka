@@ -7,7 +7,16 @@ import android.graphics.Color as AndroidColor
 class WakaHelpers {
     companion object {
         val PREFS = "wakawaka_prefs"
-        val TARGET_HOURS = "target_hours"
+        val CODING_DATA = "waka_coding_data"
+
+        val DAILY_TARGET_HOURS = "daily_target_hours"
+        val WEEKLY_TARGET_HOURS = "weekly_target_hours"
+
+        val WAKATIME_API = "wakatime_api"
+
+        val DAILY_STREAK = "daily_streak"
+        val WEEKLY_STREAK = "weekly_streak"
+
         /**
          * Deterministically generates a distinct, bright color for a given project name.
          * The color is generated based on the project name's hash code, mapped to the HSV color space.

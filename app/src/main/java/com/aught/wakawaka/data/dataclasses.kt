@@ -1,6 +1,18 @@
+package com.aught.wakawaka.data
+
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import java.util.Date // Keep Date if you want Moshi to parse the ISO strings
+
+// region ENUMS
+
+enum class GraphMode {
+    Daily,
+    Weekly
+}
+
+// endregion
+
 
 // --- Innermost classes ---
 
@@ -89,3 +101,31 @@ data class DailyAverage(
     val text: String,
     val seconds: Int,
 )
+
+// region DATA CLASSES FOR WIDGET
+
+@JsonClass(generateAdapter = true)
+data class WakaProjectData(
+    val name: String,
+    val totalSeconds: Double,
+)
+
+@JsonClass(generateAdapter = true)
+data class WakaData(
+    val date: String, // in the format YYYY-MM-DD
+    val totalSeconds: Double,
+    val projects: List<WakaProjectData>
+)
+
+// endregion
+
+// region DATA CLASSES FOR STREAKS
+
+@JsonClass(generateAdapter = true)
+data class WakaStreak(
+    val count: Int,
+    val updatedAt: String, // in the format YYYY-MM-DD
+)
+
+// endregion
+

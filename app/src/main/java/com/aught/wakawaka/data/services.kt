@@ -1,3 +1,4 @@
+import com.aught.wakawaka.data.SummariesResponse
 import retrofit2.http.GET
 import retrofit2.http.Query
 

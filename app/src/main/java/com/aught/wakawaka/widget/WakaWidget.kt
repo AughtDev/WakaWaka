@@ -1,5 +1,7 @@
 package com.aught.wakawaka.widget
 
+import com.aught.wakawaka.data.WakaData
+import com.aught.wakawaka.data.WakaProjectData
 import android.content.Context
 import androidx.glance.GlanceId
 import androidx.glance.appwidget.GlanceAppWidget
@@ -30,14 +32,15 @@ import androidx.glance.layout.wrapContentHeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
+import com.aught.wakawaka.data.GraphMode
 import com.aught.wakawaka.data.WakaDataWorker
 import com.aught.wakawaka.data.WakaHelpers
+import com.aught.wakawaka.data.WakaStreak
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
 import kotlin.math.min
-
-enum class GraphMode {
-    Daily,
-    Weekly
-}
 
 
 class WakaWidget : GlanceAppWidget() {
@@ -48,24 +51,101 @@ class WakaWidget : GlanceAppWidget() {
         }
     }
 
-    private val MAX_HOURS = 12;
+    //    private val MAX_HOURS = 12;
+    private val TIME_WINDOW_PROPORTION = 0.5f;
     private val GRAPH_HEIGHT = 80;
     private val GRAPH_WIDTH = 330;
     private val GRAPH_BOTTOM_PADDING = 10;
     private val DATE_TEXT_HEIGHT = 20;
+
+    private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+
+    private fun generateDailyData(data: Map<String, WakaData>?): List<WakaData> {
+        val today = LocalDate.now()
+
+        val dailyData: MutableList<WakaData> = mutableListOf()
+
+        (0..6).forEach { daysAgo ->
+            val date = today.minusDays(daysAgo.toLong())
+            val formattedDate = date.format(dateFormatter)
+            if (data?.containsKey(formattedDate) == true) {
+                dailyData.add(data[formattedDate]!!)
+            } else {
+                dailyData.add(WakaData(formattedDate, 0.0, emptyList()))
+            }
+        }
+
+        dailyData.reverse()
+        return dailyData.toList()
+    }
+
+    private fun generateWeeklyData(data: Map<String, WakaData>?): List<WakaData> {
+        val today = LocalDate.now()
+
+        val weeklyData: MutableList<WakaData> = mutableListOf()
+
+        val currentWeekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+
+        (0..6).forEach { weekOffset ->
+            val weekStart = currentWeekStart.minusWeeks(weekOffset.toLong())
+            val weekFormattedDate = weekStart.format(dateFormatter)
+            var totalSeconds = 0.0;
+            val projectsData = mutableMapOf<String, Double>()
+
+            (0..6).forEach { dayOffset ->
+                val date = weekStart.plusDays(dayOffset.toLong())
+                val dayFormattedDate = date.format(dateFormatter)
+
+                if (data?.containsKey(dayFormattedDate) == true) {
+                    val dayData = data[dayFormattedDate]!!
+                    totalSeconds += dayData.totalSeconds
+                    dayData.projects.forEach {
+                        if (projectsData.containsKey(it.name)) {
+                            projectsData[it.name] = projectsData[it.name]!! + it.totalSeconds
+                        } else {
+                            projectsData[it.name] = it.totalSeconds
+                        }
+                    }
+                }
+            }
+
+            val projects = projectsData.map {
+                WakaProjectData(it.key, it.value)
+            }
+            weeklyData.add(WakaData(weekFormattedDate, totalSeconds, projects))
+        }
+
+        weeklyData.reverse()
+        return weeklyData.toList()
+    }
 
     @Composable
     private fun MyContent() {
         val context = LocalContext.current
         val processedData = WakaDataWorker.loadProcessedData(context)
         println("The processed data is $processedData")
-        val targetInHours =
-            context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE).getFloat(
-                WakaHelpers.TARGET_HOURS, 0f
-            )
 
-        // create a graphmode state
+        val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
+
+        // create a graph mode state
         var graphMode = remember { mutableStateOf(GraphMode.Daily) }
+
+        val dailyData = generateDailyData(processedData)
+        val weeklyData = generateWeeklyData(processedData)
+
+        val targetInHours =
+            when (graphMode.value) {
+                GraphMode.Daily -> prefs.getFloat(WakaHelpers.DAILY_TARGET_HOURS, 0f)
+                GraphMode.Weekly -> prefs.getFloat(WakaHelpers.WEEKLY_TARGET_HOURS, 0f)
+            }
+
+        val maxHours =
+            when (graphMode.value) {
+                GraphMode.Daily -> 24 * TIME_WINDOW_PROPORTION
+                GraphMode.Weekly -> 24 * 7 * TIME_WINDOW_PROPORTION
+            }
+
+        val streak = WakaDataWorker.loadStreak(context, graphMode.value);
 
         Column(
             modifier = GlanceModifier.fillMaxSize(),
@@ -81,7 +161,7 @@ class WakaWidget : GlanceAppWidget() {
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = "5",
+                    text = streak.toString(),
                     style = TextStyle(color = ColorProvider(day = Color.White, night = Color.White))
                 )
                 Box(modifier = GlanceModifier.defaultWeight()) {}
@@ -141,8 +221,11 @@ class WakaWidget : GlanceAppWidget() {
                         .background(Color.Transparent)
                         .fillMaxWidth().fillMaxHeight().padding(bottom = GRAPH_BOTTOM_PADDING.dp),
                 ) {
-                    // map all days
-                    processedData?.data?.forEach {
+                    // map all days or weeks depending on graph mode
+                    when (graphMode.value) {
+                        GraphMode.Daily -> dailyData
+                        GraphMode.Weekly -> weeklyData
+                    }.forEach {
                         Column(
                             modifier = GlanceModifier
 //                            .background(Color.Green)
@@ -150,7 +233,7 @@ class WakaWidget : GlanceAppWidget() {
                             verticalAlignment = Alignment.Bottom
                         ) {
                             var barColor = Color.Gray
-                            if (it.grandTotal.totalSeconds / 3600 >= targetInHours) {
+                            if (it.totalSeconds / 3600 >= targetInHours) {
                                 barColor = Color.Black
                             }
 
@@ -170,7 +253,7 @@ class WakaWidget : GlanceAppWidget() {
                                                 .height(
                                                     (GRAPH_HEIGHT * min(
                                                         1.0,
-                                                        it.totalSeconds / (3600 * MAX_HOURS)
+                                                        it.totalSeconds / (3600 * maxHours)
                                                     )).dp
                                                 )
 //                                                .background(WakaHelpers.projectNameToColor(it.name))
@@ -180,7 +263,7 @@ class WakaWidget : GlanceAppWidget() {
                                     }
                             }
                             // get the day,month and year from date of format yyyy-mm-dd
-                            val date = it.range.date.split("-")
+                            val date = it.date.split("-")
                             Box(
                                 modifier = GlanceModifier.height(DATE_TEXT_HEIGHT.dp)
                                     .fillMaxWidth(),
@@ -204,7 +287,7 @@ class WakaWidget : GlanceAppWidget() {
                 }
 
                 // Add this Box for the target line overlay
-                TargetLine(targetInHours)
+                TargetLine(targetInHours, maxHours)
             }
 //            Row(horizontalAlignment = Alignment.CenterHorizontally) {
 //                Button(
@@ -220,12 +303,12 @@ class WakaWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun TargetLine(targetHours: Float) {
+    private fun TargetLine(targetHours: Float, maxHours: Float) {
         // Target line - positioned at a specific height from bottom
         // For example, if your target is 4 hours (3600*4 seconds)
         val targetHeight = (GRAPH_HEIGHT * min(
             1f,
-            (3600 * targetHours) / (3600 * MAX_HOURS)
+            (3600 * targetHours) / (3600 * maxHours)
         ) + GRAPH_BOTTOM_PADDING + DATE_TEXT_HEIGHT).dp
         Row(
             modifier = GlanceModifier

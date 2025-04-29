@@ -57,11 +57,14 @@ fun SettingsView(name: String, modifier: Modifier = Modifier) {
                 workRequest
             )
 
-            val targetInHours = 5f;
+            val dailyTargetInHours = 5f;
+            val weeklyTargetInHours = 40f;
 
             // save the target to prefs
             val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
-            prefs.edit() { putFloat(WakaHelpers.TARGET_HOURS, targetInHours) }
+
+            prefs.edit() { putFloat(WakaHelpers.DAILY_TARGET_HOURS, dailyTargetInHours) }
+            prefs.edit() { putFloat(WakaHelpers.WEEKLY_TARGET_HOURS, weeklyTargetInHours) }
 
         }) {
             Text(text = "Click me to start")
