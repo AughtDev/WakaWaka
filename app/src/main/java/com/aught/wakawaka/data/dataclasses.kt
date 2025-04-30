@@ -11,6 +11,11 @@ enum class GraphMode {
     Weekly
 }
 
+enum class WakaWidgetTheme {
+    Dark,
+    Light
+}
+
 // endregion
 
 

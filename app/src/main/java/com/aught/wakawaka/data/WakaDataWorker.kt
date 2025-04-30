@@ -4,8 +4,11 @@ import WakapiService
 import android.content.Context
 import android.util.Log
 import androidx.core.content.edit
+import androidx.glance.LocalContext
+import androidx.glance.appwidget.updateAll
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.aught.wakawaka.widget.WakaWidget
 import com.squareup.moshi.FromJson
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonReader
@@ -66,10 +69,13 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
         .addLast(KotlinJsonAdapterFactory()).build()
 
     private val url: String = "https://api.wakatime.com/api/v1/";
-    private val authToken: String = "AUTH_TOKEN"
 
     override suspend fun doWork(): Result {
         Log.d("WakaDataWorker", "doWork() called")
+
+//        val authToken: String = "REMOVED_WAKATIME_API_KEY"
+        val prefs = applicationContext.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
+        val authToken: String = prefs.getString(WakaHelpers.WAKATIME_API, "") ?: "auth_token"
 
         // a logging interceptor to attach to the http client
         val logging = HttpLoggingInterceptor().apply {
@@ -101,6 +107,8 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
                 println("The response to wakatime call is $response")
                 saveProcessedData(applicationContext, response)
 
+                WakaWidget().updateAll(applicationContext)
+
                 Result.success()
             } catch (e: Exception) {
                 println("The exception is $e")
@@ -130,7 +138,7 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
             if (json != null && streakAdapter.fromJson(json) != null) {
                 streakAdapter.fromJson(json)
             } else {
-                WakaStreak(0, "2000-09-30")
+                WakaStreak(0, WakaHelpers.ZERO_DAY)
             }!!
 
         // starting from yesterday, we iterate backwards until we find
@@ -177,7 +185,7 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
                 streakAdapter.fromJson(json)
             } else {
                 // a monday
-                WakaStreak(0, "2000-10-02")
+                WakaStreak(0, WakaHelpers.ZERO_DAY)
             }!!
 
 
@@ -329,6 +337,27 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
                 streakAdapter.fromJson(json)!!.count
             } else {
                 0
+            }
+        }
+
+        fun resetStreak(context: Context, mode: GraphMode) {
+            val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
+
+            // build the adapters to convert between json strings and the data
+            val moshi = Moshi.Builder()
+                .add(Iso8601UtcDateAdapter())
+                .addLast(KotlinJsonAdapterFactory()).build()
+
+            val streakAdapter = moshi.adapter(WakaStreak::class.java)
+            val newStreak = WakaStreak(0, WakaHelpers.ZERO_DAY)
+
+            prefs.edit {
+                putString(
+                    when (mode) {
+                        GraphMode.Daily -> WakaHelpers.DAILY_STREAK
+                        GraphMode.Weekly -> WakaHelpers.WEEKLY_STREAK
+                    }, streakAdapter.toJson(newStreak)
+                )
             }
         }
     }

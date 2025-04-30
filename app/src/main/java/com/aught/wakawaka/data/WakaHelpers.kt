@@ -17,6 +17,10 @@ class WakaHelpers {
         val DAILY_STREAK = "daily_streak"
         val WEEKLY_STREAK = "weekly_streak"
 
+        val THEME = "theme"
+
+        val ZERO_DAY = "2000-10-02"
+
         /**
          * Deterministically generates a distinct, bright color for a given project name.
          * The color is generated based on the project name's hash code, mapped to the HSV color space.
