@@ -7,7 +7,8 @@ import android.graphics.Color as AndroidColor
 class WakaHelpers {
     companion object {
         val PREFS = "wakawaka_prefs"
-        val CODING_DATA = "waka_coding_data"
+        val AGGREGATE_DATA = "waka_coding_data"
+        val PROJECT_DATA = "waka_project_data"
 
         val DAILY_TARGET_HOURS = "daily_target_hours"
         val WEEKLY_TARGET_HOURS = "weekly_target_hours"

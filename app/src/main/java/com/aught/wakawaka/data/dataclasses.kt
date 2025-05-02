@@ -134,3 +134,20 @@ data class WakaStreak(
 
 // endregion
 
+// region DATA CLASSES FOR PROJECT DATA
+
+@JsonClass(generateAdapter = true)
+data class ProjectDailyData(
+    val date: String, // in the format YYYY-MM-DD
+    val totalSeconds: Double,
+)
+
+@JsonClass(generateAdapter = true)
+data class ProjectData(
+    val name: String,
+    val color: String,
+    val totalSeconds: Double,
+    val records: Map<String, ProjectDailyData>
+)
+
+// endregion

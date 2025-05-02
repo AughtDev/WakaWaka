@@ -4,7 +4,6 @@ import WakapiService
 import android.content.Context
 import android.util.Log
 import androidx.core.content.edit
-import androidx.glance.LocalContext
 import androidx.glance.appwidget.updateAll
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -68,7 +67,8 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
         .add(Iso8601UtcDateAdapter())
         .addLast(KotlinJsonAdapterFactory()).build()
 
-    private val url: String = "https://api.wakatime.com/api/v1/";
+    //    private val url: String = "https://api.wakatime.com/api/v1/";
+    private val url: String = "https://wakapi.dev/api/compat/wakatime/v1/";
 
     override suspend fun doWork(): Result {
         Log.d("WakaDataWorker", "doWork() called")
@@ -224,24 +224,24 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
     private fun saveProcessedData(context: Context, data: SummariesResponse) {
         // get the prefs and the json coding data
         val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
-        val json = prefs.getString(WakaHelpers.CODING_DATA, null)
+        val json = prefs.getString(WakaHelpers.AGGREGATE_DATA, null)
 
         // get the adapters to convert between json strings and the data
         val wakaDataAdapter = moshi.adapter(WakaData::class.java)
         val mapAdapter = moshi.adapter<Map<String, String>>(getMapType())
 
         // convert the json to a map or create a new one if it doesn't exist
-        val streakDataStringMap: MutableMap<String, String> =
+        val wakaDataStringMap: MutableMap<String, String> =
             if (json != null && mapAdapter.fromJson(json) != null) {
                 mapAdapter.fromJson(json)!!.toMutableMap()
             } else {
                 mutableMapOf()
             }
 
-        val streakDataMap: MutableMap<String, WakaData> = mutableMapOf();
+        val wakaDataMap: MutableMap<String, WakaData> = mutableMapOf();
 
-        streakDataStringMap.forEach {
-            streakDataMap[it.key] = wakaDataAdapter.fromJson(it.value) ?: return
+        wakaDataStringMap.forEach {
+            wakaDataMap[it.key] = wakaDataAdapter.fromJson(it.value) ?: return
         }
 
 
@@ -256,21 +256,21 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
 
             val dailyWakaData = WakaData(date, it.grandTotal.totalSeconds, dailyProjectsData)
 
-            streakDataMap[date] = dailyWakaData;
+            wakaDataMap[date] = dailyWakaData;
         }
 
-        updateDailyStreak(context, streakDataMap)
-        updateWeeklyStreak(context, streakDataMap)
+        updateDailyStreak(context, wakaDataMap)
+        updateWeeklyStreak(context, wakaDataMap)
 
         // convert the map to a json string and save it
-        streakDataStringMap.clear()
-        streakDataMap.forEach {
-            streakDataStringMap[it.key] = wakaDataAdapter.toJson(it.value)
+        wakaDataStringMap.clear()
+        wakaDataMap.forEach {
+            wakaDataStringMap[it.key] = wakaDataAdapter.toJson(it.value)
         }
 
         // save the map to the prefs
         prefs.edit() {
-            putString(WakaHelpers.CODING_DATA, mapAdapter.toJson(streakDataStringMap.toMap()))
+            putString(WakaHelpers.AGGREGATE_DATA, mapAdapter.toJson(wakaDataStringMap.toMap()))
             println("putting the data (save)")
         }
 
@@ -288,7 +288,7 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
         fun loadProcessedData(context: Context): Map<String, WakaData>? {
             // get the prefs and the json coding data
             val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
-            val json = prefs.getString(WakaHelpers.CODING_DATA, null)
+            val json = prefs.getString(WakaHelpers.AGGREGATE_DATA, null)
 
             println("The json loaded is $json")
             if (json == null) return null

@@ -73,6 +73,7 @@ dependencies {
     implementation(libs.androidx.glance.material3)
     implementation(libs.androidx.material.icons.extended)
 
+    implementation(libs.androidx.navigation.compose) // Use the latest version
 
     // For interop APIs with Material 2
     implementation(libs.androidx.glance.material)
