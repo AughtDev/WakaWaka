@@ -7,13 +7,18 @@ import android.graphics.Color as AndroidColor
 class WakaHelpers {
     companion object {
         val PREFS = "wakawaka_prefs"
-        val AGGREGATE_DATA = "waka_coding_data"
-        val PROJECT_DATA = "waka_project_data"
+
+        val AGGREGATE_DATA = "waka_aggregate_data"
+        val INITIAL_AGGREGATE_DATA = AggregateData(emptyMap(), null, null, null, null, emptyList())
+
+        val PROJECT_SPECIFIC_DATA = "waka_project_data"
 
         val DAILY_TARGET_HOURS = "daily_target_hours"
         val WEEKLY_TARGET_HOURS = "weekly_target_hours"
 
         val WAKATIME_API = "wakatime_api"
+        val WAKAPI_API = "wakapi_api"
+        val WAKA_URL = "https://api.wakatime.com/api/v1/"
 
         val DAILY_STREAK = "daily_streak"
         val WEEKLY_STREAK = "weekly_streak"
@@ -59,6 +64,11 @@ class WakaHelpers {
 
             // Convert the Android ARGB color integer to a Compose Color
             return Color(argb)
+        }
+
+        fun base64Encode(token: String): String {
+            val bytes = token.toByteArray()
+            return android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
         }
     }
 }

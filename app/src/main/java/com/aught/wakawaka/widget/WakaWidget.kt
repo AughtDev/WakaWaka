@@ -1,7 +1,7 @@
 package com.aught.wakawaka.widget
 
-import com.aught.wakawaka.data.WakaData
-import com.aught.wakawaka.data.WakaProjectData
+import com.aught.wakawaka.data.DailyAggregateData
+import com.aught.wakawaka.data.ProjectStats
 import android.content.Context
 import androidx.glance.GlanceId
 import androidx.glance.appwidget.GlanceAppWidget
@@ -64,10 +64,10 @@ class WakaWidget : GlanceAppWidget() {
 
     private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
-    private fun generateDailyData(data: Map<String, WakaData>?): List<WakaData> {
+    private fun generateDailyData(data: Map<String, DailyAggregateData>?): List<DailyAggregateData> {
         val today = LocalDate.now()
 
-        val dailyData: MutableList<WakaData> = mutableListOf()
+        val dailyData: MutableList<DailyAggregateData> = mutableListOf()
 
         (0..6).forEach { daysAgo ->
             val date = today.minusDays(daysAgo.toLong())
@@ -75,7 +75,7 @@ class WakaWidget : GlanceAppWidget() {
             if (data?.containsKey(formattedDate) == true) {
                 dailyData.add(data[formattedDate]!!)
             } else {
-                dailyData.add(WakaData(formattedDate, 0.0, emptyList()))
+                dailyData.add(DailyAggregateData(formattedDate, 0.0, emptyList()))
             }
         }
 
@@ -83,10 +83,10 @@ class WakaWidget : GlanceAppWidget() {
         return dailyData.toList()
     }
 
-    private fun generateWeeklyData(data: Map<String, WakaData>?): List<WakaData> {
+    private fun generateWeeklyData(data: Map<String, DailyAggregateData>?): List<DailyAggregateData> {
         val today = LocalDate.now()
 
-        val weeklyData: MutableList<WakaData> = mutableListOf()
+        val weeklyData: MutableList<DailyAggregateData> = mutableListOf()
 
         val currentWeekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
 
@@ -114,9 +114,9 @@ class WakaWidget : GlanceAppWidget() {
             }
 
             val projects = projectsData.map {
-                WakaProjectData(it.key, it.value)
+                ProjectStats(it.key, it.value)
             }
-            weeklyData.add(WakaData(weekFormattedDate, totalSeconds, projects))
+            weeklyData.add(DailyAggregateData(weekFormattedDate, totalSeconds, projects))
         }
 
         weeklyData.reverse()

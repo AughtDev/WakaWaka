@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -30,6 +31,8 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,6 +52,7 @@ import androidx.work.WorkManager
 import com.aught.wakawaka.data.GraphMode
 import com.aught.wakawaka.data.WakaDataWorker
 import com.aught.wakawaka.data.WakaHelpers
+import com.aught.wakawaka.data.WakaURL
 import kotlinx.coroutines.launch
 import java.time.Duration
 
@@ -59,9 +63,14 @@ fun SettingsView(modifier: Modifier = Modifier) {
     val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
 
     // State variables for form fields
-    var apiKey by remember {
+    var wakatimeAPIKey by remember {
         mutableStateOf(prefs.getString(WakaHelpers.WAKATIME_API, "") ?: "")
     }
+
+    var wakapiAPIKey by remember {
+        mutableStateOf(prefs.getString(WakaHelpers.WAKAPI_API, "") ?: "")
+    }
+
     var passwordVisible by remember { mutableStateOf(false) }
 
     var dailyTarget by remember {
@@ -70,6 +79,14 @@ fun SettingsView(modifier: Modifier = Modifier) {
     var weeklyTarget by remember {
         mutableStateOf(prefs.getFloat(WakaHelpers.WEEKLY_TARGET_HOURS, 40f))
     }
+
+//    val apiOptions = listOf(WakaURL.WAKATIME.url, WakaURL.WAKAPI.url)
+//    var selectedApiOption by remember {
+//        mutableStateOf(
+//            prefs.getString(WakaHelpers.WAKA_URL, WakaURL.WAKATIME.url) ?: WakaHelpers.WAKA_URL
+//        )
+//    }
+    val selectedApiOption = WakaURL.WAKATIME.url
 
     val themeOptions = listOf("Light", "Dark", "System Default")
     var selectedThemeOption by remember {
@@ -94,11 +111,20 @@ fun SettingsView(modifier: Modifier = Modifier) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        val apiKey =
+            if (selectedApiOption == WakaURL.WAKATIME.url) wakatimeAPIKey else wakapiAPIKey
+
         // API Key Input
         OutlinedTextField(
             value = apiKey,
-            onValueChange = { apiKey = it },
-            label = { Text("WakaTime API Key") },
+            onValueChange = {
+                if (selectedApiOption == WakaURL.WAKATIME.url) {
+                    wakatimeAPIKey = it
+                } else {
+                    wakapiAPIKey = it
+                }
+            },
+            label = { Text("${if (selectedApiOption == WakaURL.WAKATIME.url) "WakaTime" else "Wakapi"} API Key") },
             modifier = Modifier.fillMaxWidth(),
             leadingIcon = { Icon(Icons.Default.Key, contentDescription = "API Key") },
             trailingIcon = {
@@ -112,6 +138,46 @@ fun SettingsView(modifier: Modifier = Modifier) {
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             singleLine = true
         )
+
+        // Api URL Selection
+//        Card(
+//            modifier = Modifier.fillMaxWidth()
+//        ) {
+//            Column(
+//                modifier = Modifier.padding(16.dp),
+//                verticalArrangement = Arrangement.spacedBy(8.dp)
+//            ) {
+//                Row(
+//                    verticalAlignment = Alignment.CenterVertically,
+//                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+//                ) {
+//                    Icon(Icons.Default.Link, contentDescription = "Waka API")
+//                    Text(
+//                        text = "Waka API",
+//                        style = MaterialTheme.typography.titleMedium
+//                    )
+//                }
+//
+//                apiOptions.forEachIndexed { index, api ->
+//                    Row(
+//                        modifier = Modifier.fillMaxWidth(),
+//                        horizontalArrangement = Arrangement.SpaceBetween,
+//                        verticalAlignment = Alignment.CenterVertically
+//                    ) {
+//                        RadioButton(
+//                            selected = selectedApiOption == api,
+//                            onClick = { selectedApiOption = api }
+//                        )
+//                        Text(
+//                            text = if (api == WakaURL.WAKATIME.url) "Wakatime" else "Wakapi",
+//                        )
+//                    }
+//                }
+//
+//
+//            }
+//
+//        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -187,11 +253,12 @@ fun SettingsView(modifier: Modifier = Modifier) {
                     value = weeklyTarget,
                     onValueChange = { weeklyTarget = it },
                     valueRange = 5f..75f,
-                    steps = 35,
+                    steps = 34,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         }
+
 
         // Theme Selection Section
         Card(
@@ -226,8 +293,14 @@ fun SettingsView(modifier: Modifier = Modifier) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        val apiKeyFilled = if (selectedApiOption == WakaURL.WAKATIME.url) {
+            wakatimeAPIKey.isNotEmpty()
+        } else {
+            wakapiAPIKey.isNotEmpty()
+        }
+
         // Info card
-        if (apiKey.isEmpty()) {
+        if (!apiKeyFilled) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -253,6 +326,14 @@ fun SettingsView(modifier: Modifier = Modifier) {
             }
 
             Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        LaunchedEffect(showSuccessMessage) {
+            if (showSuccessMessage) {
+                // Hide the success message after 2 seconds
+                kotlinx.coroutines.delay(2000)
+                showSuccessMessage = false
+            }
         }
 
         // Success message
@@ -301,7 +382,12 @@ fun SettingsView(modifier: Modifier = Modifier) {
 
                 // Save settings to preferences
                 prefs.edit().apply {
-                    putString(WakaHelpers.WAKATIME_API, apiKey)
+                    putString(WakaHelpers.WAKA_URL, selectedApiOption)
+                    if (selectedApiOption == WakaURL.WAKATIME.url) {
+                        putString(WakaHelpers.WAKATIME_API, wakatimeAPIKey)
+                    } else {
+                        putString(WakaHelpers.WAKAPI_API, wakapiAPIKey)
+                    }
                     putFloat(WakaHelpers.DAILY_TARGET_HOURS, dailyTarget)
                     putFloat(WakaHelpers.WEEKLY_TARGET_HOURS, weeklyTarget)
                     putInt(WakaHelpers.THEME, selectedThemeOption)
@@ -327,12 +413,11 @@ fun SettingsView(modifier: Modifier = Modifier) {
                     )
                 }
 
-
                 // Show success message
                 showSuccessMessage = true
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = apiKey.isNotEmpty()
+            enabled = apiKeyFilled
         ) {
             Text("Save Settings")
         }

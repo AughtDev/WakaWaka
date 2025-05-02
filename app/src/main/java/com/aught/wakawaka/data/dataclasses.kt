@@ -16,6 +16,21 @@ enum class WakaWidgetTheme {
     Light
 }
 
+enum class WakaURL(val url: String) {
+    WAKATIME("https://api.wakatime.com/api/v1/"),
+    WAKAPI("https://wakapi.dev/api/compat/wakatime/v1/")
+}
+
+enum class DayOfWeek(val value: Int) {
+    SUNDAY(0),
+    MONDAY(1),
+    TUESDAY(2),
+    WEDNESDAY(3),
+    THURSDAY(4),
+    FRIDAY(5),
+    SATURDAY(6)
+}
+
 // endregion
 
 
@@ -107,47 +122,59 @@ data class DailyAverage(
     val seconds: Int,
 )
 
-// region DATA CLASSES FOR WIDGET
-
-@JsonClass(generateAdapter = true)
-data class WakaProjectData(
-    val name: String,
-    val totalSeconds: Double,
-)
-
-@JsonClass(generateAdapter = true)
-data class WakaData(
-    val date: String, // in the format YYYY-MM-DD
-    val totalSeconds: Double,
-    val projects: List<WakaProjectData>
-)
-
-// endregion
-
 // region DATA CLASSES FOR STREAKS
 
 @JsonClass(generateAdapter = true)
-data class WakaStreak(
+data class StreakData(
     val count: Int,
     val updatedAt: String, // in the format YYYY-MM-DD
 )
 
 // endregion
 
-// region DATA CLASSES FOR PROJECT DATA
+// region DATA CLASSES FOR AGGREGATE DATA
 
 @JsonClass(generateAdapter = true)
-data class ProjectDailyData(
-    val date: String, // in the format YYYY-MM-DD
+data class ProjectStats(
+    val name: String,
     val totalSeconds: Double,
 )
 
 @JsonClass(generateAdapter = true)
-data class ProjectData(
+data class DailyAggregateData(
+    val date: String, // in the format YYYY-MM-DD
+    val totalSeconds: Double,
+    val projects: List<ProjectStats>
+)
+
+
+@JsonClass(generateAdapter = true)
+data class AggregateData(
+    val dailyRecords: Map<String, DailyAggregateData>,
+    val dailyTargetHours: Double?,
+    val weeklyTargetHours: Double?,
+    val dailyStreak: StreakData?,
+    val weeklyStreak: StreakData?,
+    val excludedDaysFromDailyStreak: List<Int>, // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+)
+
+// endregion
+
+// region DATA CLASSES FOR SPECIFIC PROJECT DATA
+
+
+@JsonClass(generateAdapter = true)
+data class ProjectSpecificData(
     val name: String,
     val color: String,
     val totalSeconds: Double,
-    val records: Map<String, ProjectDailyData>
+    // amount of time in seconds spent on this project mapped to the date (yyyy-mm-dd)
+    val dailyDurationInSeconds: Map<String, Double>,
+    val dailyTargetHours: Double?,
+    val weeklyTargetHours: Double?,
+    val dailyStreak: StreakData?,
+    val weeklyStreak: StreakData?,
+    val excludedDaysFromDailyStreak: List<Int>, // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
 )
 
 // endregion

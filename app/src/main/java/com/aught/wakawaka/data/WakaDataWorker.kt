@@ -1,6 +1,6 @@
 package com.aught.wakawaka.data
 
-import WakapiService
+import WakaService
 import android.content.Context
 import android.util.Log
 import androidx.core.content.edit
@@ -28,33 +28,28 @@ import java.util.Locale
 import java.util.TimeZone
 import java.lang.reflect.Type
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 
 class Iso8601UtcDateAdapter : JsonAdapter<Date>() {
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
-    }
-
     @FromJson
     override fun fromJson(reader: JsonReader): Date? {
+        val dateAsString = reader.nextString()
         return try {
-            val dateAsString = reader.nextString()
-            synchronized(dateFormat) {
-                dateFormat.parse(dateAsString)
-            }
+            val instant = Instant.parse(dateAsString)
+            Date.from(instant)
         } catch (e: Exception) {
-            null
+            println("Error parsing date: $dateAsString, exception: $e")
+            return null
         }
     }
 
     @ToJson
     override fun toJson(writer: JsonWriter, value: Date?) {
         if (value != null) {
-            synchronized(dateFormat) {
-                writer.value(value.toInstant().toString())
-            }
+            writer.value(value.toInstant().toString())
         }
     }
 }
@@ -75,7 +70,18 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
 
 //        val authToken: String = "REMOVED_WAKATIME_API_KEY"
         val prefs = applicationContext.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
-        val authToken: String = prefs.getString(WakaHelpers.WAKATIME_API, "") ?: "auth_token"
+
+        val url: String =
+            prefs.getString(WakaHelpers.WAKA_URL, WakaURL.WAKATIME.url) ?: WakaURL.WAKATIME.url
+
+        // if the url is wakapi, the authToken needs to be base 64 encoded
+        var authToken: String;
+        if (url == WakaURL.WAKAPI.url) {
+            authToken = prefs.getString(WakaHelpers.WAKAPI_API, "") ?: "auth_token"
+            authToken = WakaHelpers.base64Encode(authToken)
+        } else {
+            authToken = prefs.getString(WakaHelpers.WAKATIME_API, "") ?: "auth_token"
+        }
 
         // a logging interceptor to attach to the http client
         val logging = HttpLoggingInterceptor().apply {
@@ -97,7 +103,7 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
                 .build()
 
         // the wakapi service created from the retrofit instance
-        val service = retrofit.create(WakapiService::class.java)
+        val service = retrofit.create(WakaService::class.java)
 
         println("working inside worker")
         return withContext(Dispatchers.IO) {
@@ -126,20 +132,13 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
         )
     }
 
-    private fun updateDailyStreak(context: Context, data: Map<String, WakaData>) {
-        // get the prefs and the json streak data and the target daily hours
-        val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
-        val json = prefs.getString(WakaHelpers.DAILY_STREAK, null)
-        val targetHours = prefs.getFloat(WakaHelpers.DAILY_TARGET_HOURS, 0f)
-
-        // set up the waka streak adapter and fetch the streak data or generate it if not there
-        val streakAdapter = moshi.adapter(WakaStreak::class.java)
-        val dailyStreakData: WakaStreak =
-            if (json != null && streakAdapter.fromJson(json) != null) {
-                streakAdapter.fromJson(json)
-            } else {
-                WakaStreak(0, WakaHelpers.ZERO_DAY)
-            }!!
+    private fun calculateDailyStreak(
+        data: Map<String,Double>,
+        currentStreak: StreakData?,
+        target: Double?
+    ): StreakData? {
+        val targetHours = target ?: return null
+        val dailyStreakData: StreakData = currentStreak ?: StreakData(0, WakaHelpers.ZERO_DAY)
 
         // starting from yesterday, we iterate backwards until we find
         // - a date that is not in the data
@@ -153,41 +152,28 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
 
         while (true) {
             val date = yesterday.minusDays(streak.toLong())
-            var formattedDate = date.format(dateFormatter)
+            val formattedDate = date.format(dateFormatter)
 
             if (formattedDate == dailyStreakData.updatedAt) {
                 streak += dailyStreakData.count;
                 break
             }
-            if (data.containsKey(formattedDate) == false || (data[formattedDate]!!.totalSeconds) / 3600 < targetHours) {
+            if (!data.containsKey(formattedDate) || (data[formattedDate]!!) / 3600 < targetHours) {
                 break
             }
             streak++
         }
 
-        val updatedDailyStreakData = WakaStreak(streak, yesterday.format(dateFormatter))
-
-        prefs.edit {
-            putString(WakaHelpers.DAILY_STREAK, streakAdapter.toJson(updatedDailyStreakData))
-        }
+        return StreakData(streak, yesterday.format(dateFormatter))
     }
 
-    private fun updateWeeklyStreak(context: Context, data: Map<String, WakaData>) {
-        // get the prefs and the json streak data and the target weekly hours
-        val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
-        val json = prefs.getString(WakaHelpers.WEEKLY_STREAK, null)
-        val targetHours = prefs.getFloat(WakaHelpers.WEEKLY_TARGET_HOURS, 0f)
-
-        // set up the waka streak adapter and fetch the streak data or generate it if not there
-        val streakAdapter = moshi.adapter(WakaStreak::class.java)
-        val weeklyStreakData: WakaStreak =
-            if (json != null && streakAdapter.fromJson(json) != null) {
-                streakAdapter.fromJson(json)
-            } else {
-                // a monday
-                WakaStreak(0, WakaHelpers.ZERO_DAY)
-            }!!
-
+    private fun calculateWeeklyStreak(
+        data: Map<String,Double>,
+        currentStreak: StreakData?,
+        target: Double?
+    ): StreakData? {
+        val targetHours = target ?: return null
+        val weeklyStreakData: StreakData = currentStreak ?: StreakData(0, WakaHelpers.ZERO_DAY)
 
         // starting from last week, we iterate backwards through the first day (monday) of every week until we find
 
@@ -202,75 +188,130 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
 
         while (true) {
             val date = firstDayOfLastWeek.minusWeeks(streak.toLong())
-            var formattedDate = date.format(dateFormatter)
+            val formattedDate = date.format(dateFormatter)
 
+            // todo: complete weekly streak calc
             if (formattedDate == weeklyStreakData.updatedAt) {
                 streak += weeklyStreakData.count;
                 break
             }
-            if (data.containsKey(formattedDate) == false || (data[formattedDate]!!.totalSeconds) / 3600 < targetHours) {
+            if (!data.containsKey(formattedDate) || (data[formattedDate]!!) / 3600 < targetHours) {
                 break
             }
             streak++
         }
 
-        val updatedWeeklyStreakData = WakaStreak(streak, firstDayOfLastWeek.format(dateFormatter))
-
-        prefs.edit {
-            putString(WakaHelpers.WEEKLY_STREAK, streakAdapter.toJson(updatedWeeklyStreakData))
-        }
+        return StreakData(streak, firstDayOfLastWeek.format(dateFormatter))
     }
 
     private fun saveProcessedData(context: Context, data: SummariesResponse) {
+        val mapAdapter = moshi.adapter<Map<String, String>>(getMapType())
+        val aggregateDataAdapter = moshi.adapter(AggregateData::class.java)
+        val projectSpecificDataAdapter = moshi.adapter(ProjectSpecificData::class.java)
+
         // get the prefs and the json coding data
         val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
-        val json = prefs.getString(WakaHelpers.AGGREGATE_DATA, null)
 
-        // get the adapters to convert between json strings and the data
-        val wakaDataAdapter = moshi.adapter(WakaData::class.java)
-        val mapAdapter = moshi.adapter<Map<String, String>>(getMapType())
+        val aggregateData = if (prefs.getString(WakaHelpers.AGGREGATE_DATA, null) != null) {
+            aggregateDataAdapter.fromJson(
+                prefs.getString(WakaHelpers.AGGREGATE_DATA, null)!!
+            )
+        } else {
+            WakaHelpers.INITIAL_AGGREGATE_DATA
+        } ?: return
 
-        // convert the json to a map or create a new one if it doesn't exist
-        val wakaDataStringMap: MutableMap<String, String> =
-            if (json != null && mapAdapter.fromJson(json) != null) {
-                mapAdapter.fromJson(json)!!.toMutableMap()
+        val projectDataMap: MutableMap<String, ProjectSpecificData> =
+            if (prefs.getString(WakaHelpers.PROJECT_SPECIFIC_DATA, null) != null) {
+                val projectDataStringMap = mapAdapter.fromJson(
+                    prefs.getString(WakaHelpers.PROJECT_SPECIFIC_DATA, null)!!
+                )
+                val projectDataMap = mutableMapOf<String, ProjectSpecificData>()
+                projectDataStringMap?.forEach {
+                    projectDataMap[it.key] = projectSpecificDataAdapter.fromJson(it.value) ?: return
+                }
+                projectDataMap
             } else {
-                mutableMapOf()
+                emptyMap<String, ProjectSpecificData>().toMutableMap()
             }
 
-        val wakaDataMap: MutableMap<String, WakaData> = mutableMapOf();
 
-        wakaDataStringMap.forEach {
-            wakaDataMap[it.key] = wakaDataAdapter.fromJson(it.value) ?: return
-        }
+        val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        dateFormatter.timeZone = TimeZone.getTimeZone("UTC")
 
-
+        val updatedAggregateDailyRecords = aggregateData.dailyRecords.toMutableMap()
         // update the map with the new data
-        data.data.forEach {
-            // save the data at the appropriate date
+        data.data.forEach { it ->
             val date = it.range.date
+            val dailyProjectsData: MutableList<ProjectStats> = mutableListOf();
 
-            val dailyProjectsData: List<WakaProjectData> = it.projects.map {
-                WakaProjectData(it.name, it.totalSeconds)
+            it.projects.forEach { project ->
+                dailyProjectsData.add(ProjectStats(project.name, project.totalSeconds))
+                // update the project data
+                val projectData = projectDataMap[project.name]
+                val updatedRecords =
+                    projectData?.dailyDurationInSeconds?.toMutableMap() ?: mutableMapOf()
+                updatedRecords[date] = project.totalSeconds
+
+                projectDataMap[project.name] = ProjectSpecificData(
+                    project.name,
+                    projectData?.color ?: WakaHelpers.projectNameToColor(project.name).toString(),
+                    (projectData?.totalSeconds ?: 0.0) + project.totalSeconds,
+                    updatedRecords,
+                    projectData?.dailyTargetHours,
+                    projectData?.weeklyTargetHours,
+                    calculateDailyStreak(
+                        updatedRecords,
+                        projectData?.dailyStreak,
+                        projectData?.dailyTargetHours
+                    ),
+                    calculateWeeklyStreak(
+                        updatedRecords,
+                        projectData?.weeklyStreak,
+                        projectData?.weeklyTargetHours
+                    ),
+                    projectData?.excludedDaysFromDailyStreak ?: emptyList()
+                )
             }
 
-            val dailyWakaData = WakaData(date, it.grandTotal.totalSeconds, dailyProjectsData)
+            val dailyAggregateData =
+                DailyAggregateData(date, it.grandTotal.totalSeconds, dailyProjectsData)
 
-            wakaDataMap[date] = dailyWakaData;
+            updatedAggregateDailyRecords[date] = dailyAggregateData;
         }
 
-        updateDailyStreak(context, wakaDataMap)
-        updateWeeklyStreak(context, wakaDataMap)
+        val updatedAggregateDailyStreak = calculateDailyStreak(
+            updatedAggregateDailyRecords.mapValues { it.value.totalSeconds },
+            aggregateData.dailyStreak,
+            aggregateData.dailyTargetHours
+        )
+        val updatedWeeklyStreak = calculateWeeklyStreak(
+            updatedAggregateDailyRecords.mapValues { it.value.totalSeconds },
+            aggregateData.weeklyStreak,
+            aggregateData.weeklyTargetHours
+        )
 
-        // convert the map to a json string and save it
-        wakaDataStringMap.clear()
-        wakaDataMap.forEach {
-            wakaDataStringMap[it.key] = wakaDataAdapter.toJson(it.value)
+        val updatedAggregateData = AggregateData(
+            updatedAggregateDailyRecords,
+            aggregateData.dailyTargetHours,
+            aggregateData.weeklyTargetHours,
+            updatedAggregateDailyStreak,
+            updatedWeeklyStreak,
+            aggregateData.excludedDaysFromDailyStreak
+        )
+
+
+        val projectDataStringMap = mutableMapOf<String, String>()
+        projectDataMap.forEach {
+            projectDataStringMap[it.key] = projectSpecificDataAdapter.toJson(it.value)
         }
 
         // save the map to the prefs
         prefs.edit() {
-            putString(WakaHelpers.AGGREGATE_DATA, mapAdapter.toJson(wakaDataStringMap.toMap()))
+            putString(WakaHelpers.AGGREGATE_DATA, aggregateDataAdapter.toJson(updatedAggregateData))
+            putString(
+                WakaHelpers.PROJECT_SPECIFIC_DATA,
+                mapAdapter.toJson(projectDataStringMap.toMap())
+            )
             println("putting the data (save)")
         }
 
@@ -285,7 +326,7 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
             )
         }
 
-        fun loadProcessedData(context: Context): Map<String, WakaData>? {
+        fun loadProcessedData(context: Context): Map<String, DailyAggregateData>? {
             // get the prefs and the json coding data
             val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
             val json = prefs.getString(WakaHelpers.AGGREGATE_DATA, null)
@@ -298,13 +339,13 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
                 .add(Iso8601UtcDateAdapter())
                 .addLast(KotlinJsonAdapterFactory()).build()
 
-            val dailyDataAdapter = moshi.adapter(WakaData::class.java)
+            val dailyDataAdapter = moshi.adapter(DailyAggregateData::class.java)
             val mapAdapter = moshi.adapter<Map<String, String>>(getMapType())
 
 
             // convert the json to a map and return
             val prefsMap = mapAdapter.fromJson(json)
-            val processedData = mutableMapOf<String, WakaData>()
+            val processedData = mutableMapOf<String, DailyAggregateData>()
 
             prefsMap?.forEach {
                 processedData[it.key] = dailyDataAdapter.fromJson(it.value) ?: return null
@@ -331,7 +372,7 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
                 .add(Iso8601UtcDateAdapter())
                 .addLast(KotlinJsonAdapterFactory()).build()
 
-            val streakAdapter = moshi.adapter(WakaStreak::class.java)
+            val streakAdapter = moshi.adapter(StreakData::class.java)
 
             return if (json != null && streakAdapter.fromJson(json) != null) {
                 streakAdapter.fromJson(json)!!.count
@@ -348,8 +389,8 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
                 .add(Iso8601UtcDateAdapter())
                 .addLast(KotlinJsonAdapterFactory()).build()
 
-            val streakAdapter = moshi.adapter(WakaStreak::class.java)
-            val newStreak = WakaStreak(0, WakaHelpers.ZERO_DAY)
+            val streakAdapter = moshi.adapter(StreakData::class.java)
+            val newStreak = StreakData(0, WakaHelpers.ZERO_DAY)
 
             prefs.edit {
                 putString(
