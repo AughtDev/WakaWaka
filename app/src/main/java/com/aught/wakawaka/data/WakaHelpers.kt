@@ -2,6 +2,7 @@ package com.aught.wakawaka.data
 
 import androidx.compose.ui.graphics.Color
 import kotlin.math.abs
+import kotlin.math.floor
 import android.graphics.Color as AndroidColor
 
 class WakaHelpers {
@@ -69,6 +70,26 @@ class WakaHelpers {
         fun base64Encode(token: String): String {
             val bytes = token.toByteArray()
             return android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+        }
+
+        fun durationInSecondsToDurationString(durationInSeconds: Double): String {
+            // the expected return format is 5h 34m
+            val totalMinutes = durationInSeconds / 60
+            val numHours = floor(totalMinutes / 60).toInt()
+            val numMinutes = (totalMinutes % 60).toInt()
+
+            var durationString = ""
+            if (numHours > 0) {
+                durationString += "$numHours h"
+            }
+            if (numMinutes > 0) {
+                if (durationString.isNotEmpty()) {
+                    durationString += " "
+                }
+                durationString += "$numMinutes m"
+            }
+
+            return durationString
         }
     }
 }

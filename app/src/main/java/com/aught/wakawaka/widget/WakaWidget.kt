@@ -126,18 +126,18 @@ class WakaWidget : GlanceAppWidget() {
     @Composable
     private fun MyContent() {
         val context = LocalContext.current
-        val processedData = WakaDataWorker.loadProcessedData(context)
+        val aggregateData = WakaDataWorker.loadAggregateData(context)
 
         val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
 
         // create a graph mode state
         var graphMode = remember { mutableStateOf(GraphMode.Daily) }
 
-        val dailyData = generateDailyData(processedData)
-        val weeklyData = generateWeeklyData(processedData)
+        val dailyData = generateDailyData(aggregateData?.dailyRecords)
+        val weeklyData = generateWeeklyData(aggregateData?.dailyRecords)
 
-        val dailyTargetInHours = prefs.getFloat(WakaHelpers.DAILY_TARGET_HOURS, 0f)
-        val weeklyTargetInHours = prefs.getFloat(WakaHelpers.WEEKLY_TARGET_HOURS, 0f)
+        val dailyTargetInHours = aggregateData?.dailyTargetHours
+        val weeklyTargetInHours = aggregateData?.weeklyTargetHours
 
 
         val targetInHours =
@@ -152,11 +152,17 @@ class WakaWidget : GlanceAppWidget() {
                 GraphMode.Weekly -> 24 * 7 * TIME_WINDOW_PROPORTION
             }
 
-        val streak = WakaDataWorker.loadStreak(context, graphMode.value);
+        val streak = if (aggregateData != null) WakaDataWorker.loadStreak(
+            aggregateData,
+            graphMode.value
+        ) else 0;
 
         val hitTargetToday: Boolean = when (graphMode.value) {
-            GraphMode.Daily -> dailyData[dailyData.lastIndex].totalSeconds / 3600 >= dailyTargetInHours
-            GraphMode.Weekly -> weeklyData[dailyData.lastIndex].totalSeconds / 3600 >= weeklyTargetInHours
+            GraphMode.Daily -> dailyData[dailyData.lastIndex].totalSeconds / 3600 >= (dailyTargetInHours
+                ?: 0f)
+
+            GraphMode.Weekly -> weeklyData[dailyData.lastIndex].totalSeconds / 3600 >= (weeklyTargetInHours
+                ?: 0f)
         }
 
         val theme = when (prefs.getInt(WakaHelpers.THEME, 0)) {
@@ -195,7 +201,7 @@ class WakaWidget : GlanceAppWidget() {
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.SansSerif
                 ),
-                modifier = GlanceModifier.height(100.dp).padding(horizontal=10.dp)
+                modifier = GlanceModifier.height(100.dp).padding(horizontal = 10.dp)
             )
             Column(
                 modifier = GlanceModifier.fillMaxSize(),
@@ -287,7 +293,7 @@ class WakaWidget : GlanceAppWidget() {
                                 verticalAlignment = Alignment.Bottom
                             ) {
                                 var barColor = ColorProvider(day = Color.Gray, night = Color.Gray)
-                                if (it.totalSeconds / 3600 >= targetInHours) {
+                                if (it.totalSeconds / 3600 >= (targetInHours ?: 0f)) {
                                     barColor = primaryColor
                                 }
 
@@ -338,7 +344,7 @@ class WakaWidget : GlanceAppWidget() {
                     }
 
                     // Add this Box for the target line overlay
-                    TargetLine(targetInHours, maxHours, theme)
+                    if (targetInHours != null) TargetLine(targetInHours, maxHours, theme)
                 }
 //            Row(horizontalAlignment = Alignment.CenterHorizontally) {
 //                Button(
@@ -363,20 +369,8 @@ class WakaWidget : GlanceAppWidget() {
             (3600 * targetHours) / (3600 * maxHours)
         ) + GRAPH_BOTTOM_PADDING + DATE_TEXT_HEIGHT)
 
-        val totalMinutes = targetHours * 60
-        val numHours = floor(totalMinutes / 60).toInt()
-        val numMinutes = (totalMinutes % 60).toInt()
-
-        var targetText = ""
-        if (numHours > 0) {
-            targetText += "$numHours h"
-        }
-        if (numMinutes > 0) {
-            if (targetText.isNotEmpty()) {
-                targetText += " "
-            }
-            targetText += "$numMinutes m"
-        }
+        val targetText =
+            WakaHelpers.durationInSecondsToDurationString((targetHours * 3600).toDouble())
 
         Box(
             modifier = GlanceModifier.fillMaxSize(),

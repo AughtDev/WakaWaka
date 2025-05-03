@@ -22,13 +22,13 @@ enum class WakaURL(val url: String) {
 }
 
 enum class DayOfWeek(val value: Int) {
-    SUNDAY(0),
     MONDAY(1),
     TUESDAY(2),
     WEDNESDAY(3),
     THURSDAY(4),
     FRIDAY(5),
-    SATURDAY(6)
+    SATURDAY(6),
+    SUNDAY(7);
 }
 
 // endregion
@@ -151,8 +151,8 @@ data class DailyAggregateData(
 @JsonClass(generateAdapter = true)
 data class AggregateData(
     val dailyRecords: Map<String, DailyAggregateData>,
-    val dailyTargetHours: Double?,
-    val weeklyTargetHours: Double?,
+    val dailyTargetHours: Float?,
+    val weeklyTargetHours: Float?,
     val dailyStreak: StreakData?,
     val weeklyStreak: StreakData?,
     val excludedDaysFromDailyStreak: List<Int>, // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
@@ -170,8 +170,8 @@ data class ProjectSpecificData(
     val totalSeconds: Double,
     // amount of time in seconds spent on this project mapped to the date (yyyy-mm-dd)
     val dailyDurationInSeconds: Map<String, Double>,
-    val dailyTargetHours: Double?,
-    val weeklyTargetHours: Double?,
+    val dailyTargetHours: Float?,
+    val weeklyTargetHours: Float?,
     val dailyStreak: StreakData?,
     val weeklyStreak: StreakData?,
     val excludedDaysFromDailyStreak: List<Int>, // 0 = Sunday, 1 = Monday, ..., 6 = Saturday

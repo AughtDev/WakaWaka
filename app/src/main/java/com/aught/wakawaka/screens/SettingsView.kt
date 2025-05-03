@@ -49,10 +49,13 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.aught.wakawaka.data.AggregateData
 import com.aught.wakawaka.data.GraphMode
+import com.aught.wakawaka.data.StreakData
 import com.aught.wakawaka.data.WakaDataWorker
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaURL
+import com.squareup.moshi.Moshi
 import kotlinx.coroutines.launch
 import java.time.Duration
 
@@ -366,19 +369,29 @@ fun SettingsView(modifier: Modifier = Modifier) {
         }
         val crtScope = rememberCoroutineScope()
 
+        val aggregateData =
+            WakaDataWorker.loadAggregateData(context) ?: WakaHelpers.INITIAL_AGGREGATE_DATA
+
         // Save Button
         Button(
             onClick = {
-                val ogDailyTarget = prefs.getFloat(WakaHelpers.DAILY_TARGET_HOURS, 5f)
-                val ogWeeklyTarget = prefs.getFloat(WakaHelpers.WEEKLY_TARGET_HOURS, 40f)
+                val updatedAggregateData = AggregateData(
+                    aggregateData.dailyRecords,
+                    dailyTarget,
+                    weeklyTarget,
+                    // if the daily target hours or weekly target hours have been changed, reset the streaks so that they can be recalculated
+                    if (aggregateData.dailyTargetHours != dailyTarget) StreakData(
+                        0,
+                        WakaHelpers.ZERO_DAY
+                    ) else aggregateData.dailyStreak,
+                    if (aggregateData.weeklyTargetHours != weeklyTarget) StreakData(
+                        0,
+                        WakaHelpers.ZERO_DAY
+                    ) else aggregateData.weeklyStreak,
+                    aggregateData.excludedDaysFromDailyStreak
+                )
 
-                // if there has been a new target, reset the streaks
-                if (ogDailyTarget != dailyTarget) {
-                    WakaDataWorker.resetStreak(context, GraphMode.Daily)
-                }
-                if (ogWeeklyTarget != weeklyTarget) {
-                    WakaDataWorker.resetStreak(context, GraphMode.Weekly)
-                }
+                WakaDataWorker.saveAggregateData(context, updatedAggregateData)
 
                 // Save settings to preferences
                 prefs.edit().apply {
@@ -388,11 +401,10 @@ fun SettingsView(modifier: Modifier = Modifier) {
                     } else {
                         putString(WakaHelpers.WAKAPI_API, wakapiAPIKey)
                     }
-                    putFloat(WakaHelpers.DAILY_TARGET_HOURS, dailyTarget)
-                    putFloat(WakaHelpers.WEEKLY_TARGET_HOURS, weeklyTarget)
                     putInt(WakaHelpers.THEME, selectedThemeOption)
                     apply()
                 }
+
                 crtScope.launch {
                     // Schedule the one time immediate worker
                     val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaDataWorker>().build()
