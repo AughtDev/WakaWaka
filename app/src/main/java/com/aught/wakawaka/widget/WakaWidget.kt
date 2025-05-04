@@ -44,6 +44,7 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import kotlin.math.floor
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 
 class WakaWidget : GlanceAppWidget() {
@@ -75,7 +76,7 @@ class WakaWidget : GlanceAppWidget() {
             if (data?.containsKey(formattedDate) == true) {
                 dailyData.add(data[formattedDate]!!)
             } else {
-                dailyData.add(DailyAggregateData(formattedDate, 0.0, emptyList()))
+                dailyData.add(DailyAggregateData(formattedDate, 0, emptyList()))
             }
         }
 
@@ -93,8 +94,8 @@ class WakaWidget : GlanceAppWidget() {
         (0..6).forEach { weekOffset ->
             val weekStart = currentWeekStart.minusWeeks(weekOffset.toLong())
             val weekFormattedDate = weekStart.format(dateFormatter)
-            var totalSeconds = 0.0;
-            val projectsData = mutableMapOf<String, Double>()
+            var totalSeconds = 0;
+            val projectsData = mutableMapOf<String, Int>()
 
             (0..6).forEach { dayOffset ->
                 val date = weekStart.plusDays(dayOffset.toLong())
@@ -152,16 +153,18 @@ class WakaWidget : GlanceAppWidget() {
                 GraphMode.Weekly -> 24 * 7 * TIME_WINDOW_PROPORTION
             }
 
-        val streak = if (aggregateData != null) WakaDataWorker.loadStreak(
-            aggregateData,
-            graphMode.value
-        ) else 0;
+        val streak = if (aggregateData != null) {
+            when (graphMode.value) {
+                GraphMode.Daily -> aggregateData.dailyStreak?.count ?: 0
+                GraphMode.Weekly -> aggregateData.weeklyStreak?.count ?: 0
+            }
+        } else 0
 
         val hitTargetToday: Boolean = when (graphMode.value) {
-            GraphMode.Daily -> dailyData[dailyData.lastIndex].totalSeconds / 3600 >= (dailyTargetInHours
+            GraphMode.Daily -> dailyData[dailyData.lastIndex].totalSeconds.toFloat() / 3600 >= (dailyTargetInHours
                 ?: 0f)
 
-            GraphMode.Weekly -> weeklyData[dailyData.lastIndex].totalSeconds / 3600 >= (weeklyTargetInHours
+            GraphMode.Weekly -> weeklyData[dailyData.lastIndex].totalSeconds.toFloat() / 3600 >= (weeklyTargetInHours
                 ?: 0f)
         }
 
@@ -293,7 +296,7 @@ class WakaWidget : GlanceAppWidget() {
                                 verticalAlignment = Alignment.Bottom
                             ) {
                                 var barColor = ColorProvider(day = Color.Gray, night = Color.Gray)
-                                if (it.totalSeconds / 3600 >= (targetInHours ?: 0f)) {
+                                if (it.totalSeconds.toFloat() / 3600 >= (targetInHours ?: 0f)) {
                                     barColor = primaryColor
                                 }
 
@@ -312,7 +315,7 @@ class WakaWidget : GlanceAppWidget() {
                                                 modifier = GlanceModifier.fillMaxWidth()
                                                     .height(
                                                         (GRAPH_HEIGHT * min(
-                                                            1.0,
+                                                            1f,
                                                             it.totalSeconds / (3600 * maxHours)
                                                         )).dp
                                                     )
@@ -370,7 +373,7 @@ class WakaWidget : GlanceAppWidget() {
         ) + GRAPH_BOTTOM_PADDING + DATE_TEXT_HEIGHT)
 
         val targetText =
-            WakaHelpers.durationInSecondsToDurationString((targetHours * 3600).toDouble())
+            WakaHelpers.durationInSecondsToDurationString((targetHours * 3600).roundToInt())
 
         Box(
             modifier = GlanceModifier.fillMaxSize(),

@@ -65,6 +65,9 @@ fun SettingsView(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
 
+    val aggregateData = WakaDataWorker.loadAggregateData(context)
+
+
     // State variables for form fields
     var wakatimeAPIKey by remember {
         mutableStateOf(prefs.getString(WakaHelpers.WAKATIME_API, "") ?: "")
@@ -77,10 +80,10 @@ fun SettingsView(modifier: Modifier = Modifier) {
     var passwordVisible by remember { mutableStateOf(false) }
 
     var dailyTarget by remember {
-        mutableStateOf(prefs.getFloat(WakaHelpers.DAILY_TARGET_HOURS, 5f))
+        mutableStateOf(aggregateData?.dailyTargetHours ?: 0f)
     }
     var weeklyTarget by remember {
-        mutableStateOf(prefs.getFloat(WakaHelpers.WEEKLY_TARGET_HOURS, 40f))
+        mutableStateOf(aggregateData?.weeklyTargetHours ?: 0f)
     }
 
 //    val apiOptions = listOf(WakaURL.WAKATIME.url, WakaURL.WAKAPI.url)

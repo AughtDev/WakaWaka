@@ -40,8 +40,8 @@ enum class DayOfWeek(val value: Int) {
 @JsonClass(generateAdapter = true)
 data class ItemStat(
     val name: String,
-    @Json(name = "total_seconds") val totalSeconds: Double, // Added @Json
-    val percent: Double,
+    @Json(name = "total_seconds") val totalSeconds: Float, // Added @Json
+    val percent: Float,
     val digital: String,
     val text: String,
     val hours: Int,
@@ -57,7 +57,7 @@ data class DailyGrandTotal(
     val digital: String,
     val hours: Int,
     val minutes: Int,
-    @Json(name = "total_seconds") val totalSeconds: Double, // Added @Json
+    @Json(name = "total_seconds") val totalSeconds: Float, // Added @Json
     val text: String,
     val decimal: String? // <--- Added 'decimal' as nullable String based on log
 )
@@ -110,7 +110,7 @@ data class CumulativeTotal(
     val text: String,
     val digital: String,
     val decimal: String, // <--- Keep as String based on example docs
-    val seconds: Double // Added @Json
+    val seconds: Float // Added @Json
 )
 
 @JsonClass(generateAdapter = true)
@@ -137,13 +137,13 @@ data class StreakData(
 @JsonClass(generateAdapter = true)
 data class ProjectStats(
     val name: String,
-    val totalSeconds: Double,
+    val totalSeconds: Int,
 )
 
 @JsonClass(generateAdapter = true)
 data class DailyAggregateData(
     val date: String, // in the format YYYY-MM-DD
-    val totalSeconds: Double,
+    val totalSeconds: Int,
     val projects: List<ProjectStats>
 )
 
@@ -167,14 +167,30 @@ data class AggregateData(
 data class ProjectSpecificData(
     val name: String,
     val color: String,
-    val totalSeconds: Double,
     // amount of time in seconds spent on this project mapped to the date (yyyy-mm-dd)
-    val dailyDurationInSeconds: Map<String, Double>,
+    val dailyDurationInSeconds: Map<String, Int>,
     val dailyTargetHours: Float?,
     val weeklyTargetHours: Float?,
     val dailyStreak: StreakData?,
     val weeklyStreak: StreakData?,
     val excludedDaysFromDailyStreak: List<Int>, // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+)
+
+// endregion
+
+// region STATS DATA CLASSES
+
+data class DurationStats(
+    val today: Int,
+    val last7Days: Int,
+    val last30Days: Int,
+    val lastYear: Int,
+    val allTime: Int
+)
+
+data class WakaStatistics(
+    val aggregateStats: DurationStats,
+    val projectStats: Map<String, DurationStats>
 )
 
 // endregion

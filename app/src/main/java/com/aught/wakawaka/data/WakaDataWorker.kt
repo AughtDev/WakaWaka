@@ -32,6 +32,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
+import kotlin.math.roundToInt
 
 class Iso8601UtcDateAdapter : JsonAdapter<Date>() {
     @FromJson
@@ -52,6 +53,52 @@ class Iso8601UtcDateAdapter : JsonAdapter<Date>() {
             writer.value(value.toInstant().toString())
         }
     }
+}
+
+fun calculateDurationStats(dateToDurationMap: Map<String, Int>): DurationStats {
+    var today = 0
+    var last7Days = 0
+    var last30Days = 0
+    var lastYear = 0
+    var allTime = 0
+    val date = LocalDate.now()
+
+    dateToDurationMap.forEach {
+        // Convert date string to LocalDate and get the difference in days between the current date and the date in the map
+        val recordDate = LocalDate.parse(it.key)
+        val daysDifference = java.time.temporal.ChronoUnit.DAYS.between(recordDate, date)
+        val duration = it.value
+
+        if (daysDifference == 0L) {
+            today = duration
+        }
+        if (daysDifference <= 7) {
+            last7Days += duration
+        }
+        if (daysDifference <= 30) {
+            last30Days += duration
+        }
+        if (daysDifference <= 365) {
+            lastYear += duration
+        }
+        allTime += duration
+    }
+
+    return DurationStats(
+        today,
+        last7Days,
+        last30Days,
+        lastYear,
+        allTime
+    )
+}
+
+fun getMapType(): Type {
+    return Types.newParameterizedType(
+        Map::class.java,
+        String::class.java,
+        String::class.java
+    )
 }
 
 
@@ -110,7 +157,6 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
             try {
                 println("Fetching summaries from wakatime")
                 val response = service.getSummaries("Last 7 Days")
-                println("The response to wakatime call is $response")
                 updateAppDataWithResponse(applicationContext, response)
 
                 WakaWidget().updateAll(applicationContext)
@@ -125,12 +171,7 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
     }
 
 
-    private fun calculateDailyStreak(
-        data: Map<String, Double>,
-        currentStreak: StreakData?,
-        target: Float?,
-        excludedDays: List<Int>?
-    ): StreakData? {
+    private fun calculateDailyStreak(data: Map<String, Int>, currentStreak: StreakData?, target: Float?, excludedDays: List<Int>?): StreakData {
         // if there are no target hours, the target is assumed to be anything above 0
         val targetHours = target ?: 0.01f
         val dailyStreakData: StreakData = currentStreak ?: StreakData(0, WakaHelpers.ZERO_DAY)
@@ -158,7 +199,7 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
             if (excludedDaysSet.contains(date.dayOfWeek.value)) {
                 continue
             }
-            if (!data.containsKey(formattedDate) || (data[formattedDate]!!) / 3600 < targetHours) {
+            if (!data.containsKey(formattedDate) || (data[formattedDate]!! / 3600) < targetHours) {
                 break
             }
             streak++
@@ -167,11 +208,7 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
         return StreakData(streak, yesterday.format(dateFormatter))
     }
 
-    private fun calculateWeeklyStreak(
-        data: Map<String, Double>,
-        currentStreak: StreakData?,
-        target: Float?
-    ): StreakData? {
+    private fun calculateWeeklyStreak(data: Map<String, Int>, currentStreak: StreakData?, target: Float?): StreakData {
         // if there are no target hours, the target is assumed to be anything above 0
         val targetHours = target ?: 0.01f
         val weeklyStreakData: StreakData = currentStreak ?: StreakData(0, WakaHelpers.ZERO_DAY)
@@ -201,7 +238,7 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
                 val day = date.plusDays(it.toLong())
                 val dayFormatted = day.format(dateFormatter)
                 if (data.containsKey(dayFormatted)) {
-                    totalSeconds += (data[dayFormatted] ?: 0.0)
+                    totalSeconds += (data[dayFormatted] ?: 0)
                 }
             }
 
@@ -214,14 +251,32 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
         return StreakData(streak, firstDayOfLastWeek.format(dateFormatter))
     }
 
+    private fun updateWakaStatistics(context: Context, aggregateData: AggregateData, projectData: Map<String, ProjectSpecificData>) {
+        val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
+
+        val wakaStatisticsAdapter = moshi.adapter(WakaStatistics::class.java)
+
+        val wakaStatistics = WakaStatistics(
+            calculateDurationStats(aggregateData.dailyRecords.mapValues { it.value.totalSeconds }),
+            projectData.mapValues {
+                calculateDurationStats(it.value.dailyDurationInSeconds)
+            }
+        )
+
+        prefs.edit {
+            putString(WakaHelpers.WAKA_STATISTICS, wakaStatisticsAdapter.toJson(wakaStatistics))
+        }
+    }
+
     private fun updateAppDataWithResponse(context: Context, data: SummariesResponse) {
         val mapAdapter = moshi.adapter<Map<String, String>>(getMapType())
         val aggregateDataAdapter = moshi.adapter(AggregateData::class.java)
         val projectSpecificDataAdapter = moshi.adapter(ProjectSpecificData::class.java)
 
-        // get the prefs and the json coding data
+        // get the prefs
         val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
 
+        // get the current aggregate data or assign an empty initial aggregate data instance
         val aggregateData = if (prefs.getString(WakaHelpers.AGGREGATE_DATA, null) != null) {
             aggregateDataAdapter.fromJson(
                 prefs.getString(WakaHelpers.AGGREGATE_DATA, null)!!
@@ -230,6 +285,7 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
             WakaHelpers.INITIAL_AGGREGATE_DATA
         } ?: return
 
+        // get the current project data or assign an empty map
         val projectDataMap: MutableMap<String, ProjectSpecificData> =
             if (prefs.getString(WakaHelpers.PROJECT_SPECIFIC_DATA, null) != null) {
                 val projectDataStringMap = mapAdapter.fromJson(
@@ -244,50 +300,65 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
                 emptyMap<String, ProjectSpecificData>().toMutableMap()
             }
 
+        // create a map of project names to their mutable daily duration in seconds
+        val projectDailyRecords: MutableMap<String,MutableMap<String,Int>> = mutableMapOf()
+        projectDataMap.forEach {
+            val project = it.value
+            val dailyRecords = project.dailyDurationInSeconds.toMutableMap()
+            projectDailyRecords[it.key] = dailyRecords
+        }
+
+        val updatedAggregateDailyRecords = aggregateData.dailyRecords.toMutableMap()
 
         val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         dateFormatter.timeZone = TimeZone.getTimeZone("UTC")
 
-        val updatedAggregateDailyRecords = aggregateData.dailyRecords.toMutableMap()
         // update the map with the new data
         data.data.forEach { it ->
             val date = it.range.date
             val dailyProjectsData: MutableList<ProjectStats> = mutableListOf();
 
             it.projects.forEach { project ->
-                dailyProjectsData.add(ProjectStats(project.name, project.totalSeconds))
-                // update the project data
-                val projectData = projectDataMap[project.name]
-                val updatedRecords =
-                    projectData?.dailyDurationInSeconds?.toMutableMap() ?: mutableMapOf()
-                updatedRecords[date] = project.totalSeconds
+                dailyProjectsData.add(ProjectStats(project.name, project.totalSeconds.roundToInt()))
 
-                projectDataMap[project.name] = ProjectSpecificData(
-                    project.name,
-                    projectData?.color ?: WakaHelpers.projectNameToColor(project.name).toString(),
-                    (projectData?.totalSeconds ?: 0.0) + project.totalSeconds,
-                    updatedRecords,
-                    projectData?.dailyTargetHours,
-                    projectData?.weeklyTargetHours,
-                    calculateDailyStreak(
-                        updatedRecords,
-                        projectData?.dailyStreak,
-                        projectData?.dailyTargetHours,
-                        projectData?.excludedDaysFromDailyStreak ?: emptyList()
-                    ),
-                    calculateWeeklyStreak(
-                        updatedRecords,
-                        projectData?.weeklyStreak,
-                        projectData?.weeklyTargetHours
-                    ),
-                    projectData?.excludedDaysFromDailyStreak ?: emptyList()
-                )
+                // update the project data
+                if (!projectDailyRecords.containsKey(project.name)) {
+                    projectDailyRecords[project.name] = mutableMapOf()
+                }
+                projectDailyRecords[project.name]?.set(date, project.totalSeconds.roundToInt())
+
             }
 
             val dailyAggregateData =
-                DailyAggregateData(date, it.grandTotal.totalSeconds, dailyProjectsData)
+                DailyAggregateData(date, it.grandTotal.totalSeconds.roundToInt(), dailyProjectsData)
 
             updatedAggregateDailyRecords[date] = dailyAggregateData;
+        }
+
+
+        projectDailyRecords.forEach {
+            val name = it.key
+            val updatedRecords = it.value.toMap()
+            val projectData = projectDataMap[name]
+            projectDataMap[name] = ProjectSpecificData(
+                it.key,
+                projectData?.color ?: WakaHelpers.projectNameToColor(name).toString(),
+                it.value.toMap(),
+                projectData?.dailyTargetHours,
+                projectData?.weeklyTargetHours,
+                calculateDailyStreak(
+                    updatedRecords,
+                    projectData?.dailyStreak,
+                    projectData?.dailyTargetHours,
+                    projectData?.excludedDaysFromDailyStreak ?: emptyList()
+                ),
+                calculateWeeklyStreak(
+                    updatedRecords,
+                    projectData?.weeklyStreak,
+                    projectData?.weeklyTargetHours
+                ),
+                projectData?.excludedDaysFromDailyStreak ?: emptyList()
+            )
         }
 
         val updatedAggregateDailyStreak = calculateDailyStreak(
@@ -311,6 +382,7 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
             aggregateData.excludedDaysFromDailyStreak
         )
 
+        updateWakaStatistics(context, updatedAggregateData, projectDataMap)
 
         val projectDataStringMap = mutableMapOf<String, String>()
         projectDataMap.forEach {
@@ -330,14 +402,6 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
     }
 
     companion object {
-        private fun getMapType(): Type {
-            return Types.newParameterizedType(
-                Map::class.java,
-                String::class.java,
-                String::class.java
-            )
-        }
-
         fun loadAggregateData(context: Context): AggregateData? {
             // get the prefs and the json aggregate data
             val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
@@ -396,11 +460,20 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
             return projectDataMap
         }
 
-        fun loadStreak(aggregateData: AggregateData, mode: GraphMode): Int {
-            return when (mode) {
-                GraphMode.Daily -> aggregateData.dailyStreak?.count ?: 0
-                GraphMode.Weekly -> aggregateData.weeklyStreak?.count ?: 0
-            }
+        fun loadWakaStatistics(context: Context): WakaStatistics {
+            // get the prefs and the json aggregate data
+            val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
+            val json = prefs.getString(WakaHelpers.WAKA_STATISTICS, null)
+            if (json == null) return WakaHelpers.INITIAL_WAKA_STATISTICS
+
+            // build the adapters to convert between json strings and the data
+            val moshi = Moshi.Builder()
+                .add(Iso8601UtcDateAdapter())
+                .addLast(KotlinJsonAdapterFactory()).build()
+
+            val wakaStatisticsAdapter = moshi.adapter(WakaStatistics::class.java)
+
+            return wakaStatisticsAdapter.fromJson(json) ?: WakaHelpers.INITIAL_WAKA_STATISTICS
         }
 
     }

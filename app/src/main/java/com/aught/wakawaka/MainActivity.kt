@@ -22,10 +22,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.screens.HomeView
 import com.aught.wakawaka.screens.ProjectsView
 import com.aught.wakawaka.screens.SettingsView
 import com.aught.wakawaka.ui.theme.WakaWakaTheme
+import androidx.core.content.edit
 
 
 sealed class Screen(val route: String, val name: String, val icon: ImageVector) {
@@ -37,15 +39,15 @@ sealed class Screen(val route: String, val name: String, val icon: ImageVector) 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // wipe shared prefs
+//        val sharedPrefs = getSharedPreferences(WakaHelpers.PREFS, MODE_PRIVATE)
+//
+//        sharedPrefs.edit() { clear() }
+
         enableEdgeToEdge()
         setContent {
             WakaWakaTheme {
                 WakaWakaApp()
-//                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-//                    SettingsView(
-//                        modifier = Modifier.padding(innerPadding)
-//                    )
-//                }
             }
         }
     }

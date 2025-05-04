@@ -14,19 +14,21 @@ class WakaHelpers {
 
         val PROJECT_SPECIFIC_DATA = "waka_project_data"
 
-        val DAILY_TARGET_HOURS = "daily_target_hours"
-        val WEEKLY_TARGET_HOURS = "weekly_target_hours"
+        val WAKA_STATISTICS = "waka_statistics"
+        val INITIAL_WAKA_STATISTICS = WakaStatistics(
+            DurationStats(0, 0, 0, 0, 0),
+            emptyMap()
+        )
 
         val WAKATIME_API = "wakatime_api"
         val WAKAPI_API = "wakapi_api"
         val WAKA_URL = "https://api.wakatime.com/api/v1/"
 
-        val DAILY_STREAK = "daily_streak"
-        val WEEKLY_STREAK = "weekly_streak"
-
         val THEME = "theme"
 
         val ZERO_DAY = "2000-10-02"
+
+        val ALL_PROJECTS_ID = "All"
 
         /**
          * Deterministically generates a distinct, bright color for a given project name.
@@ -72,21 +74,25 @@ class WakaHelpers {
             return android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
         }
 
-        fun durationInSecondsToDurationString(durationInSeconds: Double): String {
+        fun durationInSecondsToDurationString(durationInSeconds: Int): String {
             // the expected return format is 5h 34m
             val totalMinutes = durationInSeconds / 60
-            val numHours = floor(totalMinutes / 60).toInt()
+            val numHours = floor(totalMinutes.toFloat() / 60).toInt()
             val numMinutes = (totalMinutes % 60).toInt()
+
+            if (totalMinutes == 0) {
+                return "0m"
+            }
 
             var durationString = ""
             if (numHours > 0) {
-                durationString += "$numHours h"
+                durationString += "${numHours}h"
             }
             if (numMinutes > 0) {
                 if (durationString.isNotEmpty()) {
                     durationString += " "
                 }
-                durationString += "$numMinutes m"
+                durationString += "${numMinutes}m"
             }
 
             return durationString

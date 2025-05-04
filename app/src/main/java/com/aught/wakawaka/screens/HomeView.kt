@@ -38,8 +38,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aught.wakawaka.data.DurationStats
+import com.aught.wakawaka.data.StreakData
 import com.aught.wakawaka.data.WakaDataWorker
 import com.aught.wakawaka.data.WakaHelpers
+import java.time.LocalDate
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,19 +51,30 @@ fun HomeView() {
     val context = LocalContext.current
     val aggregateData = WakaDataWorker.loadAggregateData(context)
     val projectSpecificData = WakaDataWorker.loadProjectSpecificData(context)
+    val wakaStatistics = WakaDataWorker.loadWakaStatistics(context)
 
-    val ALL_PROJECTS = "All"
+    println("WakaStats ${projectSpecificData["WakaWaka"]}")
 
-    val projects = mutableListOf(ALL_PROJECTS)
+    val projects = mutableListOf(WakaHelpers.ALL_PROJECTS_ID)
     projects.addAll(projectSpecificData.map { it.value.name })
 
-    var selectedProject by remember { mutableStateOf(ALL_PROJECTS) }
+    var selectedProject by remember { mutableStateOf(WakaHelpers.ALL_PROJECTS_ID) }
 
-    val durationStatsMap = mapOf(
-        "Last Day" to 4562,
-        "Last 7 Days" to 21345,
-        "Last 30 Days" to 121345,
-        "Last Year" to 1234563,
+    val streak =
+        (if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) aggregateData?.dailyStreak else projectSpecificData[selectedProject]?.dailyStreak)
+            ?: StreakData(0, WakaHelpers.ZERO_DAY)
+
+    val durationStats: DurationStats = if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
+        wakaStatistics.aggregateStats
+    } else {
+        wakaStatistics.projectStats[selectedProject] ?: DurationStats(0, 0, 0, 0, 0)
+    }
+
+    val durationLabelValueMap = mapOf(
+        "Today" to durationStats.today,
+        "Last 7 Days" to durationStats.last7Days,
+        "Last 30 Days" to durationStats.last30Days,
+        "Last Year" to durationStats.lastYear,
     )
 
     Column(
@@ -88,7 +103,7 @@ fun HomeView() {
                 Text(text = "5h 37m", fontSize = 24.sp)
             }
             Text(
-                text = "3",
+                text = streak.count.toString(),
                 fontSize = 72.sp,
                 fontWeight = FontWeight.ExtraBold
             )
@@ -100,8 +115,8 @@ fun HomeView() {
                 .padding(vertical = 8.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            durationStatsMap.forEach { (timeRange, durationInSeconds) ->
-                DurationStatView(timeRange, durationInSeconds.toDouble())
+            durationLabelValueMap.forEach { (timeRange, durationInSeconds) ->
+                DurationStatView(timeRange, durationInSeconds)
             }
         }
     }
@@ -109,7 +124,7 @@ fun HomeView() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DurationStatView(timeRange: String, durationInSeconds: Double) {
+fun DurationStatView(timeRange: String, durationInSeconds: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
