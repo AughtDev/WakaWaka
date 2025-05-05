@@ -171,6 +171,11 @@ class WakaWidget : GlanceAppWidget() {
             )
         }
 
+        val excludedDaysSet = when (graphMode.value) {
+            GraphMode.Daily -> aggregateData?.excludedDaysFromDailyStreak?.toSet() ?: emptySet<Int>()
+            GraphMode.Weekly -> emptySet<Int>()
+        }.toSet()
+
         val theme = when (prefs.getInt(WakaHelpers.THEME, 0)) {
             0 -> WakaWidgetTheme.Light
             1 -> WakaWidgetTheme.Dark
@@ -298,7 +303,15 @@ class WakaWidget : GlanceAppWidget() {
                                     .width(47.dp).padding(horizontal = 3.dp),
                                 verticalAlignment = Alignment.Bottom
                             ) {
-                                val barColor = if (hitTargetToday) ColorProvider(day = Color.Gray, night = Color.Gray) else primaryColor
+                                val barColor =
+                                    if (
+                                        targetInHours == null ||
+                                        // if the day is in the exclusion list, use the primary color
+                                        LocalDate.parse(it.date,dateFormatter).dayOfWeek.value in excludedDaysSet ||
+                                        it.totalSeconds > (targetInHours * 3600)
+                                    ) primaryColor
+                                    else
+                                        ColorProvider(day = Color.Gray, night = Color.Gray)
 
                                 Column(
                                     // 100% height

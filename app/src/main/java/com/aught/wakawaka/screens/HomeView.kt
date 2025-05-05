@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -121,7 +122,10 @@ fun HomeView() {
                     selectedProject = it
                 }
 
-                Text(text = WakaHelpers.durationInSecondsToDurationString(durationStats.allTime), fontSize = 24.sp)
+                Text(
+                    text = WakaHelpers.durationInSecondsToDurationString(durationStats.allTime),
+                    fontSize = 24.sp
+                )
             }
             Text(
                 text = streakCount.toString(),
@@ -183,7 +187,18 @@ fun WeekGraph(data: List<DayData>) {
                     .size(cellSize)
                     .padding(3.dp)
             ) {
-                Text(text = data[it].date.toString())
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = data[it].date.toString(),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
 
         }
@@ -197,9 +212,6 @@ fun CalendarGraph(dateToDurationMap: Map<String, Int>) {
     val scrollState = rememberScrollState()
 
     val today = LocalDate.now()
-
-    val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-    dateFormatter.timeZone = TimeZone.getTimeZone("UTC")
 
     // move back to monday
     val startDate = today.minusDays((today.dayOfWeek.value - 1).toLong())
@@ -220,7 +232,7 @@ fun CalendarGraph(dateToDurationMap: Map<String, Int>) {
                 (0..6).forEach { day ->
                     // for each day of the week, generate the date string and get the duration
                     val date = firstDateOfWeek.plusDays(day.toLong())
-                    val dateString = dateFormatter.format(date.toString())
+                    val dateString = date.format(WakaHelpers.getYYYYMMDDDateFormatter())
                     val duration = dateToDurationMap[dateString] ?: 0
                     val dayData = DayData(
                         date.dayOfMonth,

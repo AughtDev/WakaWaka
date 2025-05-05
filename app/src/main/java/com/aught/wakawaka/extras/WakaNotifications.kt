@@ -49,7 +49,7 @@ class WakaNotifications(val context: Context) {
         )
     }
 
-    fun showTargetNotification() {
+    fun showNotification() {
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground) // Replace with your app's icon
             .setContentTitle("Daily Coding Target Reached")
@@ -59,14 +59,12 @@ class WakaNotifications(val context: Context) {
             .setAutoCancel(true)
 
         with(NotificationManagerCompat.from(context)) {
-            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                // TODO: Consider calling
-                //    ActivityCompat#requestPermissions
-                // here to request the missing permissions, and then overriding
-                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                //                                          int[] grantResults)
-                // to handle the case where the user grants the permission. See the documentation
-                // for ActivityCompat#requestPermissions for more details.
+            if (ActivityCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                println("no permission for notification..")
                 return
             }
             notify(NOTIFICATION_ID, builder.build())

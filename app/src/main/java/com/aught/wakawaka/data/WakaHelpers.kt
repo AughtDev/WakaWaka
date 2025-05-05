@@ -14,7 +14,8 @@ class WakaHelpers {
         val PREFS = "wakawaka_prefs"
 
         val AGGREGATE_DATA = "waka_aggregate_data"
-        val INITIAL_AGGREGATE_DATA = AggregateData(emptyMap(), null, null, null, null, emptyList())
+        val INITIAL_AGGREGATE_DATA =
+            AggregateData(emptyMap(), null, null, null, null, listOf(DayOfWeek.SUNDAY.value))
 
         val PROJECT_SPECIFIC_DATA = "waka_project_data"
 

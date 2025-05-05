@@ -56,6 +56,7 @@ import com.aught.wakawaka.data.WakaDataWorker
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaURL
 import com.squareup.moshi.Moshi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Duration
 
@@ -418,12 +419,12 @@ fun SettingsView(modifier: Modifier = Modifier) {
                     // Schedule the periodic
                     val workRequest = PeriodicWorkRequestBuilder<WakaDataWorker>(
                         // every hour
-                        repeatInterval = Duration.ofHours(1)
+                        repeatInterval = Duration.ofHours(1),
                     ).build()
 
                     WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                         "WakaWakaDataFetch",
-                        ExistingPeriodicWorkPolicy.REPLACE,
+                        ExistingPeriodicWorkPolicy.UPDATE,
                         workRequest
                     )
                 }
