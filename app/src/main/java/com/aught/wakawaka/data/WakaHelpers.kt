@@ -1,6 +1,10 @@
 package com.aught.wakawaka.data
 
+import android.icu.util.TimeZone
 import androidx.compose.ui.graphics.Color
+import java.text.SimpleDateFormat
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.floor
 import android.graphics.Color as AndroidColor
@@ -29,6 +33,10 @@ class WakaHelpers {
         val ZERO_DAY = "2000-10-02"
 
         val ALL_PROJECTS_ID = "All"
+
+        fun getYYYYMMDDDateFormatter(): DateTimeFormatter {
+            return DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        }
 
         /**
          * Deterministically generates a distinct, bright color for a given project name.

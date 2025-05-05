@@ -161,11 +161,14 @@ class WakaWidget : GlanceAppWidget() {
         } else 0
 
         val hitTargetToday: Boolean = when (graphMode.value) {
-            GraphMode.Daily -> dailyData[dailyData.lastIndex].totalSeconds.toFloat() / 3600 >= (dailyTargetInHours
-                ?: 0f)
+            GraphMode.Daily -> WakaDataWorker.dailyTargetHit(
+                aggregateData?.dailyRecords?.mapValues { it.value.totalSeconds } ?: emptyMap(),
+                dailyTargetInHours)
 
-            GraphMode.Weekly -> weeklyData[dailyData.lastIndex].totalSeconds.toFloat() / 3600 >= (weeklyTargetInHours
-                ?: 0f)
+            GraphMode.Weekly -> WakaDataWorker.weeklyTargetHit(
+                aggregateData?.dailyRecords?.mapValues { it.value.totalSeconds } ?: emptyMap(),
+                weeklyTargetInHours
+            )
         }
 
         val theme = when (prefs.getInt(WakaHelpers.THEME, 0)) {
@@ -295,10 +298,7 @@ class WakaWidget : GlanceAppWidget() {
                                     .width(47.dp).padding(horizontal = 3.dp),
                                 verticalAlignment = Alignment.Bottom
                             ) {
-                                var barColor = ColorProvider(day = Color.Gray, night = Color.Gray)
-                                if (it.totalSeconds.toFloat() / 3600 >= (targetInHours ?: 0f)) {
-                                    barColor = primaryColor
-                                }
+                                val barColor = if (hitTargetToday) ColorProvider(day = Color.Gray, night = Color.Gray) else primaryColor
 
                                 Column(
                                     // 100% height

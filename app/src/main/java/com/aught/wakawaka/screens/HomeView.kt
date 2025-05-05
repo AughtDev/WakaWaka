@@ -42,7 +42,10 @@ import com.aught.wakawaka.data.DurationStats
 import com.aught.wakawaka.data.StreakData
 import com.aught.wakawaka.data.WakaDataWorker
 import com.aught.wakawaka.data.WakaHelpers
+import java.text.SimpleDateFormat
 import java.time.LocalDate
+import java.util.Locale
+import java.util.TimeZone
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,9 +63,6 @@ fun HomeView() {
 
     var selectedProject by remember { mutableStateOf(WakaHelpers.ALL_PROJECTS_ID) }
 
-    val streak =
-        (if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) aggregateData?.dailyStreak else projectSpecificData[selectedProject]?.dailyStreak)
-            ?: StreakData(0, WakaHelpers.ZERO_DAY)
 
     val durationStats: DurationStats = if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
         wakaStatistics.aggregateStats
@@ -76,6 +76,27 @@ fun HomeView() {
         "Last 30 Days" to durationStats.last30Days,
         "Last Year" to durationStats.lastYear,
     )
+
+
+    val dateToDurationMap =
+        if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
+            aggregateData?.dailyRecords?.mapValues { it.value.totalSeconds } ?: emptyMap()
+        } else {
+            projectSpecificData[selectedProject]?.dailyDurationInSeconds ?: emptyMap()
+        }
+
+    val dailyTargetHours = WakaDataWorker.dailyTargetHit(
+        dateToDurationMap,
+        if (selectedProject == WakaHelpers.ALL_PROJECTS_ID)
+            aggregateData?.dailyTargetHours else projectSpecificData[selectedProject]?.dailyTargetHours
+    )
+
+    val streakCount = ((
+            if (selectedProject == WakaHelpers.ALL_PROJECTS_ID)
+                aggregateData?.dailyStreak?.count
+            else projectSpecificData[selectedProject]?.dailyStreak?.count
+            ) ?: 0) + (if (dailyTargetHours) 1 else 0)
+
 
     Column(
         modifier = Modifier
@@ -100,15 +121,15 @@ fun HomeView() {
                     selectedProject = it
                 }
 
-                Text(text = "5h 37m", fontSize = 24.sp)
+                Text(text = WakaHelpers.durationInSecondsToDurationString(durationStats.allTime), fontSize = 24.sp)
             }
             Text(
-                text = streak.count.toString(),
+                text = streakCount.toString(),
                 fontSize = 72.sp,
                 fontWeight = FontWeight.ExtraBold
             )
         }
-        CalendarGraph()
+        CalendarGraph(dateToDurationMap)
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -139,9 +160,18 @@ fun DurationStatView(timeRange: String, durationInSeconds: Int) {
     }
 }
 
+data class DayData(
+    val date: Int,
+    val month: String,
+    val day: String,
+    val duration: Int,
+    val isFutureDate: Boolean = false
+)
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WeekGraph() {
+fun WeekGraph(data: List<DayData>) {
     val cellSize = 48.dp
     Row(
         horizontalArrangement = Arrangement.Center,
@@ -152,7 +182,9 @@ fun WeekGraph() {
                 modifier = Modifier
                     .size(cellSize)
                     .padding(3.dp)
-            ) {}
+            ) {
+                Text(text = data[it].date.toString())
+            }
 
         }
     }
@@ -160,9 +192,17 @@ fun WeekGraph() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CalendarGraph() {
+fun CalendarGraph(dateToDurationMap: Map<String, Int>) {
     val numWeeks = 16
     val scrollState = rememberScrollState()
+
+    val today = LocalDate.now()
+
+    val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    dateFormatter.timeZone = TimeZone.getTimeZone("UTC")
+
+    // move back to monday
+    val startDate = today.minusDays((today.dayOfWeek.value - 1).toLong())
 
     Box(
         modifier = Modifier
@@ -175,7 +215,24 @@ fun CalendarGraph() {
                 .verticalScroll(scrollState),
         ) {
             (0..numWeeks).forEach {
-                WeekGraph()
+                val weekData = emptyList<DayData>().toMutableList()
+                val firstDateOfWeek = startDate.minusWeeks(it.toLong())
+                (0..6).forEach { day ->
+                    // for each day of the week, generate the date string and get the duration
+                    val date = firstDateOfWeek.plusDays(day.toLong())
+                    val dateString = dateFormatter.format(date.toString())
+                    val duration = dateToDurationMap[dateString] ?: 0
+                    val dayData = DayData(
+                        date.dayOfMonth,
+                        date.month.toString(),
+                        date.dayOfWeek.toString(),
+                        duration,
+                        isFutureDate = date.isAfter(today)
+                    )
+                    weekData.add(dayData)
+                }
+
+                WeekGraph(weekData)
             }
         }
 

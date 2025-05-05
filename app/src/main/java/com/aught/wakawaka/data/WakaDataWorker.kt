@@ -181,7 +181,7 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
         // - a date that has not met the target hours
         // - the streak date
 
-        val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        val dateFormatter = WakaHelpers.getYYYYMMDDDateFormatter()
         val yesterday = LocalDate.now().minusDays(1)
         var streak = 0;
 
@@ -219,7 +219,8 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
         // - a date that has not met the target hours
         // - the streak date
 
-        val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        val dateFormatter = WakaHelpers.getYYYYMMDDDateFormatter()
+
         val firstDayOfLastWeek =
             LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusWeeks(1)
         var streak = 0;
@@ -309,9 +310,6 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
         }
 
         val updatedAggregateDailyRecords = aggregateData.dailyRecords.toMutableMap()
-
-        val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        dateFormatter.timeZone = TimeZone.getTimeZone("UTC")
 
         // update the map with the new data
         data.data.forEach { it ->
@@ -476,5 +474,31 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
             return wakaStatisticsAdapter.fromJson(json) ?: WakaHelpers.INITIAL_WAKA_STATISTICS
         }
 
+        fun dailyTargetHit(dateToDurationMap: Map<String,Int>,targetInHours: Float?): Boolean {
+            val date = LocalDate.now()
+            val dateFormatter = WakaHelpers.getYYYYMMDDDateFormatter()
+            val formattedDate = date.format(dateFormatter)
+            val duration = dateToDurationMap[formattedDate] ?: 0
+
+
+            return (targetInHours == null && duration > 0) || (duration.toFloat() / 3600 >= targetInHours!!)
+        }
+
+        fun weeklyTargetHit(dateToDurationMap: Map<String,Int>,targetInHours: Float?): Boolean {
+            val dateFormatter = WakaHelpers.getYYYYMMDDDateFormatter()
+            val firstDayOfLastWeek =
+                LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusWeeks(1)
+            var totalSeconds: Double = 0.0;
+
+            (0..6).forEach {
+                val day = firstDayOfLastWeek.plusDays(it.toLong())
+                val dayFormatted = day.format(dateFormatter)
+                if (dateToDurationMap.containsKey(dayFormatted)) {
+                    totalSeconds += (dateToDurationMap[dayFormatted] ?: 0)
+                }
+            }
+
+            return (targetInHours == null && totalSeconds > 0) || (totalSeconds / 3600 >= targetInHours!!)
+        }
     }
 }
