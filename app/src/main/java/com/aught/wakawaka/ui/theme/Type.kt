@@ -5,12 +5,26 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.Font
+import com.aught.wakawaka.R
+
+val Grotesk = FontFamily(
+    Font(R.font.grotesk, FontWeight(100)),
+    Font(R.font.grotesk, FontWeight(200)),
+    Font(R.font.grotesk, FontWeight(300)),
+    Font(R.font.grotesk, FontWeight(400)),
+    Font(R.font.grotesk, FontWeight(500)),
+    Font(R.font.grotesk, FontWeight(600)),
+    Font(R.font.grotesk, FontWeight(700)),
+    Font(R.font.grotesk, FontWeight(800)),
+    Font(R.font.grotesk, FontWeight(900)),
+)
 
 // Set of Material typography styles to start with
 val Typography = Typography(
     bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
+        fontFamily = Grotesk,
+        fontWeight = FontWeight(500),
         fontSize = 16.sp,
         lineHeight = 24.sp,
         letterSpacing = 0.5.sp

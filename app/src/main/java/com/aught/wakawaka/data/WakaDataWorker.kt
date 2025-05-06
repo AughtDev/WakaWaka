@@ -2,6 +2,7 @@ package com.aught.wakawaka.data
 
 import WakaService
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import androidx.core.content.edit
 import androidx.glance.appwidget.updateAll
@@ -169,7 +170,6 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
         }
     }
 
-
     private fun calculateDailyStreak(
         data: Map<String, Int>,
         currentStreak: StreakData?,
@@ -197,18 +197,23 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
             val formattedDate = date.format(dateFormatter)
 
             if (formattedDate == dailyStreakData.updatedAt) {
+                println("found the last updated streak date $date")
                 streak += dailyStreakData.count;
                 break
             }
 
             if (excludedDays?.contains(date.dayOfWeek.value) == true) {
+                println("skipping excluded day: ${date.dayOfWeek} on $date")
                 continue
             }
-            if (!data.containsKey(formattedDate) || (data[formattedDate]!! / 3600) < targetHours) {
+            if (!data.containsKey(formattedDate) || (data[formattedDate]!!.toFloat() / 3600) < targetHours) {
+                println("found a date that does not meet the target hours $date")
                 break
             }
             streak++
         }
+
+        println("Daily Streak: $streak, updatedAt: ${yesterday.format(dateFormatter)}")
 
         return StreakData(streak, yesterday.format(dateFormatter))
     }
@@ -279,6 +284,57 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
 
         prefs.edit {
             putString(WakaHelpers.WAKA_STATISTICS, wakaStatisticsAdapter.toJson(wakaStatistics))
+        }
+    }
+
+    private fun handleNotifications(prefs: SharedPreferences, aggregateData: AggregateData, projectData: Map<String, ProjectSpecificData>) {
+        val notificationDataAdapter = moshi.adapter(NotificationData::class.java)
+        val notificationDataString = prefs.getString(WakaHelpers.NOTIFICATION_DATA, null)
+
+        val notificationData: NotificationData = notificationDataString?.let {
+            (runCatching { notificationDataAdapter.fromJson(it) }.getOrNull() ?: WakaHelpers.INITIAL_NOTIFICATION_DATA)
+        } ?: WakaHelpers.INITIAL_NOTIFICATION_DATA
+
+        var updatedLastAggDailyTgtNotifDate = notificationData.lastAggregateDailyTargetNotificationDate
+        var updatedLastAggWeeklyTgtNotifDate = notificationData.lastAggregateWeeklyTargetNotificationDate
+
+        val today = LocalDate.now()
+
+        if (
+            dailyTargetHit(aggregateData.dailyRecords.mapValues { it.value.totalSeconds }, aggregateData.dailyTargetHours) &&
+            WakaHelpers.yyyyMMDDToDate(notificationData.lastAggregateDailyTargetNotificationDate).isBefore(today)
+        ) {
+            wakaNotificationManager.showNotification(
+                "Daily Target Hit",
+                "Congratulations! You have hit your daily target of ${aggregateData.dailyTargetHours} hours"
+            )
+            updatedLastAggDailyTgtNotifDate = WakaHelpers.dateToYYYYMMDD(today)
+        }
+
+        val firstDateThisWeek =
+            LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+
+        if (
+            weeklyTargetHit(aggregateData.dailyRecords.mapValues { it.value.totalSeconds }, aggregateData.weeklyTargetHours) &&
+            WakaHelpers.yyyyMMDDToDate(notificationData.lastAggregateWeeklyTargetNotificationDate).isBefore(firstDateThisWeek)
+        ) {
+            wakaNotificationManager.showNotification(
+                "Weekly Target Hit",
+                "Congratulations! You have hit your weekly target of ${aggregateData.weeklyTargetHours} hours"
+            )
+            updatedLastAggWeeklyTgtNotifDate = WakaHelpers.dateToYYYYMMDD(firstDateThisWeek)
+        }
+
+        // save the updated notification data
+        val updatedNotificationData = NotificationData(
+            updatedLastAggDailyTgtNotifDate,
+            updatedLastAggWeeklyTgtNotifDate,
+            notificationData.lastProjectDailyNotificationDates,
+            notificationData.lastProjectWeeklyNotificationDates
+        )
+
+        prefs.edit {
+            putString(WakaHelpers.NOTIFICATION_DATA, notificationDataAdapter.toJson(updatedNotificationData))
         }
     }
 
@@ -394,20 +450,14 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
         )
 
         updateWakaStatistics(context, updatedAggregateData, projectDataMap)
+        handleNotifications(prefs, updatedAggregateData, projectDataMap)
 
         val projectDataStringMap = mutableMapOf<String, String>()
         projectDataMap.forEach {
             projectDataStringMap[it.key] = projectSpecificDataAdapter.toJson(it.value)
         }
 
-        if (dailyTargetHit(
-                updatedAggregateDailyRecords.mapValues { it.value.totalSeconds },
-                updatedAggregateData.dailyTargetHours
-            )
-        ) {
-//            wakaNotificationManager.showNotification()
-            println("show notification")
-        }
+
 
         println("saving data")
         // save the map to the prefs
@@ -512,13 +562,12 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
 
         fun weeklyTargetHit(dateToDurationMap: Map<String, Int>, targetInHours: Float?): Boolean {
             val dateFormatter = WakaHelpers.getYYYYMMDDDateFormatter()
-            val firstDayOfLastWeek =
+            val firstDayOfThisWeek =
                 LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                    .minusWeeks(1)
             var totalDuration: Double = 0.0;
 
             (0..6).forEach {
-                val day = firstDayOfLastWeek.plusDays(it.toLong())
+                val day = firstDayOfThisWeek.plusDays(it.toLong())
                 val dayFormatted = day.format(dateFormatter)
                 if (dateToDurationMap.containsKey(dayFormatted)) {
                     totalDuration += (dateToDurationMap[dayFormatted] ?: 0)

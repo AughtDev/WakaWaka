@@ -21,14 +21,14 @@ enum class WakaURL(val url: String) {
     WAKAPI("https://wakapi.dev/api/compat/wakatime/v1/")
 }
 
-enum class DayOfWeek(val value: Int) {
-    MONDAY(1),
-    TUESDAY(2),
-    WEDNESDAY(3),
-    THURSDAY(4),
-    FRIDAY(5),
-    SATURDAY(6),
-    SUNDAY(7);
+enum class DayOfWeek(val index: Int, val text: String) {
+    MONDAY(1, "Monday"),
+    TUESDAY(2, "Tuesday"),
+    WEDNESDAY(3, "Wednesday"),
+    THURSDAY(4, "Thursday"),
+    FRIDAY(5, "Friday"),
+    SATURDAY(6, "Saturday"),
+    SUNDAY(7, "Sunday");
 }
 
 // endregion
@@ -191,6 +191,19 @@ data class DurationStats(
 data class WakaStatistics(
     val aggregateStats: DurationStats,
     val projectStats: Map<String, DurationStats>
+)
+
+// endregion
+
+
+// region DATA CLASSES FOR NOTIFICATION DATA
+
+@JsonClass(generateAdapter = true)
+data class NotificationData(
+    val lastAggregateDailyTargetNotificationDate: String, // in the format YYYY-MM-DD
+    val lastAggregateWeeklyTargetNotificationDate: String, // in the format YYYY-MM-DD
+    val lastProjectDailyNotificationDates: Map<String, String>, // project_name to date in the format YYYY-MM-DD
+    val lastProjectWeeklyNotificationDates: Map<String, String> // project_name to date in the format YYYY-MM-DD
 )
 
 // endregion

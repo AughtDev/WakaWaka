@@ -2,6 +2,7 @@ package com.aught.wakawaka.screens
 
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Link
@@ -22,6 +24,7 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,6 +35,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,12 +48,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.aught.wakawaka.data.AggregateData
+import com.aught.wakawaka.data.DayOfWeek
 import com.aught.wakawaka.data.GraphMode
 import com.aught.wakawaka.data.StreakData
 import com.aught.wakawaka.data.WakaDataWorker
@@ -95,10 +102,16 @@ fun SettingsView(modifier: Modifier = Modifier) {
 //    }
     val selectedApiOption = WakaURL.WAKATIME.url
 
-    val themeOptions = listOf("Light", "Dark", "System Default")
     var selectedThemeOption by remember {
         mutableStateOf(prefs.getInt(WakaHelpers.THEME, 0))
     }
+
+    var dailyStreakExcludedDays by remember {
+        mutableStateOf(
+            aggregateData?.excludedDaysFromDailyStreak ?: listOf(DayOfWeek.SUNDAY.index)
+        )
+    }
+
 
     var showSuccessMessage by remember { mutableStateOf(false) }
 
@@ -122,28 +135,16 @@ fun SettingsView(modifier: Modifier = Modifier) {
             if (selectedApiOption == WakaURL.WAKATIME.url) wakatimeAPIKey else wakapiAPIKey
 
         // API Key Input
-        OutlinedTextField(
-            value = apiKey,
-            onValueChange = {
+        APIKeyCard(
+            apiKey = apiKey,
+            onApiKeyChange = {
                 if (selectedApiOption == WakaURL.WAKATIME.url) {
                     wakatimeAPIKey = it
                 } else {
                     wakapiAPIKey = it
                 }
             },
-            label = { Text("${if (selectedApiOption == WakaURL.WAKATIME.url) "WakaTime" else "Wakapi"} API Key") },
-            modifier = Modifier.fillMaxWidth(),
-            leadingIcon = { Icon(Icons.Default.Key, contentDescription = "API Key") },
-            trailingIcon = {
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(
-                        if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                        contentDescription = if (passwordVisible) "Hide password" else "Show password"
-                    )
-                }
-            },
-            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            singleLine = true
+            isWakatime = selectedApiOption == WakaURL.WAKATIME.url
         )
 
         // Api URL Selection
@@ -188,115 +189,25 @@ fun SettingsView(modifier: Modifier = Modifier) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Daily Target Section
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(Icons.Default.Schedule, contentDescription = "Daily Target")
-                    Text(
-                        text = "Daily Target",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-
-                Text(
-                    text = "Set your daily coding goal in hours: ${
-                        String.format(
-                            "%.1f",
-                            dailyTarget
-                        )
-                    } hours",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-
-                Slider(
-                    value = dailyTarget,
-                    onValueChange = { dailyTarget = it },
-                    valueRange = 1f..12f,
-                    steps = 10,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
+        DailyTargetCard(
+            dailyTarget = dailyTarget,
+            dailyStreakExcludedDays = dailyStreakExcludedDays,
+            onDailyTargetChange = { dailyTarget = it },
+            onExcludedDaysChange = { dailyStreakExcludedDays = it }
+        )
 
         // Weekly Target Section
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(Icons.Default.Schedule, contentDescription = "Weekly Target")
-                    Text(
-                        text = "Weekly Target",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
 
-                Text(
-                    text = "Set your weekly coding goal in hours: ${
-                        String.format(
-                            "%.1f",
-                            weeklyTarget
-                        )
-                    } hours",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-
-                Slider(
-                    value = weeklyTarget,
-                    onValueChange = { weeklyTarget = it },
-                    valueRange = 5f..75f,
-                    steps = 34,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-
+        WeeklyTargetCard(
+            weeklyTarget = weeklyTarget,
+            onWeeklyTargetChange = { weeklyTarget = it }
+        )
 
         // Theme Selection Section
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "Theme",
-                    style = MaterialTheme.typography.titleMedium
-                )
-
-                themeOptions.forEachIndexed { index, theme ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = selectedThemeOption == index,
-                            onClick = { selectedThemeOption = index }
-                        )
-                        Text(
-                            text = theme,
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
-                    }
-                }
-            }
-        }
+        ThemeSelectionCard(
+            selectedThemeOption = selectedThemeOption,
+            onThemeOptionChange = { selectedThemeOption = it }
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -376,6 +287,7 @@ fun SettingsView(modifier: Modifier = Modifier) {
         val aggregateData =
             WakaDataWorker.loadAggregateData(context) ?: WakaHelpers.INITIAL_AGGREGATE_DATA
 
+
         // Save Button
         Button(
             onClick = {
@@ -384,7 +296,11 @@ fun SettingsView(modifier: Modifier = Modifier) {
                     dailyTarget,
                     weeklyTarget,
                     // if the daily target hours or weekly target hours have been changed, reset the streaks so that they can be recalculated
-                    if (aggregateData.dailyTargetHours != dailyTarget) StreakData(
+                    if (
+                        aggregateData.dailyTargetHours != dailyTarget ||
+                        // or if excluded days have been changed
+                        aggregateData.excludedDaysFromDailyStreak != dailyStreakExcludedDays
+                        ) StreakData(
                         0,
                         WakaHelpers.ZERO_DAY
                     ) else aggregateData.dailyStreak,
@@ -392,7 +308,7 @@ fun SettingsView(modifier: Modifier = Modifier) {
                         0,
                         WakaHelpers.ZERO_DAY
                     ) else aggregateData.weeklyStreak,
-                    aggregateData.excludedDaysFromDailyStreak
+                    dailyStreakExcludedDays
                 )
 
                 WakaDataWorker.saveAggregateData(context, updatedAggregateData)
@@ -439,5 +355,225 @@ fun SettingsView(modifier: Modifier = Modifier) {
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun APIKeyCard(
+    apiKey: String,
+    onApiKeyChange: (String) -> Unit,
+    isWakatime: Boolean
+) {
+    var passwordVisible by remember { mutableStateOf(false) }
+
+    OutlinedTextField(
+        value = apiKey,
+        onValueChange = {
+            onApiKeyChange(it)
+        },
+        label = { Text("${if (isWakatime) "WakaTime" else "Wakapi"} API Key") },
+        modifier = Modifier.fillMaxWidth(),
+        leadingIcon = { Icon(Icons.Default.Key, contentDescription = "API Key") },
+        trailingIcon = {
+            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                Icon(
+                    if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                )
+            }
+        },
+        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        singleLine = true
+    )
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DailyTargetCard(
+    dailyTarget: Float,
+    dailyStreakExcludedDays: List<Int>,
+    onDailyTargetChange: (Float) -> Unit,
+    onExcludedDaysChange: (List<Int>) -> Unit
+) {
+    // Daily Target Section
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Default.Schedule, contentDescription = "Daily Target")
+                Text(
+                    text = "Daily Target",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+
+            Text(
+                text = "Set your daily coding goal in hours: ${
+                    String.format(
+                        "%.1f",
+                        dailyTarget
+                    )
+                } hours",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Slider(
+                value = dailyTarget,
+                onValueChange = { onDailyTargetChange(it) },
+                valueRange = 1f..12f,
+                steps = 10,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Default.CalendarMonth, contentDescription = "Excluded Days",
+                    modifier = Modifier.padding(end = 4.dp),
+                )
+                Text(
+                    text = "Excluded days",
+                    style = MaterialTheme.typography.titleSmall
+                )
+
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                DayOfWeek.entries.forEach { day ->
+                    Card(
+                        modifier = Modifier
+                            .padding(4.dp)
+                            .weight(1f),
+                        onClick = {
+                            onExcludedDaysChange(
+                                if (dailyStreakExcludedDays.contains(day.index)) {
+                                    dailyStreakExcludedDays.filter { it != day.index }
+                                } else {
+                                    dailyStreakExcludedDays + day.index
+                                })
+                        }
+                    ) {
+                        Text(
+                            modifier = Modifier
+                                .background(
+                                    if (dailyStreakExcludedDays.contains(day.index)) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surface
+                                    }
+                                )
+                                .padding(8.dp)
+                                .fillMaxWidth(),
+                            text = day.name[0].uppercase(),
+                            fontSize = 18.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WeeklyTargetCard(
+    weeklyTarget: Float,
+    onWeeklyTargetChange: (Float) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Default.Schedule, contentDescription = "Weekly Target")
+                Text(
+                    text = "Weekly Target",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+
+            Text(
+                text = "Set your weekly coding goal in hours: ${
+                    String.format(
+                        "%.1f",
+                        weeklyTarget
+                    )
+                } hours",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Slider(
+                value = weeklyTarget,
+                onValueChange = {
+                    onWeeklyTargetChange(it)
+                },
+                valueRange = 5f..75f,
+                steps = 34,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ThemeSelectionCard(
+    selectedThemeOption: Int,
+    onThemeOptionChange: (Int) -> Unit
+) {
+    val themeOptions = listOf("Light", "Dark", "System Default")
+
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Theme",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            themeOptions.forEachIndexed { index, theme ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = selectedThemeOption == index,
+                        onClick = {
+                            onThemeOptionChange(index)
+                        }
+                    )
+                    Text(
+                        text = theme,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+            }
+        }
     }
 }

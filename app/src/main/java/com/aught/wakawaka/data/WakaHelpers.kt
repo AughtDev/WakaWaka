@@ -1,10 +1,8 @@
 package com.aught.wakawaka.data
 
-import android.icu.util.TimeZone
 import androidx.compose.ui.graphics.Color
-import java.text.SimpleDateFormat
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.floor
 import android.graphics.Color as AndroidColor
@@ -15,15 +13,11 @@ class WakaHelpers {
 
         val AGGREGATE_DATA = "waka_aggregate_data"
         val INITIAL_AGGREGATE_DATA =
-            AggregateData(emptyMap(), null, null, null, null, listOf(DayOfWeek.SUNDAY.value))
+            AggregateData(emptyMap(), null, null, null, null, listOf(DayOfWeek.SUNDAY.index))
 
         val PROJECT_SPECIFIC_DATA = "waka_project_data"
 
         val WAKA_STATISTICS = "waka_statistics"
-        val INITIAL_WAKA_STATISTICS = WakaStatistics(
-            DurationStats(0, 0, 0, 0, 0),
-            emptyMap()
-        )
 
         val WAKATIME_API = "wakatime_api"
         val WAKAPI_API = "wakapi_api"
@@ -34,6 +28,21 @@ class WakaHelpers {
         val ZERO_DAY = "2000-10-02"
 
         val ALL_PROJECTS_ID = "All"
+
+        val NOTIFICATION_DATA = "last_notification_date"
+
+        //region INITIAL DATA
+
+        val INITIAL_WAKA_STATISTICS = WakaStatistics(
+            DurationStats(0, 0, 0, 0, 0),
+            emptyMap()
+        )
+
+        val INITIAL_NOTIFICATION_DATA = NotificationData(
+            WakaHelpers.ZERO_DAY, WakaHelpers.ZERO_DAY, emptyMap(), emptyMap()
+        )
+
+        //endregion
 
         fun getYYYYMMDDDateFormatter(): DateTimeFormatter {
             return DateTimeFormatter.ofPattern("yyyy-MM-dd")
@@ -47,6 +56,7 @@ class WakaHelpers {
          * @return A Compose UI Color. Returns a default color (Gray) for null or empty names.
          */
         fun projectNameToColor(projectName: String?): Color {
+            println("projectNameToColor: $projectName")
             // Use a default color for null or empty project names
             if (projectName.isNullOrEmpty()) {
                 return Color.Gray
@@ -105,6 +115,14 @@ class WakaHelpers {
             }
 
             return durationString
+        }
+
+        fun yyyyMMDDToDate(date: String): LocalDate {
+            return LocalDate.parse(date, getYYYYMMDDDateFormatter())
+        }
+
+        fun dateToYYYYMMDD(date: LocalDate): String {
+            return date.format(getYYYYMMDDDateFormatter())
         }
     }
 }

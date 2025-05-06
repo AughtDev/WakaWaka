@@ -33,20 +33,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ModifierLocalBeyondBoundsLayout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.toColorInt
 import com.aught.wakawaka.data.DurationStats
 import com.aught.wakawaka.data.StreakData
 import com.aught.wakawaka.data.WakaDataWorker
 import com.aught.wakawaka.data.WakaHelpers
+import com.aught.wakawaka.utils.ColorUtils
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.util.Locale
 import java.util.TimeZone
+import kotlin.math.min
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,7 +86,9 @@ fun HomeView() {
 
     val dateToDurationMap =
         if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
-            aggregateData?.dailyRecords?.mapValues { it.value.totalSeconds } ?: emptyMap()
+            aggregateData?.dailyRecords?.mapValues {
+                it.value.totalSeconds
+            } ?: emptyMap()
         } else {
             projectSpecificData[selectedProject]?.dailyDurationInSeconds ?: emptyMap()
         }
@@ -133,7 +140,38 @@ fun HomeView() {
                 fontWeight = FontWeight.ExtraBold
             )
         }
-        CalendarGraph(dateToDurationMap)
+        CalendarGraph(
+            dateToDurationMap.mapValues {
+                // divide by the target hours to get the percentage
+                if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
+                    if (aggregateData?.dailyTargetHours == null) {
+                        if (it.value > 0) 1f else 0f
+                    } else {
+                        min(1f, it.value.toFloat() / (aggregateData.dailyTargetHours * 3600))
+                    }
+                } else {
+                    if (projectSpecificData[selectedProject]?.dailyTargetHours == null) {
+                        if (it.value > 0) 1f else 0f
+                    } else {
+                        min(1f, it.value.toFloat() / (projectSpecificData[selectedProject]!!.dailyTargetHours!! * 3600f))
+                    }
+                }
+            },
+            projectColor = if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                if (projectSpecificData[selectedProject]?.color == null) {
+                    WakaHelpers.projectNameToColor(selectedProject)
+                } else {
+                    try {
+                        println("Project color: ${projectSpecificData[selectedProject]!!.color}")
+                        Color(projectSpecificData[selectedProject]!!.color.toColorInt())
+                    } catch (e: Exception) {
+                        WakaHelpers.projectNameToColor(selectedProject)
+                    }
+                }
+            }
+        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -168,15 +206,17 @@ data class DayData(
     val date: Int,
     val month: String,
     val day: String,
-    val duration: Int,
-    val isFutureDate: Boolean = false
+    val duration: Float,
+    val isFutureDate: Boolean = false,
+    val isToday: Boolean = false
 )
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WeekGraph(data: List<DayData>) {
+fun WeekGraph(data: List<DayData>, textColor: Color, projectColor: Color) {
     val cellSize = 48.dp
+
     Row(
         horizontalArrangement = Arrangement.Center,
         modifier = Modifier.fillMaxWidth()
@@ -187,15 +227,32 @@ fun WeekGraph(data: List<DayData>) {
                     .size(cellSize)
                     .padding(3.dp)
             ) {
+                val bgColor = projectColor.copy(
+                    0.1f + (0.9f * data[it].duration)
+                )
                 Column(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().background(bgColor),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
+                    val isFirstOfMonth = data[it].date == 1
+                    val isToday = data[it].isToday
                     Text(
-                        text = data[it].date.toString(),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
+                        text = if (isFirstOfMonth) data[it].month.slice(0..2) else data[it].date.toString(),
+//                        textDecoration = if (data[it].isToday) TextDecoration.Underline else null,
+                        color = (
+                                if (data[it].isFutureDate) {
+                                    textColor.copy(0.2f)
+                                } else {
+                                    textColor.copy(if (isToday) 1f else 0.7f)
+                                }
+                                ),
+                        fontSize = when  {
+                            isFirstOfMonth -> 12.sp
+                            data[it].isToday -> 16.sp
+                            else -> 14.sp
+                        },
+                        fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -207,7 +264,7 @@ fun WeekGraph(data: List<DayData>) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CalendarGraph(dateToDurationMap: Map<String, Int>) {
+fun CalendarGraph(dateToDurationMap: Map<String, Float>, projectColor: Color) {
     val numWeeks = 16
     val scrollState = rememberScrollState()
 
@@ -216,6 +273,7 @@ fun CalendarGraph(dateToDurationMap: Map<String, Int>) {
     // move back to monday
     val startDate = today.minusDays((today.dayOfWeek.value - 1).toLong())
 
+    val textColor = ColorUtils.getContrastingTextColor(projectColor)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -233,18 +291,19 @@ fun CalendarGraph(dateToDurationMap: Map<String, Int>) {
                     // for each day of the week, generate the date string and get the duration
                     val date = firstDateOfWeek.plusDays(day.toLong())
                     val dateString = date.format(WakaHelpers.getYYYYMMDDDateFormatter())
-                    val duration = dateToDurationMap[dateString] ?: 0
+                    val duration = dateToDurationMap[dateString] ?: 0f
                     val dayData = DayData(
                         date.dayOfMonth,
                         date.month.toString(),
                         date.dayOfWeek.toString(),
                         duration,
-                        isFutureDate = date.isAfter(today)
+                        isFutureDate = date.isAfter(today),
+                        isToday = date.isEqual(today)
                     )
                     weekData.add(dayData)
                 }
 
-                WeekGraph(weekData)
+                WeekGraph(weekData, textColor, projectColor)
             }
         }
 
