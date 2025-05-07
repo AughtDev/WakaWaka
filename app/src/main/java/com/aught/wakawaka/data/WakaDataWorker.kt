@@ -9,7 +9,7 @@ import androidx.glance.appwidget.updateAll
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.aught.wakawaka.extras.WakaNotifications
-import com.aught.wakawaka.widget.WakaWidget
+import com.aught.wakawaka.widget.aggregate.WakaAggregateWidget
 import com.squareup.moshi.FromJson
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonReader
@@ -159,7 +159,7 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
                 val response = service.getSummaries("Last 7 Days")
                 updateAppDataWithResponse(applicationContext, response)
 
-                WakaWidget().updateAll(applicationContext)
+                WakaAggregateWidget().updateAll(applicationContext)
 
                 Result.success()
             } catch (e: Exception) {
@@ -307,10 +307,12 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
         ) {
             wakaNotificationManager.showNotification(
                 "Daily Target Hit",
-                "Congratulations! You have hit your daily target of ${WakaHelpers.durationInSecondsToDurationString(
-                    (aggregateData.dailyTargetHours * 3600f).roundToInt(),
-                    "hours", "minutes"
-                )}"
+                "Congratulations! You have hit your daily target of ${
+                    WakaHelpers.durationInSecondsToDurationString(
+                        (aggregateData.dailyTargetHours * 3600f).roundToInt(),
+                        " hours", " minutes"
+                    )
+                }"
             )
             updatedLastAggDailyTgtNotifDate = WakaHelpers.dateToYYYYMMDD(today)
         }
@@ -325,10 +327,12 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
         ) {
             wakaNotificationManager.showNotification(
                 "Weekly Target Hit",
-                "Congratulations! You have hit your weekly target of ${WakaHelpers.durationInSecondsToDurationString(
-                    (aggregateData.weeklyTargetHours * 3600f).roundToInt(),
-                    "hours", "minutes"
-                )}"
+                "Congratulations! You have hit your weekly target of ${
+                    WakaHelpers.durationInSecondsToDurationString(
+                        (aggregateData.weeklyTargetHours * 3600f).roundToInt(),
+                        "hours", "minutes"
+                    )
+                }"
             )
             updatedLastAggWeeklyTgtNotifDate = WakaHelpers.dateToYYYYMMDD(firstDateThisWeek)
         }

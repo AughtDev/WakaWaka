@@ -42,6 +42,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.toColorInt
+import com.aught.wakawaka.WakaWakaApp
 import com.aught.wakawaka.data.DurationStats
 import com.aught.wakawaka.data.StreakData
 import com.aught.wakawaka.data.WakaDataWorker
@@ -163,12 +164,9 @@ fun HomeView() {
                 if (projectSpecificData[selectedProject]?.color == null) {
                     WakaHelpers.projectNameToColor(selectedProject)
                 } else {
-                    try {
-                        println("Project color: ${projectSpecificData[selectedProject]!!.color}")
-                        Color(projectSpecificData[selectedProject]!!.color.toColorInt())
-                    } catch (e: Exception) {
-                        WakaHelpers.projectNameToColor(selectedProject)
-                    }
+                    runCatching { Color(projectSpecificData[selectedProject]!!.color.toColorInt()) }.getOrNull() ?: WakaHelpers.projectNameToColor(
+                        selectedProject
+                    )
                 }
             }
         )
@@ -231,7 +229,9 @@ fun WeekGraph(data: List<DayData>, textColor: Color, projectColor: Color) {
                     0.1f + (0.9f * data[it].duration)
                 )
                 Column(
-                    modifier = Modifier.fillMaxSize().background(bgColor),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(bgColor),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
@@ -247,7 +247,7 @@ fun WeekGraph(data: List<DayData>, textColor: Color, projectColor: Color) {
                                     textColor.copy(if (isToday) 1f else 0.7f)
                                 }
                                 ),
-                        fontSize = when  {
+                        fontSize = when {
                             isFirstOfMonth -> 12.sp
                             data[it].isToday -> 16.sp
                             else -> 14.sp
@@ -257,7 +257,6 @@ fun WeekGraph(data: List<DayData>, textColor: Color, projectColor: Color) {
                     )
                 }
             }
-
         }
     }
 }

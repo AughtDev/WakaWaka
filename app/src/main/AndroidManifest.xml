@@ -27,14 +27,23 @@
             </intent-filter>
         </activity>
         <receiver
-                android:name=".widget.WakaWidgetReceiver"
+                android:name=".widget.aggregate.WakaAggregateWidgetReceiver"
                 android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                     android:name="android.appwidget.provider"
-                    android:resource="@xml/waka_widget_info" />
+                    android:resource="@xml/waka_aggregate_widget_info" />
+        </receiver>
+        <receiver android:name=".widget.project.WakaProjectWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                    android:name="android.appwidget.provider"
+                    android:resource="@xml/waka_project_widget_info" />
         </receiver>
     </application>
 

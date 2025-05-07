@@ -31,6 +31,8 @@ class WakaHelpers {
 
         val NOTIFICATION_DATA = "last_notification_date"
 
+        val PROJECT_ASSIGNED_TO_PROJECT_WIDGET = "project_assigned_to_project_widget"
+
         //region INITIAL DATA
 
         val INITIAL_WAKA_STATISTICS = WakaStatistics(

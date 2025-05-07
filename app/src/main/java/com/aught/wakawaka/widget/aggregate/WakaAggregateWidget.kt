@@ -1,4 +1,4 @@
-package com.aught.wakawaka.widget
+package com.aught.wakawaka.widget.aggregate
 
 import com.aught.wakawaka.data.DailyAggregateData
 import com.aught.wakawaka.data.ProjectStats
@@ -38,16 +38,17 @@ import com.aught.wakawaka.data.GraphMode
 import com.aught.wakawaka.data.WakaDataWorker
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaWidgetTheme
+import com.aught.wakawaka.widget.WakaWidgetComponents
+import com.aught.wakawaka.widget.WakaWidgetHelpers
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
-import kotlin.math.floor
 import kotlin.math.min
 import kotlin.math.roundToInt
 
 
-class WakaWidget : GlanceAppWidget() {
+class WakaAggregateWidget : GlanceAppWidget() {
 
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -56,12 +57,6 @@ class WakaWidget : GlanceAppWidget() {
         }
     }
 
-    //    private val MAX_HOURS = 12;
-    private val TIME_WINDOW_PROPORTION = 0.5f;
-    private val GRAPH_HEIGHT = 80;
-    private val GRAPH_WIDTH = 330;
-    private val GRAPH_BOTTOM_PADDING = 10;
-    private val DATE_TEXT_HEIGHT = 20;
 
     private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
@@ -149,8 +144,8 @@ class WakaWidget : GlanceAppWidget() {
 
         val maxHours =
             when (graphMode.value) {
-                GraphMode.Daily -> 24 * TIME_WINDOW_PROPORTION
-                GraphMode.Weekly -> 24 * 7 * TIME_WINDOW_PROPORTION
+                GraphMode.Daily -> 24 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
+                GraphMode.Weekly -> 24 * 7 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
             }
 
         val streak = if (aggregateData != null) {
@@ -290,7 +285,7 @@ class WakaWidget : GlanceAppWidget() {
                         modifier = GlanceModifier
                             .background(Color.Transparent)
                             .fillMaxWidth().fillMaxHeight()
-                            .padding(bottom = GRAPH_BOTTOM_PADDING.dp),
+                            .padding(bottom = WakaWidgetHelpers.GRAPH_BOTTOM_PADDING.dp),
                     ) {
                         // map all days or weeks depending on graph mode
                         when (graphMode.value) {
@@ -327,7 +322,7 @@ class WakaWidget : GlanceAppWidget() {
                                             Box(
                                                 modifier = GlanceModifier.fillMaxWidth()
                                                     .height(
-                                                        (GRAPH_HEIGHT * min(
+                                                        (WakaWidgetHelpers.GRAPH_HEIGHT * min(
                                                             1f,
                                                             it.totalSeconds / (3600 * maxHours)
                                                         )).dp
@@ -341,7 +336,7 @@ class WakaWidget : GlanceAppWidget() {
                                 // get the day,month and year from date of format yyyy-mm-dd
                                 val date = it.date.split("-")
                                 Box(
-                                    modifier = GlanceModifier.height(DATE_TEXT_HEIGHT.dp)
+                                    modifier = GlanceModifier.height(WakaWidgetHelpers.DATE_TEXT_HEIGHT.dp)
                                         .fillMaxWidth(),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -360,7 +355,7 @@ class WakaWidget : GlanceAppWidget() {
                     }
 
                     // Add this Box for the target line overlay
-                    if (targetInHours != null) TargetLine(targetInHours, maxHours, theme)
+                    if (targetInHours != null) WakaWidgetComponents.TargetLine(targetInHours, maxHours, theme)
                 }
 //            Row(horizontalAlignment = Alignment.CenterHorizontally) {
 //                Button(
@@ -376,91 +371,6 @@ class WakaWidget : GlanceAppWidget() {
         }
     }
 
-    @Composable
-    private fun TargetLine(targetHours: Float, maxHours: Float, theme: WakaWidgetTheme) {
-        // Target line - positioned at a specific height from bottom
-        // For example, if your target is 4 hours (3600*4 seconds)
-        val targetHeight = (GRAPH_HEIGHT * min(
-            1f,
-            (3600 * targetHours) / (3600 * maxHours)
-        ) + GRAPH_BOTTOM_PADDING + DATE_TEXT_HEIGHT)
-
-        val targetText =
-            WakaHelpers.durationInSecondsToDurationString((targetHours * 3600).roundToInt())
-
-        Box(
-            modifier = GlanceModifier.fillMaxSize(),
-        ) {
-            Row(
-                modifier = GlanceModifier
-                    .fillMaxSize()
-                    .background(Color.Transparent)
-                    .padding(bottom = (targetHeight + 5).dp, start = 15.dp),
-
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Text(
-                    text = targetText,
-                    style = TextStyle(
-                        color = when (theme) {
-                            WakaWidgetTheme.Dark -> ColorProvider(
-                                day = Color.White,
-                                night = Color.White
-                            )
-
-                            WakaWidgetTheme.Light -> ColorProvider(
-                                day = Color.Black,
-                                night = Color.Black
-                            )
-                        },
-                        fontSize = 10.sp,
-                        textAlign = TextAlign.Start
-                    ),
-                    modifier = GlanceModifier.fillMaxWidth()
-                )
-            }
-            Row(
-                modifier = GlanceModifier
-                    .fillMaxSize()
-                    .background(Color.Transparent)
-                    .padding(bottom = targetHeight.dp),
-
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                val numberOfDashes = 10;
-
-                (1..numberOfDashes).forEach {
-                    // Add the dotted line
-                    Box(
-                        modifier = GlanceModifier
-                            .width((GRAPH_WIDTH / numberOfDashes).dp)
-                            .height(1.dp) // Line thickness
-                            .padding(horizontal = 2.dp)
-                    ) {
-                        Box(
-                            modifier = GlanceModifier.fillMaxSize().background(
-                                when (theme) {
-                                    WakaWidgetTheme.Dark -> Color.Gray
-                                    WakaWidgetTheme.Light -> Color.LightGray
-                                }
-                            )
-                        ) {}
-                    }
-                }
-
-                // Optional: Add a label for the target
-//            Text(
-//                text = "Target: 4h",
-//                style = TextStyle(
-//                    color = ColorProvider(day = Color.Yellow, night = Color.Yellow),
-//                ),
-//                modifier = GlanceModifier.padding(top = targetHeight + 5.dp)
-//            )
-            }
-        }
-    }
 
 
 }
