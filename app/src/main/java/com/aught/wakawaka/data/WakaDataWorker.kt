@@ -301,12 +301,16 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
         val today = LocalDate.now()
 
         if (
+            aggregateData.dailyTargetHours != null &&
             dailyTargetHit(aggregateData.dailyRecords.mapValues { it.value.totalSeconds }, aggregateData.dailyTargetHours) &&
             WakaHelpers.yyyyMMDDToDate(notificationData.lastAggregateDailyTargetNotificationDate).isBefore(today)
         ) {
             wakaNotificationManager.showNotification(
                 "Daily Target Hit",
-                "Congratulations! You have hit your daily target of ${aggregateData.dailyTargetHours} hours"
+                "Congratulations! You have hit your daily target of ${WakaHelpers.durationInSecondsToDurationString(
+                    (aggregateData.dailyTargetHours * 3600f).roundToInt(),
+                    "hours", "minutes"
+                )}"
             )
             updatedLastAggDailyTgtNotifDate = WakaHelpers.dateToYYYYMMDD(today)
         }
@@ -315,12 +319,16 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
             LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
 
         if (
+            aggregateData.weeklyTargetHours != null &&
             weeklyTargetHit(aggregateData.dailyRecords.mapValues { it.value.totalSeconds }, aggregateData.weeklyTargetHours) &&
             WakaHelpers.yyyyMMDDToDate(notificationData.lastAggregateWeeklyTargetNotificationDate).isBefore(firstDateThisWeek)
         ) {
             wakaNotificationManager.showNotification(
                 "Weekly Target Hit",
-                "Congratulations! You have hit your weekly target of ${aggregateData.weeklyTargetHours} hours"
+                "Congratulations! You have hit your weekly target of ${WakaHelpers.durationInSecondsToDurationString(
+                    (aggregateData.weeklyTargetHours * 3600f).roundToInt(),
+                    "hours", "minutes"
+                )}"
             )
             updatedLastAggWeeklyTgtNotifDate = WakaHelpers.dateToYYYYMMDD(firstDateThisWeek)
         }

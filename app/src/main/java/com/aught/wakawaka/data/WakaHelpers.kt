@@ -93,7 +93,7 @@ class WakaHelpers {
             return android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
         }
 
-        fun durationInSecondsToDurationString(durationInSeconds: Int): String {
+        fun durationInSecondsToDurationString(durationInSeconds: Int,hoursSuffix: String = "h",minutesSuffix: String = "m"): String {
             // the expected return format is 5h 34m
             val totalMinutes = durationInSeconds / 60
             val numHours = floor(totalMinutes.toFloat() / 60).toInt()
@@ -105,13 +105,13 @@ class WakaHelpers {
 
             var durationString = ""
             if (numHours > 0) {
-                durationString += "${numHours}h"
+                durationString += "$numHours$hoursSuffix"
             }
             if (numMinutes > 0) {
                 if (durationString.isNotEmpty()) {
                     durationString += " "
                 }
-                durationString += "${numMinutes}m"
+                durationString += "$numMinutes$minutesSuffix"
             }
 
             return durationString

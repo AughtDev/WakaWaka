@@ -85,10 +85,19 @@ fun SettingsView(modifier: Modifier = Modifier) {
         mutableStateOf(prefs.getString(WakaHelpers.WAKAPI_API, "") ?: "")
     }
 
-    var passwordVisible by remember { mutableStateOf(false) }
-
+    var withDailyTarget by remember {
+        mutableStateOf(
+            aggregateData?.dailyTargetHours != null
+        )
+    }
     var dailyTarget by remember {
         mutableStateOf(aggregateData?.dailyTargetHours ?: 0f)
+    }
+
+    var withWeeklyTarget by remember {
+        mutableStateOf(
+            aggregateData?.weeklyTargetHours != null
+        )
     }
     var weeklyTarget by remember {
         mutableStateOf(aggregateData?.weeklyTargetHours ?: 0f)
@@ -126,7 +135,6 @@ fun SettingsView(modifier: Modifier = Modifier) {
         Text(
             text = "Settings",
             style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -191,8 +199,10 @@ fun SettingsView(modifier: Modifier = Modifier) {
 
         DailyTargetCard(
             dailyTarget = dailyTarget,
+            withDailyTarget = withDailyTarget,
             dailyStreakExcludedDays = dailyStreakExcludedDays,
             onDailyTargetChange = { dailyTarget = it },
+            onWithDailyTargetChange = { withDailyTarget = it },
             onExcludedDaysChange = { dailyStreakExcludedDays = it }
         )
 
@@ -200,7 +210,9 @@ fun SettingsView(modifier: Modifier = Modifier) {
 
         WeeklyTargetCard(
             weeklyTarget = weeklyTarget,
-            onWeeklyTargetChange = { weeklyTarget = it }
+            withWeeklyTarget = withWeeklyTarget,
+            onWeeklyTargetChange = { weeklyTarget = it },
+            onWithWeeklyTargetChange = { withWeeklyTarget = it }
         )
 
         // Theme Selection Section
@@ -249,7 +261,7 @@ fun SettingsView(modifier: Modifier = Modifier) {
         LaunchedEffect(showSuccessMessage) {
             if (showSuccessMessage) {
                 // Hide the success message after 2 seconds
-                kotlinx.coroutines.delay(2000)
+                delay(2000)
                 showSuccessMessage = false
             }
         }
@@ -293,8 +305,8 @@ fun SettingsView(modifier: Modifier = Modifier) {
             onClick = {
                 val updatedAggregateData = AggregateData(
                     aggregateData.dailyRecords,
-                    dailyTarget,
-                    weeklyTarget,
+                    if (withDailyTarget) dailyTarget else null,
+                    if (withWeeklyTarget) weeklyTarget else null,
                     // if the daily target hours or weekly target hours have been changed, reset the streaks so that they can be recalculated
                     if (
                         aggregateData.dailyTargetHours != dailyTarget ||
@@ -393,9 +405,11 @@ fun APIKeyCard(
 @Composable
 fun DailyTargetCard(
     dailyTarget: Float,
+    withDailyTarget: Boolean,
     dailyStreakExcludedDays: List<Int>,
     onDailyTargetChange: (Float) -> Unit,
-    onExcludedDaysChange: (List<Int>) -> Unit
+    onExcludedDaysChange: (List<Int>) -> Unit,
+    onWithDailyTargetChange: (Boolean) -> Unit
 ) {
     // Daily Target Section
     Card(
@@ -406,80 +420,94 @@ fun DailyTargetCard(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Icon(Icons.Default.Schedule, contentDescription = "Daily Target")
-                Text(
-                    text = "Daily Target",
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-
-            Text(
-                text = "Set your daily coding goal in hours: ${
-                    String.format(
-                        "%.1f",
-                        dailyTarget
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Schedule, contentDescription = "Daily Target")
+                    Text(
+                        text = "Daily Target",
+                        style = MaterialTheme.typography.titleMedium
                     )
-                } hours",
-                style = MaterialTheme.typography.bodyMedium
-            )
-
-            Slider(
-                value = dailyTarget,
-                onValueChange = { onDailyTargetChange(it) },
-                valueRange = 1f..12f,
-                steps = 10,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Default.CalendarMonth, contentDescription = "Excluded Days",
-                    modifier = Modifier.padding(end = 4.dp),
+                }
+                Checkbox(
+                    checked = withDailyTarget,
+                    onCheckedChange = {
+                        onWithDailyTargetChange(it)
+                    }
                 )
-                Text(
-                    text = "Excluded days",
-                    style = MaterialTheme.typography.titleSmall
-                )
-
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                DayOfWeek.entries.forEach { day ->
-                    Card(
-                        modifier = Modifier
-                            .padding(4.dp)
-                            .weight(1f),
-                        onClick = {
-                            onExcludedDaysChange(
-                                if (dailyStreakExcludedDays.contains(day.index)) {
-                                    dailyStreakExcludedDays.filter { it != day.index }
-                                } else {
-                                    dailyStreakExcludedDays + day.index
-                                })
-                        }
-                    ) {
-                        Text(
-                            modifier = Modifier
-                                .background(
-                                    if (dailyStreakExcludedDays.contains(day.index)) {
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.surface
-                                    }
-                                )
-                                .padding(8.dp)
-                                .fillMaxWidth(),
-                            text = day.name[0].uppercase(),
-                            fontSize = 18.sp,
-                            textAlign = TextAlign.Center
+
+            if (withDailyTarget) {
+                Text(
+                    text = "Set your daily coding goal in hours: ${
+                        String.format(
+                            "%.1f",
+                            dailyTarget
                         )
+                    } hours",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Slider(
+                    value = dailyTarget,
+                    onValueChange = { onDailyTargetChange(it) },
+                    valueRange = 1f..12f,
+                    steps = 10,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Default.CalendarMonth, contentDescription = "Excluded Days",
+                        modifier = Modifier.padding(end = 4.dp),
+                    )
+                    Text(
+                        text = "Excluded days",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    DayOfWeek.entries.forEach { day ->
+                        Card(
+                            modifier = Modifier
+                                .padding(4.dp)
+                                .weight(1f),
+                            onClick = {
+                                onExcludedDaysChange(
+                                    if (dailyStreakExcludedDays.contains(day.index)) {
+                                        dailyStreakExcludedDays.filter { it != day.index }
+                                    } else {
+                                        dailyStreakExcludedDays + day.index
+                                    })
+                            }
+                        ) {
+                            Text(
+                                modifier = Modifier
+                                    .background(
+                                        if (dailyStreakExcludedDays.contains(day.index)) {
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.surface
+                                        }
+                                    )
+                                    .padding(8.dp)
+                                    .fillMaxWidth(),
+                                text = day.name[0].uppercase(),
+                                fontSize = 18.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             }
@@ -492,7 +520,9 @@ fun DailyTargetCard(
 @Composable
 fun WeeklyTargetCard(
     weeklyTarget: Float,
-    onWeeklyTargetChange: (Float) -> Unit
+    withWeeklyTarget: Boolean,
+    onWeeklyTargetChange: (Float) -> Unit,
+    onWithWeeklyTargetChange: (Boolean) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -502,35 +532,50 @@ fun WeeklyTargetCard(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Icon(Icons.Default.Schedule, contentDescription = "Weekly Target")
-                Text(
-                    text = "Weekly Target",
-                    style = MaterialTheme.typography.titleMedium
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Schedule, contentDescription = "Weekly Target")
+                    Text(
+                        text = "Weekly Target",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+
+                Checkbox(
+                    checked = withWeeklyTarget,
+                    onCheckedChange = {
+                        onWithWeeklyTargetChange(it)
+                    }
                 )
             }
 
-            Text(
-                text = "Set your weekly coding goal in hours: ${
-                    String.format(
-                        "%.1f",
-                        weeklyTarget
-                    )
-                } hours",
-                style = MaterialTheme.typography.bodyMedium
-            )
+            if (withWeeklyTarget) {
+                Text(
+                    text = "Set your weekly coding goal in hours: ${
+                        String.format(
+                            "%.1f",
+                            weeklyTarget
+                        )
+                    } hours",
+                    style = MaterialTheme.typography.bodyMedium
+                )
 
-            Slider(
-                value = weeklyTarget,
-                onValueChange = {
-                    onWeeklyTargetChange(it)
-                },
-                valueRange = 5f..75f,
-                steps = 34,
-                modifier = Modifier.fillMaxWidth()
-            )
+                Slider(
+                    value = weeklyTarget,
+                    onValueChange = {
+                        onWeeklyTargetChange(it)
+                    },
+                    valueRange = 5f..75f,
+                    steps = 34,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 
