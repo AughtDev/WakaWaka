@@ -112,7 +112,9 @@ fun SettingsView(modifier: Modifier = Modifier) {
     val selectedApiOption = WakaURL.WAKATIME.url
 
     var selectedThemeOption by remember {
-        mutableStateOf(prefs.getInt(WakaHelpers.THEME, 0))
+//        mutableStateOf(prefs.getInt(WakaHelpers.THEME, 0))
+        // enforce dark mode
+        mutableStateOf(1)
     }
 
     var dailyStreakExcludedDays by remember {
@@ -216,10 +218,10 @@ fun SettingsView(modifier: Modifier = Modifier) {
         )
 
         // Theme Selection Section
-        ThemeSelectionCard(
-            selectedThemeOption = selectedThemeOption,
-            onThemeOptionChange = { selectedThemeOption = it }
-        )
+//        ThemeSelectionCard(
+//            selectedThemeOption = selectedThemeOption,
+//            onThemeOptionChange = { selectedThemeOption = it }
+//        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -312,7 +314,7 @@ fun SettingsView(modifier: Modifier = Modifier) {
                         aggregateData.dailyTargetHours != dailyTarget ||
                         // or if excluded days have been changed
                         aggregateData.excludedDaysFromDailyStreak != dailyStreakExcludedDays
-                        ) StreakData(
+                    ) StreakData(
                         0,
                         WakaHelpers.ZERO_DAY
                     ) else aggregateData.dailyStreak,

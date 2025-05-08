@@ -199,16 +199,12 @@ class WakaAggregateWidget : GlanceAppWidget() {
                         .background(primaryColor),
                 ) {}
             }
-            Text(
-                text = (streak + (if (hitTargetToday) 1 else 0)).toString(),
-                style = TextStyle(
-                    color = primaryColor,
-                    fontSize = 64.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.SansSerif
-                ),
-                modifier = GlanceModifier.height(100.dp).padding(horizontal = 10.dp)
-            )
+            WakaWidgetComponents.DurationScale(5, maxHours, Color.White)
+            Box(
+                modifier = GlanceModifier.height(100.dp).padding(start = 10.dp, top = 20.dp)
+            ) {
+                WakaWidgetComponents.StreakDisplay(streak, hitTargetToday)
+            }
             Column(
                 modifier = GlanceModifier.fillMaxSize(),
 //                .background(Color.Black),
@@ -302,7 +298,7 @@ class WakaAggregateWidget : GlanceAppWidget() {
                                     if (
                                         targetInHours == null ||
                                         // if the day is in the exclusion list, use the primary color
-                                        LocalDate.parse(it.date,dateFormatter).dayOfWeek.value in excludedDaysSet ||
+                                        LocalDate.parse(it.date, dateFormatter).dayOfWeek.value in excludedDaysSet ||
                                         it.totalSeconds > (targetInHours * 3600)
                                     ) primaryColor
                                     else
@@ -370,7 +366,6 @@ class WakaAggregateWidget : GlanceAppWidget() {
             }
         }
     }
-
 
 
 }

@@ -3,11 +3,15 @@ package com.aught.wakawaka.utils
 import androidx.compose.ui.graphics.Color
 import android.graphics.Color as AndroidColor
 import androidx.compose.ui.graphics.toArgb
+import kotlin.math.floor
+import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 
 class ColorUtils {
     companion object {
+        // region GENERAL COLOR FUNCTIONS
         /**
          * Generates a contrasting color suitable for text on top of the given background color,
          * taking into account potential opacity changes.
@@ -72,7 +76,7 @@ class ColorUtils {
             return if (colorComponent <= 0.03928f) {
                 colorComponent / 12.92f
             } else {
-                Math.pow(((colorComponent + 0.055f) / 1.055f).toDouble(), 2.4).toFloat()
+                ((colorComponent + 0.055f) / 1.055f).toDouble().pow(2.4).toFloat()
             }
         }
 
@@ -93,18 +97,37 @@ class ColorUtils {
         /**
          * Lighten a color by the given amount
          */
-        private fun lighten(color: Color, amount: Float): Color {
+        fun lighten(color: Color, amount: Float): Color {
             val hsl = colorToHSV(color)
             hsl[2] = min(1f, hsl[2] + amount)
             return hsvToColor(hsl[0], hsl[1], hsl[2])
         }
 
+
         /**
          * Darken a color by the given amount
          */
-        private fun darken(color: Color, amount: Float): Color {
+        fun darken(color: Color, amount: Float): Color {
             val hsl = colorToHSV(color)
             hsl[2] = max(0f, hsl[2] - amount)
+            return hsvToColor(hsl[0], hsl[1], hsl[2])
+        }
+
+        /**
+         * Saturate a color by the given amount
+         */
+        fun saturate(color: Color, amount: Float): Color {
+            val hsl = colorToHSV(color)
+            hsl[1] = min(1f, hsl[1] + amount)
+            return hsvToColor(hsl[0], hsl[1], hsl[2])
+        }
+
+        /**
+         * Desaturate a color by the given amount
+         */
+        fun desaturate(color: Color, amount: Float): Color {
+            val hsl = colorToHSV(color)
+            hsl[1] = max(0f, hsl[1] - amount)
             return hsvToColor(hsl[0], hsl[1], hsl[2])
         }
 
@@ -141,5 +164,39 @@ class ColorUtils {
         private fun hsvToColor(hue: Float, saturation: Float, lightness: Float): Color {
             return Color(AndroidColor.HSVToColor(floatArrayOf(hue, saturation, lightness)))
         }
+
+        // endregion
+
+        // region APP SPECIFIC COLOR FUNCTIONS
+
+        private val streakColors: List<List<Color>> = listOf(
+            // Newbie - Gray
+            listOf(Color.Gray),
+            // Pupil - Green
+            listOf(Color.Green),
+            // Specialist - Cyan
+            listOf(Color.Cyan),
+            // Expert - Blue
+            listOf(Color.Blue),
+            // Candidate Master - Violet
+            listOf(Color(0xFFAA00AA)),
+            // Master - Orange
+            listOf(Color(0xFFFFAA00)),
+            // Grandmaster - Red
+            listOf(Color.Red),
+            // Legendary Grandmaster - Black Red
+            listOf(Color.Black, Color.Red),
+            // tourist - Red Black
+            listOf(Color.Red, Color.Black)
+        )
+
+        fun getStreakColors(streak: Int): List<Color> {
+            // the streak colors are based on the codeforces color progression, iterated over the powers of 2
+            // get the power of 2 at or below the streak
+            val pow = min(if (streak > 0) floor(ln(streak.toDouble()) / ln(2.0)).toInt() else 0, streakColors.size - 1)
+            return streakColors[pow]
+        }
+
+        // endregion
     }
 }

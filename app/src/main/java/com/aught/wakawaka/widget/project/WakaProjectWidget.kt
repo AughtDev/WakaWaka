@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.graphics.toColorInt
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.GlanceTheme
 import androidx.glance.LocalContext
 import androidx.glance.action.clickable
 import androidx.glance.layout.Box
@@ -40,6 +41,7 @@ import com.aught.wakawaka.data.ProjectStats
 import com.aught.wakawaka.data.WakaDataWorker
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaWidgetTheme
+import com.aught.wakawaka.utils.ColorUtils
 import com.aught.wakawaka.widget.WakaWidgetComponents
 import com.aught.wakawaka.widget.WakaWidgetHelpers
 import java.time.DayOfWeek
@@ -194,6 +196,8 @@ class WakaProjectWidget : GlanceAppWidget() {
                 ColorProvider(day = projectColor, night = projectColor)
             }
 
+            val textColor = ColorUtils.desaturate(projectColor, 0.5f)
+
             println("primary color is $primaryColor")
             Box(
                 modifier = GlanceModifier.fillMaxSize().background(
@@ -204,23 +208,12 @@ class WakaProjectWidget : GlanceAppWidget() {
                 )
             )
             {
-                if (hitTargetToday) {
-                    Box(
-                        modifier = GlanceModifier.width(5.dp).height(5.dp).cornerRadius(5.dp)
-                            .background(primaryColor),
-                    ) {}
-                }
-                DurationScale(2f, maxHours)
-                Text(
-                    text = (streak + (if (hitTargetToday) 1 else 0)).toString(),
-                    style = TextStyle(
-                        color = primaryColor,
-                        fontSize = 64.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.SansSerif
-                    ),
+                WakaWidgetComponents.DurationScale(5, maxHours, textColor)
+                Box(
                     modifier = GlanceModifier.height(100.dp).padding(start = 10.dp, top = 20.dp)
-                )
+                ) {
+                    WakaWidgetComponents.StreakDisplay(streak, hitTargetToday)
+                }
                 Column(
                     modifier = GlanceModifier.fillMaxSize(),
 //                .background(Color.Black),
@@ -310,7 +303,8 @@ class WakaProjectWidget : GlanceAppWidget() {
                             when (graphMode.value) {
                                 GraphMode.Daily -> dailyData
                                 GraphMode.Weekly -> weeklyData
-                            }.forEachIndexed { idx, it ->
+                            }.forEachIndexed { i, it ->
+                                val idx = (if (graphMode.value == GraphMode.Daily) dailyData else weeklyData).size - i - 1
                                 // if graph is weekly, move to the first day of the week
                                 val date = if (graphMode.value == GraphMode.Weekly) {
                                     LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
@@ -368,7 +362,7 @@ class WakaProjectWidget : GlanceAppWidget() {
                                             style = TextStyle(
                                                 textAlign = TextAlign.Center,
                                                 fontSize = 10.sp,
-                                                color = primaryColor
+                                                color = ColorProvider(day = textColor, night = textColor)
                                             )
                                         )
                                     }
@@ -386,28 +380,3 @@ class WakaProjectWidget : GlanceAppWidget() {
     }
 }
 
-@Composable
-fun DurationScale(interval: Float = 2f, maxHours: Float) {
-    val intervalDp = (WakaWidgetHelpers.GRAPH_HEIGHT * min(
-        1f, interval / maxHours
-    ))
-    Column(
-        modifier = GlanceModifier.fillMaxSize()
-            .padding(bottom = (WakaWidgetHelpers.DATE_TEXT_HEIGHT + WakaWidgetHelpers.GRAPH_BOTTOM_PADDING).dp),
-        verticalAlignment = Alignment.Bottom,
-        horizontalAlignment = Alignment.End
-    ) {
-        (0..(maxHours / interval).toInt()).reversed().forEach {
-            Column(
-                modifier = GlanceModifier.height(intervalDp.dp).width(25.dp).padding(end = 15.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                Box(
-                    modifier = GlanceModifier.width(5.dp).height(5.dp).cornerRadius(5.dp)
-                        .background(ColorProvider(day = Color.Gray, night = Color.Gray)),
-                ) {}
-            }
-        }
-
-    }
-}
