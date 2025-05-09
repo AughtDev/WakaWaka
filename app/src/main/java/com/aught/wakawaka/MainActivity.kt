@@ -31,12 +31,18 @@ import com.aught.wakawaka.screens.ProjectsView
 import com.aught.wakawaka.screens.SettingsView
 import com.aught.wakawaka.ui.theme.WakaWakaTheme
 import androidx.core.content.edit
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import com.aught.wakawaka.screens.ProjectDetailsView
 
 
 sealed class Screen(val route: String, val name: String, val icon: ImageVector) {
     object Projects : Screen("projects", "Projects", Icons.Default.Folder)
     object Home : Screen("home", "Home", Icons.Default.Home)
     object Settings : Screen("settings", "Settings", Icons.Default.Settings)
+    object ProjectDetails : Screen("projectDetails/{projectName}", "Project Details", Icons.Default.Folder) {
+        fun createRoute(projectName: String) = "projectDetails/$projectName"
+    }
 }
 
 class MainActivity : ComponentActivity() {
@@ -89,13 +95,21 @@ fun WakaWakaApp() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Projects.route) {
-                ProjectsView()
+                ProjectsView(navController)
             }
             composable(Screen.Home.route) {
                 HomeView()
             }
             composable(Screen.Settings.route) {
                 SettingsView()
+            }
+            composable(
+                route = Screen.ProjectDetails.route,
+                arguments = listOf(navArgument("projectName") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val projectName = backStackEntry.arguments?.getString("projectName") ?: ""
+                ProjectDetailsView(projectName, navController)
+
             }
         }
     }

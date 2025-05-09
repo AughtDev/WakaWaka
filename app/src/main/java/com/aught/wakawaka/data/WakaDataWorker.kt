@@ -10,6 +10,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.aught.wakawaka.extras.WakaNotifications
 import com.aught.wakawaka.widget.aggregate.WakaAggregateWidget
+import com.aught.wakawaka.widget.project.WakaProjectWidget
 import com.squareup.moshi.FromJson
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonReader
@@ -160,6 +161,7 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
                 updateAppDataWithResponse(applicationContext, response)
 
                 WakaAggregateWidget().updateAll(applicationContext)
+                WakaProjectWidget().updateAll(applicationContext)
 
                 Result.success()
             } catch (e: Exception) {
@@ -312,7 +314,7 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
                         (aggregateData.dailyTargetHours * 3600f).roundToInt(),
                         " hours", " minutes"
                     )
-                }"
+                }", 112
             )
             updatedLastAggDailyTgtNotifDate = WakaHelpers.dateToYYYYMMDD(today)
         }
@@ -330,9 +332,9 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
                 "Congratulations! You have hit your weekly target of ${
                     WakaHelpers.durationInSecondsToDurationString(
                         (aggregateData.weeklyTargetHours * 3600f).roundToInt(),
-                        "hours", "minutes"
+                        " hours", " minutes"
                     )
-                }"
+                }", 111
             )
             updatedLastAggWeeklyTgtNotifDate = WakaHelpers.dateToYYYYMMDD(firstDateThisWeek)
         }

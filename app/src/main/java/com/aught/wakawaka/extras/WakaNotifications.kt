@@ -15,7 +15,6 @@ import com.aught.wakawaka.R
 
 class WakaNotifications(val context: Context) {
     private val CHANNEL_ID = "WakaWakaChannel"
-    private val NOTIFICATION_ID = 111
 
     init {
         createNotificationChannel()
@@ -49,7 +48,7 @@ class WakaNotifications(val context: Context) {
         )
     }
 
-    fun showNotification(title: String, text: String) {
+    fun showNotification(title: String, text: String,notificationId: Int) {
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground) // Replace with your app's icon
             .setContentTitle(title)
@@ -67,7 +66,7 @@ class WakaNotifications(val context: Context) {
                 println("no permission for notification..")
                 return
             }
-            notify(NOTIFICATION_ID, builder.build())
+            notify(notificationId, builder.build())
         }
     }
 }

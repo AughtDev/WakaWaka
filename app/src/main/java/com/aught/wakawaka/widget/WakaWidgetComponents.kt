@@ -157,11 +157,11 @@ class WakaWidgetComponents {
                     }
                 }
                 Box(
-                    modifier = GlanceModifier.height((heightOfUnitMarker/2).dp).width(25.dp),
+                    modifier = GlanceModifier.height((heightOfUnitMarker / 2).dp).width(20.dp).padding(start = 0.dp),
                     contentAlignment = Alignment.BottomStart
-                ){
+                ) {
                     Box(
-                        modifier = GlanceModifier.width(15.dp).height(2.dp).cornerRadius(2.dp)
+                        modifier = GlanceModifier.width(8.dp).height(2.dp).cornerRadius(2.dp)
                             .background(Color.White),
                     ) {}
                 }

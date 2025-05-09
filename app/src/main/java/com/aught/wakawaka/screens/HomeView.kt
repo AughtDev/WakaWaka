@@ -3,6 +3,7 @@ package com.aught.wakawaka.screens
 import androidx.compose.ui.graphics.Color
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -237,24 +239,36 @@ fun WeekGraph(data: List<DayData>, textColor: Color, projectColor: Color) {
                 ) {
                     val isFirstOfMonth = data[it].date == 1
                     val isToday = data[it].isToday
-                    Text(
-                        text = if (isFirstOfMonth) data[it].month.slice(0..2) else data[it].date.toString(),
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = if (isToday) {
+                            Modifier
+                                .fillMaxSize(0.6f)
+                                .border(1.dp, Color.White, CircleShape)
+                        } else {
+                            Modifier.fillMaxSize()
+                        }
+
+                    ) {
+                        Text(
+                            text = if (isFirstOfMonth) data[it].month.slice(0..2) else data[it].date.toString(),
 //                        textDecoration = if (data[it].isToday) TextDecoration.Underline else null,
-                        color = (
-                                if (data[it].isFutureDate) {
-                                    textColor.copy(0.2f)
-                                } else {
-                                    textColor.copy(if (isToday) 1f else 0.7f)
-                                }
-                                ),
-                        fontSize = when {
-                            isFirstOfMonth -> 12.sp
-                            data[it].isToday -> 16.sp
-                            else -> 14.sp
-                        },
-                        fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
-                        textAlign = TextAlign.Center,
-                    )
+                            color = (
+                                    if (data[it].isFutureDate) {
+                                        textColor.copy(0.2f)
+                                    } else {
+                                        textColor.copy(if (isToday) 1f else 0.7f)
+                                    }
+                                    ),
+                            fontSize = when {
+                                isFirstOfMonth -> 12.sp
+                                data[it].isToday -> 16.sp
+                                else -> 14.sp
+                            },
+                            fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.Normal,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                 }
             }
         }
