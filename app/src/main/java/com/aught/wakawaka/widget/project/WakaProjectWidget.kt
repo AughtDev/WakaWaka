@@ -55,15 +55,17 @@ import kotlin.math.min
 class WakaProjectWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
-            MyContent()
+            MyContent(context)
         }
     }
 
     @Composable
-    private fun MyContent() {
-        val context = LocalContext.current
+    private fun MyContent(context: Context) {
+//        val context = LocalContext.current
         val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
         val widgetProject = prefs.getString(WakaHelpers.PROJECT_ASSIGNED_TO_PROJECT_WIDGET, null)
+
+        println("rendering project widget again")
 
         if (widgetProject == null) {
             Box(

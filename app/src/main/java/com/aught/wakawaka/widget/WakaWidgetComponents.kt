@@ -122,15 +122,15 @@ class WakaWidgetComponents {
                 verticalAlignment = Alignment.Bottom,
                 horizontalAlignment = Alignment.End
             ) {
-                Text(
-                    text = "h",
-                    style = TextStyle(
-                        fontSize = 12.sp,
-                        color = ColorProvider(day = textColor, night = textColor),
-                        textAlign = TextAlign.Start
-                    ),
-                    modifier = GlanceModifier.padding(bottom = 2.dp).width(20.dp)
-                )
+//                Text(
+//                    text = "h",
+//                    style = TextStyle(
+//                        fontSize = 12.sp,
+//                        color = ColorProvider(day = textColor, night = textColor),
+//                        textAlign = TextAlign.Start
+//                    ),
+//                    modifier = GlanceModifier.padding(bottom = 2.dp).width(20.dp)
+//                )
                 (1..numMarkers).reversed().forEach {
 
                     Column(

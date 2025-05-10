@@ -520,6 +520,39 @@ class WakaDataWorker(appContext: Context, workerParams: WorkerParameters) :
             }
         }
 
+        fun saveProjectData(context: Context, projectName: String, projectData: ProjectSpecificData) {
+            val moshi = Moshi.Builder()
+                .add(Iso8601UtcDateAdapter())
+                .addLast(KotlinJsonAdapterFactory()).build()
+            val projectSpecificDataAdapter = moshi.adapter(ProjectSpecificData::class.java)
+            val mapAdapter = moshi.adapter<Map<String, String>>(getMapType())
+
+            val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
+
+            val currProjectDataMap = loadProjectSpecificData(context).toMutableMap()
+            currProjectDataMap[projectName] = projectData
+
+            val wakaDataHandler = WakaData(null,currProjectDataMap)
+
+            val newDailyStreakCount = wakaDataHandler.calculateUpdatedStreak(DataRequest.ProjectSpecific(projectName), TimePeriod.DAY)
+            val newWeeklyStreakCount = wakaDataHandler.calculateUpdatedStreak(DataRequest.ProjectSpecific(projectName), TimePeriod.WEEK)
+
+            currProjectDataMap[projectName] = projectData.copy(
+                dailyStreak = StreakData(newDailyStreakCount, LocalDate.now().toString()),
+                weeklyStreak = StreakData(newWeeklyStreakCount, LocalDate.now().toString())
+            )
+
+            val projectDataStringMap = currProjectDataMap.mapValues {
+                projectSpecificDataAdapter.toJson(it.value)
+            }
+
+            prefs.edit {
+                putString(WakaHelpers.PROJECT_SPECIFIC_DATA,
+                    mapAdapter.toJson(projectDataStringMap)
+                )
+            }
+        }
+
         fun loadProjectSpecificData(context: Context): Map<String, ProjectSpecificData> {
             // get the prefs and the json aggregate data
             val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
