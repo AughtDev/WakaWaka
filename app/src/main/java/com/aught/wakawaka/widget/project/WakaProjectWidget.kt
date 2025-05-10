@@ -35,9 +35,12 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import com.aught.wakawaka.data.DailyAggregateData
+import com.aught.wakawaka.data.DataRequest
 import com.aught.wakawaka.data.GraphMode
 import com.aught.wakawaka.data.ProjectSpecificData
 import com.aught.wakawaka.data.ProjectStats
+import com.aught.wakawaka.data.TimePeriod
+import com.aught.wakawaka.data.WakaData
 import com.aught.wakawaka.data.WakaDataWorker
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaWidgetTheme
@@ -56,76 +59,13 @@ class WakaProjectWidget : GlanceAppWidget() {
         }
     }
 
-
-    private fun generateDailyData(data: Map<String, Int>?): List<Int> {
-        val today = LocalDate.now()
-        val dailyData: MutableList<Int> = mutableListOf()
-
-
-        (0..6).forEach { daysAgo ->
-            val date = today.minusDays(daysAgo.toLong())
-            val formattedDate = WakaHelpers.dateToYYYYMMDD(date)
-            if (data?.containsKey(formattedDate) == true) {
-                dailyData.add(data[formattedDate]!!)
-            } else {
-                dailyData.add(0)
-            }
-        }
-
-        dailyData.reverse()
-        return dailyData.toList()
-    }
-
-    private fun generateWeeklyData(data: Map<String, Int>?): List<Int> {
-        val today = LocalDate.now()
-
-        val weeklyData: MutableList<Int> = mutableListOf()
-
-        val currentWeekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-
-        (0..6).forEach { weekOffset ->
-            val weekStart = currentWeekStart.minusWeeks(weekOffset.toLong())
-            var totalSeconds = 0;
-
-            (0..6).forEach { dayOffset ->
-                val date = weekStart.plusDays(dayOffset.toLong())
-                val dayFormattedDate = WakaHelpers.dateToYYYYMMDD(date)
-
-                if (data?.containsKey(dayFormattedDate) == true) {
-                    totalSeconds += data[dayFormattedDate]!!
-                }
-            }
-            weeklyData.add(totalSeconds)
-        }
-
-        weeklyData.reverse()
-        return weeklyData.toList()
-    }
-
-    private fun getProjectData(context: Context): ProjectSpecificData? {
-        val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
-
-        val projectData = WakaDataWorker.loadProjectSpecificData(context)
-        val widgetProject = prefs.getString(WakaHelpers.PROJECT_ASSIGNED_TO_PROJECT_WIDGET, null)
-
-        if (widgetProject != null) {
-            val project = projectData[widgetProject]
-            if (project != null) {
-                return project
-            }
-        }
-        return null
-    }
-
     @Composable
     private fun MyContent() {
         val context = LocalContext.current
         val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
+        val widgetProject = prefs.getString(WakaHelpers.PROJECT_ASSIGNED_TO_PROJECT_WIDGET, null)
 
-        val projectData = getProjectData(context)
-
-
-        if (projectData == null) {
+        if (widgetProject == null) {
             Box(
                 modifier = GlanceModifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -135,22 +75,20 @@ class WakaProjectWidget : GlanceAppWidget() {
                 )
             }
         } else {
+            val wakaData = WakaData.fromContext(context)
+            val dataRequest = DataRequest.ProjectSpecific(widgetProject)
 
             // create a graph mode state
             var graphMode = remember { mutableStateOf(GraphMode.Daily) }
+            val timePeriod = when (graphMode.value) {
+                GraphMode.Daily -> TimePeriod.DAY
+                GraphMode.Weekly -> TimePeriod.WEEK
+            }
 
-            val dailyData = generateDailyData(projectData.dailyDurationInSeconds)
-            val weeklyData = generateWeeklyData(projectData.dailyDurationInSeconds)
+            val data = wakaData.getPeriodicDurationsInSeconds(dataRequest, timePeriod, 7)
+            val dates = wakaData.getPeriodicDates(dataRequest, timePeriod, 7)
 
-            val dailyTargetInHours = projectData.dailyTargetHours
-            val weeklyTargetInHours = projectData.weeklyTargetHours
-
-
-            val targetInHours =
-                when (graphMode.value) {
-                    GraphMode.Daily -> dailyTargetInHours
-                    GraphMode.Weekly -> weeklyTargetInHours
-                }
+            val targetInHours = wakaData.getTarget(dataRequest, timePeriod)
 
             val maxHours =
                 when (graphMode.value) {
@@ -158,28 +96,11 @@ class WakaProjectWidget : GlanceAppWidget() {
                     GraphMode.Weekly -> 24 * 7 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
                 }
 
-            val streak = if (projectData != null) {
-                when (graphMode.value) {
-                    GraphMode.Daily -> projectData.dailyStreak?.count ?: 0
-                    GraphMode.Weekly -> projectData.weeklyStreak?.count ?: 0
-                }
-            } else 0
+            val streak = wakaData.getStreak(dataRequest, timePeriod).count
 
-            val hitTargetToday: Boolean = when (graphMode.value) {
-                GraphMode.Daily -> WakaDataWorker.dailyTargetHit(
-                    projectData?.dailyDurationInSeconds?.mapValues { it.value } ?: emptyMap(),
-                    dailyTargetInHours)
+            val hitTargetToday = wakaData.targetHit(dataRequest, timePeriod)
 
-                GraphMode.Weekly -> WakaDataWorker.weeklyTargetHit(
-                    projectData?.dailyDurationInSeconds?.mapValues { it.value } ?: emptyMap(),
-                    weeklyTargetInHours
-                )
-            }
-
-            val excludedDaysSet = when (graphMode.value) {
-                GraphMode.Daily -> projectData?.excludedDaysFromDailyStreak?.toSet() ?: emptySet<Int>()
-                GraphMode.Weekly -> emptySet<Int>()
-            }.toSet()
+            val excludedDays = wakaData.getExcludedDays(dataRequest, timePeriod)
 
             val theme = when (prefs.getInt(WakaHelpers.THEME, 0)) {
                 0 -> WakaWidgetTheme.Light
@@ -187,8 +108,7 @@ class WakaProjectWidget : GlanceAppWidget() {
                 else -> WakaWidgetTheme.Dark
             }
 
-            val projectColor =
-                runCatching { Color(projectData.color.toColorInt()) }.getOrNull() ?: WakaHelpers.projectNameToColor(projectData.name)
+            val projectColor = wakaData.getProjectColor(widgetProject)
 
             val primaryColor = if (theme == WakaWidgetTheme.Dark) {
                 ColorProvider(day = projectColor, night = projectColor)
@@ -228,7 +148,7 @@ class WakaProjectWidget : GlanceAppWidget() {
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = projectData.name.uppercase(),
+                            text = widgetProject.uppercase(),
                             style = TextStyle(
                                 color = primaryColor,
                                 fontSize = 16.sp,
@@ -300,18 +220,9 @@ class WakaProjectWidget : GlanceAppWidget() {
                                 .padding(bottom = WakaWidgetHelpers.GRAPH_BOTTOM_PADDING.dp),
                         ) {
                             // map all days or weeks depending on graph mode
-                            when (graphMode.value) {
-                                GraphMode.Daily -> dailyData
-                                GraphMode.Weekly -> weeklyData
-                            }.forEachIndexed { i, it ->
-                                val idx = (if (graphMode.value == GraphMode.Daily) dailyData else weeklyData).size - i - 1
-                                // if graph is weekly, move to the first day of the week
-                                val date = if (graphMode.value == GraphMode.Weekly) {
-                                    LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                                        .minusWeeks(idx.toLong())
-                                } else {
-                                    LocalDate.now().minusDays(idx.toLong())
-                                }
+                            dates.zip(data).forEach {
+                                val date = it.first
+                                val duration = it.second
 
                                 Column(
                                     modifier = GlanceModifier
@@ -323,8 +234,8 @@ class WakaProjectWidget : GlanceAppWidget() {
                                         if (
                                             targetInHours == null ||
                                             // if the day is in the exclusion list, use the primary color
-                                            date.dayOfWeek.value in excludedDaysSet ||
-                                            it > (targetInHours * 3600)
+                                            date.dayOfWeek.value in excludedDays ||
+                                            duration > (targetInHours * 3600)
                                         ) primaryColor
                                         else
                                             ColorProvider(day = Color.Gray, night = Color.Gray)
@@ -342,7 +253,7 @@ class WakaProjectWidget : GlanceAppWidget() {
                                                 .height(
                                                     (WakaWidgetHelpers.GRAPH_HEIGHT * min(
                                                         1f,
-                                                        it / (3600 * maxHours)
+                                                        duration / (3600 * maxHours)
                                                     )).dp
                                                 )
 //                                                .background(WakaHelpers.projectNameToColor(it.name))

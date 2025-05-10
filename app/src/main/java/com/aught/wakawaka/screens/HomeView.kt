@@ -35,42 +35,40 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.layout.ModifierLocalBeyondBoundsLayout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.toColorInt
-import com.aught.wakawaka.WakaWakaApp
+import com.aught.wakawaka.data.DataRequest
 import com.aught.wakawaka.data.DurationStats
-import com.aught.wakawaka.data.StreakData
+import com.aught.wakawaka.data.TimePeriod
+import com.aught.wakawaka.data.WakaData
 import com.aught.wakawaka.data.WakaDataWorker
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.utils.ColorUtils
-import java.text.SimpleDateFormat
 import java.time.LocalDate
-import java.util.Locale
-import java.util.TimeZone
 import kotlin.math.min
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeView() {
+    var selectedProject by remember { mutableStateOf(WakaHelpers.ALL_PROJECTS_ID) }
+
+    val dataRequest = if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) DataRequest.Aggregate else DataRequest.ProjectSpecific(selectedProject)
+
     val context = LocalContext.current
+
     val aggregateData = WakaDataWorker.loadAggregateData(context)
     val projectSpecificData = WakaDataWorker.loadProjectSpecificData(context)
     val wakaStatistics = WakaDataWorker.loadWakaStatistics(context)
 
-    println("WakaStats ${projectSpecificData["WakaWaka"]}")
+    val wakaData = WakaData(aggregateData, projectSpecificData)
 
     val projects = mutableListOf(WakaHelpers.ALL_PROJECTS_ID)
     projects.addAll(projectSpecificData.map { it.value.name })
-
-    var selectedProject by remember { mutableStateOf(WakaHelpers.ALL_PROJECTS_ID) }
 
 
     val durationStats: DurationStats = if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
@@ -81,32 +79,17 @@ fun HomeView() {
 
     val durationLabelValueMap = mapOf(
         "Today" to durationStats.today,
-        "Last 7 Days" to durationStats.last7Days,
-        "Last 30 Days" to durationStats.last30Days,
-        "Last Year" to durationStats.lastYear,
+        "This Week" to wakaData.getOffsetPeriodicDurationInSeconds(dataRequest, TimePeriod.WEEK, 0),
+//        "Last 7 Days" to durationStats.last7Days,
+        "Past 30 Days" to durationStats.last30Days,
+        "Past Year" to durationStats.lastYear,
     )
 
+    val dateToDurationMap = wakaData.getDateToDurationData(dataRequest)
 
-    val dateToDurationMap =
-        if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
-            aggregateData?.dailyRecords?.mapValues {
-                it.value.totalSeconds
-            } ?: emptyMap()
-        } else {
-            projectSpecificData[selectedProject]?.dailyDurationInSeconds ?: emptyMap()
-        }
+    val dailyTargetHit = wakaData.targetHit(dataRequest, TimePeriod.DAY)
 
-    val dailyTargetHours = WakaDataWorker.dailyTargetHit(
-        dateToDurationMap,
-        if (selectedProject == WakaHelpers.ALL_PROJECTS_ID)
-            aggregateData?.dailyTargetHours else projectSpecificData[selectedProject]?.dailyTargetHours
-    )
-
-    val streakCount = ((
-            if (selectedProject == WakaHelpers.ALL_PROJECTS_ID)
-                aggregateData?.dailyStreak?.count
-            else projectSpecificData[selectedProject]?.dailyStreak?.count
-            ) ?: 0) + (if (dailyTargetHours) 1 else 0)
+    val streakCount = wakaData.getStreak(dataRequest, TimePeriod.DAY).count + (if (dailyTargetHit) 1 else 0)
 
 
     Column(

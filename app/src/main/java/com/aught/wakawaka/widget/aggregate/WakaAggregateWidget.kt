@@ -29,12 +29,14 @@ import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
 import androidx.glance.layout.wrapContentHeight
-import androidx.glance.text.FontFamily
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
+import com.aught.wakawaka.data.DataRequest
 import com.aught.wakawaka.data.GraphMode
+import com.aught.wakawaka.data.TimePeriod
+import com.aught.wakawaka.data.WakaData
 import com.aught.wakawaka.data.WakaDataWorker
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaWidgetTheme
@@ -45,7 +47,6 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import kotlin.math.min
-import kotlin.math.roundToInt
 
 
 class WakaAggregateWidget : GlanceAppWidget() {
@@ -57,90 +58,26 @@ class WakaAggregateWidget : GlanceAppWidget() {
         }
     }
 
-
-    private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-
-    private fun generateDailyData(data: Map<String, DailyAggregateData>?): List<DailyAggregateData> {
-        val today = LocalDate.now()
-
-        val dailyData: MutableList<DailyAggregateData> = mutableListOf()
-
-        (0..6).forEach { daysAgo ->
-            val date = today.minusDays(daysAgo.toLong())
-            val formattedDate = date.format(dateFormatter)
-            if (data?.containsKey(formattedDate) == true) {
-                dailyData.add(data[formattedDate]!!)
-            } else {
-                dailyData.add(DailyAggregateData(formattedDate, 0, emptyList()))
-            }
-        }
-
-        dailyData.reverse()
-        return dailyData.toList()
-    }
-
-    private fun generateWeeklyData(data: Map<String, DailyAggregateData>?): List<DailyAggregateData> {
-        val today = LocalDate.now()
-
-        val weeklyData: MutableList<DailyAggregateData> = mutableListOf()
-
-        val currentWeekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-
-        (0..6).forEach { weekOffset ->
-            val weekStart = currentWeekStart.minusWeeks(weekOffset.toLong())
-            val weekFormattedDate = weekStart.format(dateFormatter)
-            var totalSeconds = 0;
-            val projectsData = mutableMapOf<String, Int>()
-
-            (0..6).forEach { dayOffset ->
-                val date = weekStart.plusDays(dayOffset.toLong())
-                val dayFormattedDate = date.format(dateFormatter)
-
-                if (data?.containsKey(dayFormattedDate) == true) {
-                    val dayData = data[dayFormattedDate]!!
-                    totalSeconds += dayData.totalSeconds
-                    dayData.projects.forEach {
-                        if (projectsData.containsKey(it.name)) {
-                            projectsData[it.name] = projectsData[it.name]!! + it.totalSeconds
-                        } else {
-                            projectsData[it.name] = it.totalSeconds
-                        }
-                    }
-                }
-            }
-
-            val projects = projectsData.map {
-                ProjectStats(it.key, it.value)
-            }
-            weeklyData.add(DailyAggregateData(weekFormattedDate, totalSeconds, projects))
-        }
-
-        weeklyData.reverse()
-        return weeklyData.toList()
-    }
-
     @Composable
     private fun MyContent() {
         val context = LocalContext.current
-        val aggregateData = WakaDataWorker.loadAggregateData(context)
+        val wakaData = WakaData.fromContext(context)
+        val dataRequest = DataRequest.Aggregate
 
         val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
 
         // create a graph mode state
         var graphMode = remember { mutableStateOf(GraphMode.Daily) }
 
-        val dailyData = generateDailyData(aggregateData?.dailyRecords)
-        val weeklyData = generateWeeklyData(aggregateData?.dailyRecords)
+        val timePeriod = when (graphMode.value) {
+            GraphMode.Daily -> TimePeriod.DAY
+            GraphMode.Weekly -> TimePeriod.WEEK
+        }
+        val data = wakaData.getPeriodicDurationsInSeconds(dataRequest, timePeriod, 7)
+        val dates = wakaData.getPeriodicDates(dataRequest, timePeriod, 7)
 
-        val dailyTargetInHours = aggregateData?.dailyTargetHours
-        val weeklyTargetInHours = aggregateData?.weeklyTargetHours
 
-
-        val targetInHours =
-            when (graphMode.value) {
-                GraphMode.Daily -> dailyTargetInHours
-                GraphMode.Weekly -> weeklyTargetInHours
-            }
+        val targetInHours = wakaData.getTarget(dataRequest, timePeriod)
 
         val maxHours =
             when (graphMode.value) {
@@ -148,28 +85,11 @@ class WakaAggregateWidget : GlanceAppWidget() {
                 GraphMode.Weekly -> 24 * 7 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
             }
 
-        val streak = if (aggregateData != null) {
-            when (graphMode.value) {
-                GraphMode.Daily -> aggregateData.dailyStreak?.count ?: 0
-                GraphMode.Weekly -> aggregateData.weeklyStreak?.count ?: 0
-            }
-        } else 0
+        val streak = wakaData.getStreak(dataRequest, timePeriod).count
 
-        val hitTargetToday: Boolean = when (graphMode.value) {
-            GraphMode.Daily -> WakaDataWorker.dailyTargetHit(
-                aggregateData?.dailyRecords?.mapValues { it.value.totalSeconds } ?: emptyMap(),
-                dailyTargetInHours)
+        val hitTargetToday = wakaData.targetHit(dataRequest, timePeriod)
 
-            GraphMode.Weekly -> WakaDataWorker.weeklyTargetHit(
-                aggregateData?.dailyRecords?.mapValues { it.value.totalSeconds } ?: emptyMap(),
-                weeklyTargetInHours
-            )
-        }
-
-        val excludedDaysSet = when (graphMode.value) {
-            GraphMode.Daily -> aggregateData?.excludedDaysFromDailyStreak?.toSet() ?: emptySet<Int>()
-            GraphMode.Weekly -> emptySet<Int>()
-        }.toSet()
+        val excludedDays = wakaData.getExcludedDays(dataRequest, timePeriod)
 
         val theme = when (prefs.getInt(WakaHelpers.THEME, 0)) {
             0 -> WakaWidgetTheme.Light
@@ -284,10 +204,9 @@ class WakaAggregateWidget : GlanceAppWidget() {
                             .padding(bottom = WakaWidgetHelpers.GRAPH_BOTTOM_PADDING.dp),
                     ) {
                         // map all days or weeks depending on graph mode
-                        when (graphMode.value) {
-                            GraphMode.Daily -> dailyData
-                            GraphMode.Weekly -> weeklyData
-                        }.forEach {
+                        dates.zip(data).forEach { it ->
+                            val date = it.first
+                            val duration = it.second
                             Column(
                                 modifier = GlanceModifier
 //                            .background(Color.Green)
@@ -298,8 +217,8 @@ class WakaAggregateWidget : GlanceAppWidget() {
                                     if (
                                         targetInHours == null ||
                                         // if the day is in the exclusion list, use the primary color
-                                        LocalDate.parse(it.date, dateFormatter).dayOfWeek.value in excludedDaysSet ||
-                                        it.totalSeconds > (targetInHours * 3600)
+                                        date.dayOfWeek.value in excludedDays ||
+                                        duration > (targetInHours * 3600)
                                     ) primaryColor
                                     else
                                         ColorProvider(day = Color.Gray, night = Color.Gray)
@@ -312,25 +231,21 @@ class WakaAggregateWidget : GlanceAppWidget() {
                                         .fillMaxWidth(),
                                     verticalAlignment = Alignment.Bottom
                                 ) {
-                                    it.projects
-                                        .sortedBy { it.totalSeconds }
-                                        .forEach {
-                                            Box(
-                                                modifier = GlanceModifier.fillMaxWidth()
-                                                    .height(
-                                                        (WakaWidgetHelpers.GRAPH_HEIGHT * min(
-                                                            1f,
-                                                            it.totalSeconds / (3600 * maxHours)
-                                                        )).dp
-                                                    )
+                                    Box(
+                                        modifier = GlanceModifier.fillMaxWidth()
+                                            .height(
+                                                (WakaWidgetHelpers.GRAPH_HEIGHT * min(
+                                                    1f,
+                                                    duration / (3600 * maxHours)
+                                                )).dp
+                                            )
 //                                                .background(WakaHelpers.projectNameToColor(it.name))
-                                                    .background(barColor)
-                                                    .padding(4.dp)
-                                            ) {}
-                                        }
+                                            .background(barColor)
+                                            .padding(4.dp)
+                                    ) {}
                                 }
                                 // get the day,month and year from date of format yyyy-mm-dd
-                                val date = it.date.split("-")
+                                val date = date.toString().split("-")
                                 Box(
                                     modifier = GlanceModifier.height(WakaWidgetHelpers.DATE_TEXT_HEIGHT.dp)
                                         .fillMaxWidth(),
