@@ -191,10 +191,11 @@ class ColorUtils {
         )
 
         fun getStreakColors(streak: Int): List<Color> {
+            val desaturation = 0.6f;
             // the streak colors are based on the codeforces color progression, iterated over the powers of 2
             // get the power of 2 at or below the streak
             val pow = min(if (streak > 0) floor(ln(streak.toDouble()) / ln(2.0)).toInt() else 0, streakColors.size - 1)
-            return streakColors[pow]
+            return streakColors[pow].map { desaturate(it, desaturation) }
         }
 
         // endregion

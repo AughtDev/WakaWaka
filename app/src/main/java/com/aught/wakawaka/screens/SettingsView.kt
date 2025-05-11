@@ -1,6 +1,7 @@
 package com.aught.wakawaka.screens
 
 import DailyTargetCard
+import SuccessAlert
 import WeeklyTargetCard
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
@@ -75,7 +76,9 @@ fun SettingsView(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
 
-    val aggregateData = WakaDataWorker.loadAggregateData(context)
+//    val aggregateData = WakaDataWorker.loadAggregateData(context)
+    val aggregateData =
+        WakaDataWorker.loadAggregateData(context) ?: WakaHelpers.INITIAL_AGGREGATE_DATA
 
 
     // State variables for form fields
@@ -93,7 +96,7 @@ fun SettingsView(modifier: Modifier = Modifier) {
         )
     }
     var dailyTarget by remember {
-        mutableStateOf(aggregateData?.dailyTargetHours ?: 0f)
+        mutableStateOf(aggregateData?.dailyTargetHours ?: 2f)
     }
 
     var withWeeklyTarget by remember {
@@ -102,7 +105,7 @@ fun SettingsView(modifier: Modifier = Modifier) {
         )
     }
     var weeklyTarget by remember {
-        mutableStateOf(aggregateData?.weeklyTargetHours ?: 0f)
+        mutableStateOf(aggregateData?.weeklyTargetHours ?: 10f)
     }
 
 //    val apiOptions = listOf(WakaURL.WAKATIME.url, WakaURL.WAKAPI.url)
@@ -271,37 +274,37 @@ fun SettingsView(modifier: Modifier = Modifier) {
         }
 
         // Success message
-        AnimatedVisibility(visible = showSuccessMessage) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Info,
-                        contentDescription = "Success",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "Settings saved successfully!",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
+        SuccessAlert("Aggregate settings saved successfully!", showSuccessMessage)
 
-            Spacer(modifier = Modifier.height(8.dp))
-        }
+//        AnimatedVisibility(visible = showSuccessMessage) {
+//            Card(
+//                modifier = Modifier.fillMaxWidth(),
+//                colors = CardDefaults.cardColors(
+//                    containerColor = MaterialTheme.colorScheme.primaryContainer
+//                )
+//            ) {
+//                Row(
+//                    modifier = Modifier.padding(16.dp),
+//                    verticalAlignment = Alignment.CenterVertically,
+//                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+//                ) {
+//                    Icon(
+//                        Icons.Default.Info,
+//                        contentDescription = "Success",
+//                        tint = MaterialTheme.colorScheme.primary
+//                    )
+//                    Text(
+//                        text = "Settings saved successfully!",
+//                        style = MaterialTheme.typography.bodyMedium,
+//                        color = MaterialTheme.colorScheme.primary
+//                    )
+//                }
+//            }
+//
+//            Spacer(modifier = Modifier.height(8.dp))
+//        }
+
         val crtScope = rememberCoroutineScope()
-
-        val aggregateData =
-            WakaDataWorker.loadAggregateData(context) ?: WakaHelpers.INITIAL_AGGREGATE_DATA
 
 
         // Save Button
@@ -403,8 +406,6 @@ fun APIKeyCard(
         singleLine = true
     )
 }
-
-
 
 
 @OptIn(ExperimentalMaterial3Api::class)

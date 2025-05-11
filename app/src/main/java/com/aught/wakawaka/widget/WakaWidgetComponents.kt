@@ -174,17 +174,40 @@ class WakaWidgetComponents {
             val trueStreak = if (hitTargetToday) streak + 1 else streak
             val streakColors = ColorUtils.getStreakColors(trueStreak)
 
-            Text(
-                text = trueStreak.toString(),
-                style = TextStyle(
-                    color = ColorProvider(
-                        day = streakColors[0], night = streakColors[0]
-                    ),
-                    fontSize = 64.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.SansSerif
-                ),
-            )
+            val segments = mutableListOf<String>()
+            val n = trueStreak.toString().length
+
+            println("Streak colors are $streakColors, n is $n")
+
+            for (i in 0 until streakColors.size) {
+                if (i == streakColors.size - 1) {
+                    segments.add(trueStreak.toString().subSequence(i, n).toString())
+                    break
+                }
+                segments.add(trueStreak.toString()[i].toString())
+            }
+            println("showing segments $segments")
+
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalAlignment = Alignment.Start
+            ) {
+                segments.forEachIndexed { i, seg ->
+                    println("rendering segment $seg")
+                    Text(
+                        text = seg,
+                        style = TextStyle(
+                            color = ColorProvider(
+                                day = streakColors[i], night = streakColors[i]
+                            ),
+                            fontSize = 64.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.SansSerif
+                        ),
+                    )
+                }
+            }
         }
     }
 

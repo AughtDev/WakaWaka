@@ -1,6 +1,7 @@
 package com.aught.wakawaka.screens
 
 import DailyTargetCard
+import SuccessAlert
 import WeeklyTargetCard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +47,8 @@ import com.aught.wakawaka.data.WakaData
 import com.aught.wakawaka.data.WakaDataWorker
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaURL
+import com.aught.wakawaka.workers.WakaProjectWidgetUpdateWorker
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Duration
 
@@ -55,6 +59,7 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
     val projectData = projectSpecificData[projectName]
 
     if (projectData != null) {
+        var showSuccessMessage by remember { mutableStateOf(false) }
 
         var withDailyTarget by remember {
             mutableStateOf(
@@ -62,7 +67,7 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
             )
         }
         var dailyTarget by remember {
-            mutableStateOf(projectData.dailyTargetHours ?: 0f)
+            mutableStateOf(projectData.dailyTargetHours ?: 2f)
         }
 
         var withWeeklyTarget by remember {
@@ -71,13 +76,21 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
             )
         }
         var weeklyTarget by remember {
-            mutableStateOf(projectData.weeklyTargetHours ?: 0f)
+            mutableStateOf(projectData.weeklyTargetHours ?: 10f)
         }
 
         var dailyStreakExcludedDays by remember {
             mutableStateOf(
                 projectData.excludedDaysFromDailyStreak
             )
+        }
+
+        LaunchedEffect(showSuccessMessage) {
+            if (showSuccessMessage) {
+                // Hide the success message after 2 seconds
+                delay(2000)
+                showSuccessMessage = false
+            }
         }
 
         Column(
@@ -140,6 +153,10 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
                     onWithWeeklyTargetChange = { withWeeklyTarget = it }
                 )
 
+                // Success message
+                SuccessAlert("$projectName settings saved successfully!", showSuccessMessage)
+
+
                 // Save Button
                 Button(
                     onClick = {
@@ -155,10 +172,14 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
                                 dailyStreakExcludedDays,
                             )
                         )
+                        val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaProjectWidgetUpdateWorker>().build()
+                        WorkManager.getInstance(context).enqueue(immediateWorkRequest)
+
+                        showSuccessMessage = true
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Save Project Settings")
+                    Text("Save $projectName Settings")
                 }
             }
         }
