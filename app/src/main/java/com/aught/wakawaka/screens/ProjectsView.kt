@@ -65,6 +65,7 @@ import com.aught.wakawaka.data.WakaData
 import com.aught.wakawaka.utils.ColorUtils
 import com.aught.wakawaka.widget.WakaWidgetHelpers
 import com.aught.wakawaka.widget.project.WakaProjectWidget
+import com.aught.wakawaka.workers.WakaProjectWidgetUpdateWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.time.LocalTime
@@ -73,27 +74,17 @@ import kotlin.math.roundToInt
 
 val GRAPH_HEIGHT = 200f
 
-class WakaProjectWidgetUpdateWorker(
-    context: Context,
-    params: WorkerParameters
-) : CoroutineWorker(context, params) {
-    override suspend fun doWork(): Result {
-        // Update your widget here
-        WakaProjectWidget().updateAll(applicationContext)
-        return Result.success()
-    }
-}
 
-fun setProjectAssignedToProjectWidget(context: Context, projectName: String?, coroutineScope: CoroutineScope) {
+fun setProjectAssignedToProjectWidget(context: Context, projectName: String?) {
     val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
     prefs.edit() {
         putString(WakaHelpers.PROJECT_ASSIGNED_TO_PROJECT_WIDGET, projectName)
     }
     // update the project widget
-    coroutineScope.launch {
-        WakaProjectWidget().updateAll(context)
-        println("done, launched it")
-    }
+//    coroutineScope.launch {
+//        WakaProjectWidget().updateAll(context)
+//        println("done, launched it")
+//    }
 //    val workId = "WakaProjectWidgetUpdate"
 //
 //    WorkManager.getInstance(context).cancelUniqueWork(workId)
@@ -105,8 +96,8 @@ fun setProjectAssignedToProjectWidget(context: Context, projectName: String?, co
 //        ExistingWorkPolicy.REPLACE,
 //        updateWork
 //    )
-//    val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaProjectWidgetUpdateWorker>().build()
-//    WorkManager.getInstance(context).enqueue(immediateWorkRequest)
+    val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaProjectWidgetUpdateWorker>().build()
+    WorkManager.getInstance(context).enqueue(immediateWorkRequest)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -129,8 +120,6 @@ fun ProjectsView(navController: NavHostController) {
     var expandedProjectName by remember {
         mutableStateOf<String?>(null)
     }
-
-    val crtScope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -231,7 +220,7 @@ fun ProjectsView(navController: NavHostController) {
                             onCheckedChange = {
                                 val newProjectAssignedToWidget = if (isProjectAssignedToProjectWidget) null else projectName
                                 projectAssignedToProjectWidget = newProjectAssignedToWidget
-                                setProjectAssignedToProjectWidget(context, newProjectAssignedToWidget, crtScope)
+                                setProjectAssignedToProjectWidget(context, newProjectAssignedToWidget)
                             },
                             modifier = Modifier.scale(0.6f)
                         )

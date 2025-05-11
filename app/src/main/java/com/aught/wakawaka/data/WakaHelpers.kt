@@ -79,7 +79,7 @@ class WakaHelpers {
             // map the hash code to a specific range within 0-360 (e.g., 0-120 and 330-360),
             // but this would limit the number of distinct hues significantly.
             // Using the full spectrum with high S and V usually provides the best visual distinctness.
-            val saturation = 0.7f // Adjust between 0.5f and 1.0f for desired intensity
+            val saturation = 0.6f // Adjust between 0.5f and 1.0f for desired intensity
             val value = 0.9f      // Adjust between 0.7f and 1.0f for desired brightness
 
             // Convert HSV values to an Android ARGB color integer
@@ -95,7 +95,7 @@ class WakaHelpers {
             return android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
         }
 
-        fun durationInSecondsToDurationString(durationInSeconds: Int,hoursSuffix: String = "h",minutesSuffix: String = "m"): String {
+        fun durationInSecondsToDurationString(durationInSeconds: Int, hoursSuffix: String = "h", minutesSuffix: String = "m"): String {
             // the expected return format is 5h 34m
             val totalMinutes = durationInSeconds / 60
             val numHours = floor(totalMinutes.toFloat() / 60).toInt()
