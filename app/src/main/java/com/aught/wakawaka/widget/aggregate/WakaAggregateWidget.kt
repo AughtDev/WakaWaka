@@ -1,7 +1,5 @@
 package com.aught.wakawaka.widget.aggregate
 
-import com.aught.wakawaka.data.DailyAggregateData
-import com.aught.wakawaka.data.ProjectStats
 import android.content.Context
 import androidx.glance.GlanceId
 import androidx.glance.appwidget.GlanceAppWidget
@@ -36,16 +34,11 @@ import androidx.glance.text.TextStyle
 import com.aught.wakawaka.data.DataRequest
 import com.aught.wakawaka.data.GraphMode
 import com.aught.wakawaka.data.TimePeriod
-import com.aught.wakawaka.data.WakaData
-import com.aught.wakawaka.data.WakaDataWorker
+import com.aught.wakawaka.data.WakaDataHandler
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaWidgetTheme
 import com.aught.wakawaka.widget.WakaWidgetComponents
 import com.aught.wakawaka.widget.WakaWidgetHelpers
-import java.time.DayOfWeek
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.temporal.TemporalAdjusters
 import kotlin.math.min
 
 
@@ -61,7 +54,7 @@ class WakaAggregateWidget : GlanceAppWidget() {
     @Composable
     private fun MyContent() {
         val context = LocalContext.current
-        val wakaData = WakaData.fromContext(context)
+        val wakaDataHandler = WakaDataHandler.fromContext(context)
         val dataRequest = DataRequest.Aggregate
 
         val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
@@ -73,11 +66,11 @@ class WakaAggregateWidget : GlanceAppWidget() {
             GraphMode.Daily -> TimePeriod.DAY
             GraphMode.Weekly -> TimePeriod.WEEK
         }
-        val data = wakaData.getPeriodicDurationsInSeconds(dataRequest, timePeriod, 7)
-        val dates = wakaData.getPeriodicDates(dataRequest, timePeriod, 7)
+        val data = wakaDataHandler.getPeriodicDurationsInSeconds(dataRequest, timePeriod, 7)
+        val dates = wakaDataHandler.getPeriodicDates(dataRequest, timePeriod, 7)
 
 
-        val targetInHours = wakaData.getTarget(dataRequest, timePeriod)
+        val targetInHours = wakaDataHandler.getTarget(dataRequest, timePeriod)
 
         val maxHours =
             when (graphMode.value) {
@@ -85,11 +78,11 @@ class WakaAggregateWidget : GlanceAppWidget() {
                 GraphMode.Weekly -> 24 * 7 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
             }
 
-        val streak = wakaData.getStreak(dataRequest, timePeriod).count
+        val streak = wakaDataHandler.getStreak(dataRequest, timePeriod).count
 
-        val hitTargetToday = wakaData.targetHit(dataRequest, timePeriod)
+        val hitTargetToday = wakaDataHandler.targetHit(dataRequest, timePeriod)
 
-        val excludedDays = wakaData.getExcludedDays(dataRequest, timePeriod)
+        val excludedDays = wakaDataHandler.getExcludedDays(dataRequest, timePeriod)
 
         val theme = when (prefs.getInt(WakaHelpers.THEME, 0)) {
             0 -> WakaWidgetTheme.Light
@@ -109,7 +102,7 @@ class WakaAggregateWidget : GlanceAppWidget() {
                 (when (theme) {
                     WakaWidgetTheme.Dark -> Color.Black
                     WakaWidgetTheme.Light -> Color.White
-                }).copy(alpha = 0.2f)
+                }).copy(alpha = 0.3f)
             )
         )
         {

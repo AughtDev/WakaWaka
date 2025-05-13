@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -44,8 +46,8 @@ import androidx.core.graphics.toColorInt
 import com.aught.wakawaka.data.DataRequest
 import com.aught.wakawaka.data.DurationStats
 import com.aught.wakawaka.data.TimePeriod
-import com.aught.wakawaka.data.WakaData
-import com.aught.wakawaka.data.WakaDataWorker
+import com.aught.wakawaka.data.WakaDataHandler
+import com.aught.wakawaka.workers.WakaDataFetchWorker
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.utils.ColorUtils
 import java.time.LocalDate
@@ -61,14 +63,14 @@ fun HomeView() {
 
     val context = LocalContext.current
 
-    val aggregateData = WakaDataWorker.loadAggregateData(context)
-    val projectSpecificData = WakaDataWorker.loadProjectSpecificData(context)
-    val wakaStatistics = WakaDataWorker.loadWakaStatistics(context)
+    val aggregateData = WakaDataFetchWorker.loadAggregateData(context)
+    val projectSpecificData = WakaDataFetchWorker.loadProjectSpecificData(context)
+    val wakaStatistics = WakaDataFetchWorker.loadWakaStatistics(context)
 
-    val wakaData = WakaData(aggregateData, projectSpecificData)
+    val wakaDataHandler = WakaDataHandler(aggregateData, projectSpecificData)
 
     val projects = mutableListOf(WakaHelpers.ALL_PROJECTS_ID)
-    projects.addAll(projectSpecificData.map { it.value.name })
+    projects.addAll(wakaDataHandler.getSortedProjectList())
 
 
     val durationStats: DurationStats = if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
@@ -79,17 +81,17 @@ fun HomeView() {
 
     val durationLabelValueMap = mapOf(
         "Today" to durationStats.today,
-        "This Week" to wakaData.getOffsetPeriodicDurationInSeconds(dataRequest, TimePeriod.WEEK, 0),
+        "This Week" to wakaDataHandler.getOffsetPeriodicDurationInSeconds(dataRequest, TimePeriod.WEEK, 0),
 //        "Last 7 Days" to durationStats.last7Days,
         "Past 30 Days" to durationStats.last30Days,
         "Past Year" to durationStats.lastYear,
     )
 
-    val dateToDurationMap = wakaData.getDateToDurationData(dataRequest)
+    val dateToDurationMap = wakaDataHandler.getDateToDurationData(dataRequest)
 
-    val dailyTargetHit = wakaData.targetHit(dataRequest, TimePeriod.DAY)
+    val dailyTargetHit = wakaDataHandler.targetHit(dataRequest, TimePeriod.DAY)
 
-    val streakCount = wakaData.getStreak(dataRequest, TimePeriod.DAY).count + (if (dailyTargetHit) 1 else 0)
+    val streakCount = wakaDataHandler.getStreak(dataRequest, TimePeriod.DAY).count + (if (dailyTargetHit) 1 else 0)
 
 
     Column(
@@ -120,11 +122,44 @@ fun HomeView() {
                     fontSize = 24.sp
                 )
             }
-            Text(
-                text = streakCount.toString(),
-                fontSize = 72.sp,
-                fontWeight = FontWeight.ExtraBold
-            )
+            Row(
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Text(
+                    text = streakCount.toString(),
+                    fontSize = 72.sp,
+                    color = if (dailyTargetHit) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(0.5f)
+                    },
+                    fontWeight = FontWeight.ExtraBold,
+                )
+//                Column(
+//                    modifier = Modifier.padding(start = 2.dp, bottom = 20.dp),
+//                    verticalArrangement = Arrangement.spacedBy(4.dp),
+//                    horizontalAlignment = Alignment.CenterHorizontally,
+//                ) {
+//                    val streakColors = ColorUtils.getStreakColors(streakCount, 0.3f)
+//                    streakColors.forEach {
+//                        Box(
+//                            modifier = Modifier
+//                                .size(15.dp)
+//                                .clip(RoundedCornerShape(corner = CornerSize(5.dp)))
+//                                .background(it)
+//                        ) {}
+//                    }
+//                    if (dailyTargetHit) {
+//                        Box(
+//                            modifier = Modifier
+//                                .width(15.dp)
+//                                .height(5.dp)
+//                                .clip(RoundedCornerShape(corner = CornerSize(5.dp)))
+//                                .background(MaterialTheme.colorScheme.onSurface)
+//                        ) {}
+//                    }
+//                }
+            }
         }
         CalendarGraph(
             dateToDurationMap.mapValues {
@@ -358,7 +393,11 @@ fun ProjectSelector(
         }
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
+            modifier = Modifier
+                .width(200.dp)
+                .verticalScroll(rememberScrollState())
+                .heightIn(max = 300.dp)
         ) {
             projects.forEach { option ->
                 DropdownMenuItem(

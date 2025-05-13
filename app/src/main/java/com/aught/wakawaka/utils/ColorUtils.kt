@@ -190,8 +190,7 @@ class ColorUtils {
             listOf(Color.Red, Color.Black)
         )
 
-        fun getStreakColors(streak: Int): List<Color> {
-            val desaturation = 0.6f;
+        fun getStreakColors(streak: Int, desaturation: Float = 0.6f): List<Color> {
             // the streak colors are based on the codeforces color progression, iterated over the powers of 2
             // get the power of 2 at or below the streak
             val pow = min(if (streak > 0) floor(ln(streak.toDouble()) / ln(2.0)).toInt() else 0, streakColors.size - 1)

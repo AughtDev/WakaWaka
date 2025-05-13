@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
+import androidx.glance.appwidget.background
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.background
 import androidx.glance.color.ColorProvider
@@ -16,6 +17,7 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.layout.size
 import androidx.glance.layout.width
 import androidx.glance.layout.wrapContentWidth
 import androidx.glance.text.FontFamily
@@ -177,7 +179,6 @@ class WakaWidgetComponents {
             val segments = mutableListOf<String>()
             val n = trueStreak.toString().length
 
-            println("Streak colors are $streakColors, n is $n")
 
             for (i in 0 until streakColors.size) {
                 if (i == streakColors.size - 1) {
@@ -186,26 +187,43 @@ class WakaWidgetComponents {
                 }
                 segments.add(trueStreak.toString()[i].toString())
             }
-            println("showing segments $segments")
 
 
-            Row(
+            Column(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalAlignment = Alignment.Start
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                segments.forEachIndexed { i, seg ->
-                    println("rendering segment $seg")
-                    Text(
-                        text = seg,
-                        style = TextStyle(
-                            color = ColorProvider(
-                                day = streakColors[i], night = streakColors[i]
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    segments.forEachIndexed { i, seg ->
+                        println("rendering segment $seg")
+                        Text(
+                            text = seg,
+                            style = TextStyle(
+                                color = ColorProvider(
+                                    day = streakColors[i], night = streakColors[i]
+                                ),
+                                fontSize = 64.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.SansSerif,
                             ),
-                            fontSize = 64.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.SansSerif
-                        ),
-                    )
+                            modifier = GlanceModifier.height(72.dp)
+                        )
+                    }
+//                    Column(
+//                        modifier = GlanceModifier.padding(start = 2.dp, bottom = 2.dp),
+//                    ) {
+//                        Box(
+//                            modifier = GlanceModifier.size(12.dp).cornerRadius(5.dp).background(streakColors[0])
+//                        ) {}
+//                    }
+                }
+                if (hitTargetToday) {
+                    Box(
+                        modifier = GlanceModifier.width((30 * n).dp).height(5.dp).cornerRadius(2.dp).background(streakColors[0])
+                    ) {}
                 }
             }
         }

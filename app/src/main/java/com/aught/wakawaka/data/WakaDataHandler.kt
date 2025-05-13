@@ -3,6 +3,7 @@ package com.aught.wakawaka.data
 import android.content.Context
 import androidx.compose.ui.graphics.Color
 import androidx.core.graphics.toColorInt
+import com.aught.wakawaka.workers.WakaDataFetchWorker
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
@@ -19,12 +20,12 @@ enum class TimePeriod {
     YEAR
 }
 
-class WakaData(val aggregateData: AggregateData?, val projectSpecificData: Map<String, ProjectSpecificData>) {
+class WakaDataHandler(val aggregateData: AggregateData?, val projectSpecificData: Map<String, ProjectSpecificData>) {
     companion object {
-        fun fromContext(context: Context): WakaData {
-            val aggregateData = WakaDataWorker.loadAggregateData(context)
-            val projectSpecificData = WakaDataWorker.loadProjectSpecificData(context)
-            return WakaData(aggregateData, projectSpecificData)
+        fun fromContext(context: Context): WakaDataHandler {
+            val aggregateData = WakaDataFetchWorker.loadAggregateData(context)
+            val projectSpecificData = WakaDataFetchWorker.loadProjectSpecificData(context)
+            return WakaDataHandler(aggregateData, projectSpecificData)
         }
     }
 
@@ -270,6 +271,15 @@ class WakaData(val aggregateData: AggregateData?, val projectSpecificData: Map<S
         return runCatching {
             Color(projectData.color.toColorInt())
         }.getOrNull() ?: WakaHelpers.projectNameToColor(projectData.name)
+    }
+
+    // get the sorted project list based on the duration over the last 30 days
+    fun getSortedProjectList() : List<String> {
+        val sortedProjectList = projectSpecificData.toList().sortedByDescending { (projectName, _) ->
+            getLastXDaysDurationInSeconds(DataRequest.ProjectSpecific(projectName), 30)
+        }.map { it.first }
+
+        return sortedProjectList
     }
 
     // endregion

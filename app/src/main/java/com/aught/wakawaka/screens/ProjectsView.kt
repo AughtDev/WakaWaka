@@ -34,7 +34,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,26 +48,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aught.wakawaka.data.WakaHelpers
 import androidx.core.content.edit
-import androidx.glance.appwidget.updateAll
 import androidx.navigation.NavHostController
-import androidx.work.CoroutineWorker
-import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
-import androidx.work.WorkerParameters
 import com.aught.wakawaka.Screen
 import com.aught.wakawaka.data.DataRequest
 import com.aught.wakawaka.data.GraphMode
 import com.aught.wakawaka.data.TimePeriod
-import com.aught.wakawaka.data.WakaData
+import com.aught.wakawaka.data.WakaDataHandler
 import com.aught.wakawaka.utils.ColorUtils
 import com.aught.wakawaka.widget.WakaWidgetHelpers
-import com.aught.wakawaka.widget.project.WakaProjectWidget
 import com.aught.wakawaka.workers.WakaProjectWidgetUpdateWorker
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
-import java.time.LocalTime
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -105,7 +95,7 @@ fun setProjectAssignedToProjectWidget(context: Context, projectName: String?) {
 fun ProjectsView(navController: NavHostController) {
     val context = LocalContext.current
     val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
-    val wakaDataHandler = WakaData.fromContext(context)
+    val wakaDataHandler = WakaDataHandler.fromContext(context)
 
 
     var projectAssignedToProjectWidget by remember {
@@ -132,8 +122,8 @@ fun ProjectsView(navController: NavHostController) {
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(bottom = 16.dp)
         )
-        wakaDataHandler.projectSpecificData.forEach { it ->
-            val projectName = it.key
+        wakaDataHandler.getSortedProjectList().forEach { it ->
+            val projectName = it
             val isProjectAssignedToProjectWidget = projectAssignedToProjectWidget == projectName
             val isExpanded = expandedProjectName == projectName
 
@@ -234,7 +224,7 @@ fun ProjectsView(navController: NavHostController) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProjectGraph(wakaDataHandler: WakaData, projectName: String) {
+fun ProjectGraph(wakaDataHandler: WakaDataHandler, projectName: String) {
 
     val dataRequest = DataRequest.ProjectSpecific(projectName)
 

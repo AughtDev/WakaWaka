@@ -8,11 +8,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.toColorInt
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
-import androidx.glance.GlanceTheme
-import androidx.glance.LocalContext
 import androidx.glance.action.clickable
 import androidx.glance.layout.Box
 import androidx.glance.appwidget.GlanceAppWidget
@@ -30,26 +27,18 @@ import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
 import androidx.glance.layout.wrapContentHeight
-import androidx.glance.text.FontFamily
 import androidx.glance.text.FontWeight
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
-import com.aught.wakawaka.data.DailyAggregateData
 import com.aught.wakawaka.data.DataRequest
 import com.aught.wakawaka.data.GraphMode
-import com.aught.wakawaka.data.ProjectSpecificData
-import com.aught.wakawaka.data.ProjectStats
 import com.aught.wakawaka.data.TimePeriod
-import com.aught.wakawaka.data.WakaData
-import com.aught.wakawaka.data.WakaDataWorker
+import com.aught.wakawaka.data.WakaDataHandler
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaWidgetTheme
 import com.aught.wakawaka.utils.ColorUtils
 import com.aught.wakawaka.widget.WakaWidgetComponents
 import com.aught.wakawaka.widget.WakaWidgetHelpers
-import java.time.DayOfWeek
-import java.time.LocalDate
-import java.time.temporal.TemporalAdjusters
 import kotlin.math.min
 
 class WakaProjectWidget : GlanceAppWidget() {
@@ -77,7 +66,7 @@ class WakaProjectWidget : GlanceAppWidget() {
                 )
             }
         } else {
-            val wakaData = WakaData.fromContext(context)
+            val wakaDataHandler = WakaDataHandler.fromContext(context)
             val dataRequest = DataRequest.ProjectSpecific(widgetProject)
 
             // create a graph mode state
@@ -87,10 +76,10 @@ class WakaProjectWidget : GlanceAppWidget() {
                 GraphMode.Weekly -> TimePeriod.WEEK
             }
 
-            val data = wakaData.getPeriodicDurationsInSeconds(dataRequest, timePeriod, 7)
-            val dates = wakaData.getPeriodicDates(dataRequest, timePeriod, 7)
+            val data = wakaDataHandler.getPeriodicDurationsInSeconds(dataRequest, timePeriod, 7)
+            val dates = wakaDataHandler.getPeriodicDates(dataRequest, timePeriod, 7)
 
-            val targetInHours = wakaData.getTarget(dataRequest, timePeriod)
+            val targetInHours = wakaDataHandler.getTarget(dataRequest, timePeriod)
 
             val maxHours =
                 when (graphMode.value) {
@@ -98,11 +87,11 @@ class WakaProjectWidget : GlanceAppWidget() {
                     GraphMode.Weekly -> 24 * 7 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
                 }
 
-            val streak = wakaData.getStreak(dataRequest, timePeriod).count
+            val streak = wakaDataHandler.getStreak(dataRequest, timePeriod).count
 
-            val hitTargetToday = wakaData.targetHit(dataRequest, timePeriod)
+            val hitTargetToday = wakaDataHandler.targetHit(dataRequest, timePeriod)
 
-            val excludedDays = wakaData.getExcludedDays(dataRequest, timePeriod)
+            val excludedDays = wakaDataHandler.getExcludedDays(dataRequest, timePeriod)
 
             val theme = when (prefs.getInt(WakaHelpers.THEME, 0)) {
                 0 -> WakaWidgetTheme.Light
@@ -110,7 +99,7 @@ class WakaProjectWidget : GlanceAppWidget() {
                 else -> WakaWidgetTheme.Dark
             }
 
-            val projectColor = wakaData.getProjectColor(widgetProject)
+            val projectColor = wakaDataHandler.getProjectColor(widgetProject)
 
             val primaryColor = if (theme == WakaWidgetTheme.Dark) {
                 ColorProvider(day = projectColor, night = projectColor)
@@ -126,7 +115,7 @@ class WakaProjectWidget : GlanceAppWidget() {
                     (when (theme) {
                         WakaWidgetTheme.Dark -> Color.Black
                         WakaWidgetTheme.Light -> Color.White
-                    }).copy(alpha = 0.2f)
+                    }).copy(alpha = 0.3f)
                 )
             )
             {
