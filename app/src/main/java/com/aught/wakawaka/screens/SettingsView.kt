@@ -52,6 +52,8 @@ import com.aught.wakawaka.data.StreakData
 import com.aught.wakawaka.workers.WakaDataFetchWorker
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaURL
+import com.aught.wakawaka.workers.WakaDataDumpWorker
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Duration
@@ -262,34 +264,6 @@ fun SettingsView(modifier: Modifier = Modifier) {
         // Success message
         SuccessAlert("Aggregate settings saved successfully!", showSuccessMessage)
 
-//        AnimatedVisibility(visible = showSuccessMessage) {
-//            Card(
-//                modifier = Modifier.fillMaxWidth(),
-//                colors = CardDefaults.cardColors(
-//                    containerColor = MaterialTheme.colorScheme.primaryContainer
-//                )
-//            ) {
-//                Row(
-//                    modifier = Modifier.padding(16.dp),
-//                    verticalAlignment = Alignment.CenterVertically,
-//                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-//                ) {
-//                    Icon(
-//                        Icons.Default.Info,
-//                        contentDescription = "Success",
-//                        tint = MaterialTheme.colorScheme.primary
-//                    )
-//                    Text(
-//                        text = "Settings saved successfully!",
-//                        style = MaterialTheme.typography.bodyMedium,
-//                        color = MaterialTheme.colorScheme.primary
-//                    )
-//                }
-//            }
-//
-//            Spacer(modifier = Modifier.height(8.dp))
-//        }
-
         val crtScope = rememberCoroutineScope()
 
 
@@ -360,6 +334,9 @@ fun SettingsView(modifier: Modifier = Modifier) {
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+
+
+        DataDumpCard(context, crtScope)
     }
 }
 
@@ -431,6 +408,28 @@ fun ThemeSelectionCard(
                     )
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DataDumpCard(context: Context, crtScope: CoroutineScope) {
+
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Button(
+            onClick = {
+
+                crtScope.launch {
+                    // Schedule the one time immediate worker
+                    val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaDataDumpWorker>().build()
+                    WorkManager.getInstance(context).enqueue(immediateWorkRequest)
+                }
+            }
+        ) {
+            Text(text = "Download Data Dump")
         }
     }
 }

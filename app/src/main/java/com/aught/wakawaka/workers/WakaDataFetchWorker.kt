@@ -130,9 +130,6 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
     //    private val url: String = "https://wakapi.dev/api/compat/wakatime/v1/";
 
     override suspend fun doWork(): Result {
-        Log.d("WakaDataWorker", "doWork() called")
-
-//        val authToken: String = "REMOVED_WAKATIME_API_KEY"
         val prefs = applicationContext.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
 
         val url: String =
