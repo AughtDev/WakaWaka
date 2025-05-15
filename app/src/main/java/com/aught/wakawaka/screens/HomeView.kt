@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,8 +17,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -30,16 +35,20 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.toColorInt
@@ -162,22 +171,29 @@ fun HomeView() {
             }
         }
         CalendarGraph(
-            dateToDurationMap.mapValues {
-                // divide by the target hours to get the percentage
-                if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
-                    if (aggregateData?.dailyTargetHours == null) {
-                        if (it.value > 0) 1f else 0f
-                    } else {
-                        min(1f, it.value.toFloat() / (aggregateData.dailyTargetHours * 3600))
-                    }
-                } else {
-                    if (projectSpecificData[selectedProject]?.dailyTargetHours == null) {
-                        if (it.value > 0) 1f else 0f
-                    } else {
-                        min(1f, it.value.toFloat() / (projectSpecificData[selectedProject]!!.dailyTargetHours!! * 3600f))
-                    }
-                }
+            dateToDurationMap,
+//                .mapValues {
+            // divide by the target hours to get the percentage
+//                if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
+//                    if (aggregateData?.dailyTargetHours == null) {
+//                        if (it.value > 0) 1f else 0f
+//                    } else {
+//                        min(1f, it.value.toFloat() / (aggregateData.dailyTargetHours * 3600))
+//                    }
+//                } else {
+//                    if (projectSpecificData[selectedProject]?.dailyTargetHours == null) {
+//                        if (it.value > 0) 1f else 0f
+//                    } else {
+//                        min(1f, it.value.toFloat() / (projectSpecificData[selectedProject]!!.dailyTargetHours!! * 3600f))
+//                    }
+//                }
+//            },
+            targetSeconds = if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
+                aggregateData?.dailyTargetHours?.times(3600) ?: 0f
+            } else {
+                projectSpecificData[selectedProject]?.dailyTargetHours?.times(3600) ?: 0f
             },
+
             projectColor = if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
                 MaterialTheme.colorScheme.primary
             } else {
@@ -223,7 +239,9 @@ fun DurationStatView(timeRange: String, durationInSeconds: Int) {
 data class DayData(
     val date: Int,
     val month: String,
-    val day: String,
+//    val day: String,
+    val year: String,
+    val yyyymmdd: String,
     val duration: Float,
     val isFutureDate: Boolean = false,
     val isToday: Boolean = false
@@ -232,7 +250,7 @@ data class DayData(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WeekGraph(data: List<DayData>, textColor: Color, projectColor: Color) {
+fun WeekGraph(data: List<DayData>, textColor: Color, projectColor: Color, excludedDays: Set<Int>, setDialogDayData: (DayData) -> Unit) {
     val cellSize = 48.dp
 
     Row(
@@ -240,10 +258,17 @@ fun WeekGraph(data: List<DayData>, textColor: Color, projectColor: Color) {
         modifier = Modifier.fillMaxWidth()
     ) {
         (0..6).forEach {
+            val isFirstOfMonth = data[it].date == 1
+            val isToday = data[it].isToday
+
+            val cardModifier = Modifier
+                .size(cellSize)
+                .padding(3.dp)
             Card(
-                modifier = Modifier
-                    .size(cellSize)
-                    .padding(3.dp)
+//                modifier = if (isFirstOfMonth) cardModifier.border(2.dp, Color.Black, RoundedCornerShape(8.dp)) else cardModifier
+                modifier = cardModifier.clickable(onClick = {
+                    setDialogDayData(data[it])
+                })
             ) {
                 val bgColor = projectColor.copy(
                     0.1f + (0.9f * data[it].duration)
@@ -255,37 +280,46 @@ fun WeekGraph(data: List<DayData>, textColor: Color, projectColor: Color) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    val isFirstOfMonth = data[it].date == 1
-                    val isToday = data[it].isToday
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = if (isToday) {
-                            Modifier
-                                .fillMaxSize(0.6f)
-                                .border(1.dp, Color.White, CircleShape)
-                        } else {
-                            Modifier.fillMaxSize()
-                        }
+                    if (!excludedDays.contains(it)) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = if (isToday && !isFirstOfMonth) {
+                                Modifier
+                                    .fillMaxSize(0.6f)
+                                    .border(1.dp, textColor, CircleShape)
+                            } else {
+                                Modifier.fillMaxSize()
+                            }
 
-                    ) {
-                        Text(
-                            text = if (isFirstOfMonth) data[it].month.slice(0..2) else data[it].date.toString(),
+                        ) {
+                            Text(
+                                text = if (isFirstOfMonth) data[it].month.slice(0..2) else data[it].date.toString(),
 //                        textDecoration = if (data[it].isToday) TextDecoration.Underline else null,
-                            color = (
-                                    if (data[it].isFutureDate) {
-                                        textColor.copy(0.2f)
-                                    } else {
-                                        textColor.copy(if (isToday) 1f else 0.7f)
-                                    }
-                                    ),
-                            fontSize = when {
-                                isFirstOfMonth -> 12.sp
-                                data[it].isToday -> 16.sp
-                                else -> 14.sp
-                            },
-                            fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.Normal,
-                            textAlign = TextAlign.Center,
-                        )
+                                color = (
+                                        if (isFirstOfMonth) {
+                                            projectColor
+                                        } else {
+                                            if (data[it].isFutureDate) {
+                                                textColor.copy(0.2f)
+                                            } else {
+                                                textColor.copy(if (isToday) 1f else 0.7f)
+                                            }
+                                        }
+                                        ),
+                                fontSize = when {
+                                    isFirstOfMonth -> 12.sp
+                                    data[it].isToday -> 16.sp
+                                    else -> 14.sp
+                                },
+                                textDecoration = if (isFirstOfMonth && isToday) TextDecoration.Underline else TextDecoration.None,
+                                modifier = if (isFirstOfMonth && !data[it].isFutureDate) Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.background)
+                                    .padding(horizontal = 3.dp, vertical = 2.dp) else Modifier,
+                                fontWeight = if (isFirstOfMonth) FontWeight.Bold else FontWeight.Normal,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
                     }
                 }
             }
@@ -293,52 +327,154 @@ fun WeekGraph(data: List<DayData>, textColor: Color, projectColor: Color) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CalendarGraph(dateToDurationMap: Map<String, Float>, projectColor: Color) {
-    val numWeeks = 16
-    val scrollState = rememberScrollState()
+fun generateWeeklyData(dateToDurationMap: Map<String, Int>, targetSeconds: Float, minWeeks: Int = 8): List<List<DayData>> {
+    // first get the earliest date and calculate the number of weeks
+    val numWeeks = dateToDurationMap.let {
+        if (it.isEmpty()) {
+            minWeeks
+        } else {
+            val dates = it.keys.map { WakaHelpers.yyyyMMDDToDate(it) }
+            val minDate = dates.minOrNull() ?: LocalDate.now()
+            val weeks = (LocalDate.now().toEpochDay() - minDate.toEpochDay()) / 7
+            maxOf(weeks.toInt(), minWeeks)
+        }
+    }
 
-    val today = LocalDate.now()
+    val weeklyData = mutableListOf<List<DayData>>()
 
     // move back to monday
+    val today = LocalDate.now()
     val startDate = today.minusDays((today.dayOfWeek.value - 1).toLong())
 
+    (0..numWeeks).forEach {
+        val weekData = emptyList<DayData>().toMutableList()
+        val firstDateOfWeek = startDate.minusWeeks(it.toLong())
+        (0..6).forEach { day ->
+            // for each day of the week, generate the date string and get the duration
+            val date = firstDateOfWeek.plusDays(day.toLong())
+            val dateString = date.format(WakaHelpers.getYYYYMMDDDateFormatter())
+            val duration = dateToDurationMap[dateString] ?: 0
+            val dayData = DayData(
+                date.dayOfMonth,
+                date.month.toString(),
+                date.year.toString(),
+                dateString,
+//                if (targetSeconds == 0f) {
+//                    if (duration > 0) 1f else 0f
+//                } else {
+//                    min(1f, duration / targetSeconds)
+//                },
+                min(1f, duration / (if (targetSeconds == 0f) 3600f else targetSeconds)),
+                isFutureDate = date.isAfter(today),
+                isToday = date.isEqual(today)
+            )
+            weekData.add(dayData)
+        }
+        weeklyData.add(weekData)
+    }
+
+    return weeklyData;
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CalendarGraph(dateToDurationMap: Map<String, Int>, targetSeconds: Float, projectColor: Color) {
+    var showDialog by remember { mutableStateOf(false) }
+    var dialogDayData by remember { mutableStateOf<DayData?>(null) }
+
+    if (showDialog) {
+        Dialog(
+            onDismissRequest = {
+                showDialog = false
+                dialogDayData = null
+            }
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(250.dp, 150.dp)
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                // date string of dialog day data of the format 15th May 2025
+                val dateString = dialogDayData?.let {
+                    "${it.date}${WakaHelpers.getDateSuffix(it.date)} ${it.month} ${it.year}"
+                } ?: "No date selected"
+                val durationString = dialogDayData?.let {
+                    WakaHelpers.durationInSecondsToDurationString(dateToDurationMap[it.yyyymmdd] ?: 0, "h", "m")
+                } ?: "No duration selected"
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(dateString)
+                    Text(durationString)
+                }
+            }
+        }
+    }
+
+    val lazyListState = rememberLazyListState()
+    val weeklyData = generateWeeklyData(dateToDurationMap, targetSeconds)
     val textColor = ColorUtils.getContrastingTextColor(projectColor)
+
+    val setDialogDayData = { it: DayData ->
+        dialogDayData = it
+        showDialog = true
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .fillMaxSize(fraction = 0.65f)
     ) {
-        Column(
+        LazyColumn(
+            state = lazyListState,
             modifier = Modifier
                 .fillMaxHeight()
-                .verticalScroll(scrollState),
         ) {
-            (0..numWeeks).forEach {
-                val weekData = emptyList<DayData>().toMutableList()
-                val firstDateOfWeek = startDate.minusWeeks(it.toLong())
-                (0..6).forEach { day ->
-                    // for each day of the week, generate the date string and get the duration
-                    val date = firstDateOfWeek.plusDays(day.toLong())
-                    val dateString = date.format(WakaHelpers.getYYYYMMDDDateFormatter())
-                    val duration = dateToDurationMap[dateString] ?: 0f
-                    val dayData = DayData(
-                        date.dayOfMonth,
-                        date.month.toString(),
-                        date.dayOfWeek.toString(),
-                        duration,
-                        isFutureDate = date.isAfter(today),
-                        isToday = date.isEqual(today)
-                    )
-                    weekData.add(dayData)
+            items(weeklyData) {
+                var firstJanIdx: Int? = null
+                it.forEachIndexed { index, it ->
+                    if (it.date == 1 && it.month.uppercase() == "JANUARY") {
+                        firstJanIdx = index
+                        return@forEachIndexed
+                    }
                 }
-
-                WeekGraph(weekData, textColor, projectColor)
+                if (firstJanIdx != null) {
+                    WeekGraph(it, textColor, projectColor, if (firstJanIdx != 0) (0..firstJanIdx - 1).toSet() else emptySet(), setDialogDayData)
+                    // display the new year
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = it.lastOrNull()?.year?.substring(0, 4) ?: "NEW YEAR",
+                            fontSize = 24.sp,
+                            color = projectColor,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    if (firstJanIdx != 0) {
+                        WeekGraph(it, textColor, projectColor, (firstJanIdx..7).toSet(), setDialogDayData)
+                    }
+                } else {
+                    WeekGraph(it, textColor, projectColor, emptySet(), setDialogDayData)
+                }
+            }
+        }
+        val firstVisibleItemIndex = remember {
+            derivedStateOf {
+                lazyListState.firstVisibleItemIndex
             }
         }
 
-        if (scrollState.value != 0) {
+        val layoutInfo = remember { derivedStateOf { lazyListState.layoutInfo } }
+
+        if (firstVisibleItemIndex.value > 0) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -353,7 +489,7 @@ fun CalendarGraph(dateToDurationMap: Map<String, Float>, projectColor: Color) {
                     )
             )
         }
-        if (scrollState.value != scrollState.maxValue) {
+        if (layoutInfo.value.visibleItemsInfo.lastOrNull()?.index != weeklyData.lastIndex) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -386,7 +522,7 @@ fun ProjectSelector(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(text = selectedProject, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(text = WakaHelpers.truncateLabel(selectedProject), fontSize = 24.sp, fontWeight = FontWeight.Bold)
             IconButton(onClick = { expanded = true }) {
                 Icon(Icons.Default.ArrowDropDown, contentDescription = "Dropdown")
             }

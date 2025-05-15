@@ -7,8 +7,12 @@ import com.aught.wakawaka.data.AuthInterceptor
 import com.aught.wakawaka.data.DailyAggregateData
 import com.aught.wakawaka.data.DataDump
 import com.aught.wakawaka.data.DataDumpStatus
+import com.aught.wakawaka.data.ProjectSpecificData
+import com.aught.wakawaka.data.ProjectStats
+import com.aught.wakawaka.data.StreakData
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaURL
+import com.aught.wakawaka.utils.JSONDateAdapter
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
@@ -20,12 +24,13 @@ import okhttp3.logging.HttpLoggingInterceptor
 import okio.IOException
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
+import java.time.ZoneOffset
 
 class WakaDataDumpWorker(appContext: Context, workerParams: WorkerParameters) :
     CoroutineWorker(appContext, workerParams) {
 
     private val moshi = Moshi.Builder()
-        .add(Iso8601UtcDateAdapter())
+        .add(JSONDateAdapter())
         .addLast(KotlinJsonAdapterFactory()).build()
 
     private fun downloadDataDump(url: String): DataDump? {
@@ -56,12 +61,6 @@ class WakaDataDumpWorker(appContext: Context, workerParams: WorkerParameters) :
 
     }
 
-    private fun saveDataDumpToLocalStorage(context: Context,dataDump: DataDump) {
-        val projectSpecificData = WakaDataFetchWorker.loadProjectSpecificData(context)
-        val aggregateData = WakaDataFetchWorker.loadAggregateData(context) ?: WakaHelpers.INITIAL_AGGREGATE_DATA
-
-        val updatedAggregateDailyRecords = aggregateData.dailyRecords.toMutableMap()
-    }
 
     override suspend fun doWork(): Result {
         val prefs = applicationContext.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
@@ -124,6 +123,105 @@ class WakaDataDumpWorker(appContext: Context, workerParams: WorkerParameters) :
                 Result.failure()
 
             }
+        }
+    }
+
+    companion object {
+        fun saveDataDumpToLocalStorage(context: Context, dataDump: DataDump) {
+            val projectSpecificDataMap = WakaDataFetchWorker.loadProjectSpecificData(context)
+            val aggregateData = WakaDataFetchWorker.loadAggregateData(context) ?: WakaHelpers.INITIAL_AGGREGATE_DATA
+
+            val updatedAggregateDailyRecords = aggregateData.dailyRecords.toMutableMap()
+            val updatedProjectSpecificDurationMaps = mutableMapOf<String, MutableMap<String, Int>>()
+
+            projectSpecificDataMap.forEach { (projectName, projectStats) ->
+                updatedProjectSpecificDurationMaps[projectName] = projectStats.dailyDurationInSeconds.toMutableMap()
+            }
+
+            val existingDates = updatedAggregateDailyRecords.keys.toSet()
+            val existingProjects = updatedProjectSpecificDurationMaps.keys.toSet()
+
+            dataDump.days.forEach {
+                val dateString = WakaHelpers.dateToYYYYMMDD(
+                    it.date.toInstant().atZone(ZoneOffset.UTC).toLocalDate()
+                )
+                if (!existingDates.contains(dateString)) {
+                    val projectStats = mutableListOf<ProjectStats>()
+                    it.projects.forEach { project ->
+                        val projectName = project.name
+                        val projectStatsItem = ProjectStats(
+                            projectName,
+                            project.grandTotal.totalSeconds.toInt()
+                        )
+                        projectStats.add(projectStatsItem)
+
+                        if (!existingProjects.contains(projectName)) {
+                            updatedProjectSpecificDurationMaps[projectName] = mutableMapOf()
+                            existingProjects.plus(projectName)
+                        }
+
+                        updatedProjectSpecificDurationMaps[projectName]?.set(dateString, project.grandTotal.totalSeconds.toInt())
+                    }
+                    val dailyAggregateData = DailyAggregateData(
+                        dateString,
+                        it.grandTotal.totalSeconds.toInt(),
+                        projectStats
+                    )
+                    updatedAggregateDailyRecords[dateString] = dailyAggregateData
+                }
+            }
+
+            val updatedAggregateData = aggregateData.copy(
+                dailyRecords = updatedAggregateDailyRecords,
+                dailyStreak = WakaDataFetchWorker.calculateDailyStreak(
+                    updatedAggregateDailyRecords.mapValues { it.value.totalSeconds },
+                    aggregateData.dailyStreak ?: StreakData(0),
+                    aggregateData.dailyTargetHours,
+                    aggregateData.excludedDaysFromDailyStreak
+                ),
+                weeklyStreak = WakaDataFetchWorker.calculateWeeklyStreak(
+                    updatedAggregateDailyRecords.mapValues { it.value.totalSeconds },
+                    aggregateData.weeklyStreak ?: StreakData(0),
+                    aggregateData.weeklyTargetHours
+                )
+            )
+
+            val updatedProjectSpecificDataMap = mutableMapOf<String, ProjectSpecificData>()
+            updatedProjectSpecificDurationMaps.forEach { (projectName, dailyDurationMap) ->
+                val projectStats = projectSpecificDataMap[projectName]
+                if (projectStats != null) {
+                    val updatedProjectStats = projectStats.copy(
+                        dailyDurationInSeconds = dailyDurationMap
+                    )
+                    updatedProjectSpecificDataMap[projectName] = updatedProjectStats
+                } else {
+                    val newProjectStats = ProjectSpecificData(
+                        projectName,
+                        WakaHelpers.projectNameToColor(projectName).toString(),
+                        dailyDurationMap,
+                        null, null,
+                        WakaDataFetchWorker.calculateDailyStreak(
+                            dailyDurationMap,
+                            StreakData(0),
+                            null, emptyList()
+                        ),
+                        WakaDataFetchWorker.calculateWeeklyStreak(
+                            dailyDurationMap,
+                            StreakData(0),
+                            null
+                        ),
+                        emptyList()
+                    )
+                    updatedProjectSpecificDataMap[projectName] = newProjectStats
+                }
+            }
+
+            println("Successfully created updated aggregate data. Number of dates now recorded: ${updatedAggregateDailyRecords.size}")
+            println("Successfully created updated project specific data. Number of projects now recorded: ${updatedProjectSpecificDataMap.size}")
+
+            WakaDataFetchWorker.saveAggregateData(context, updatedAggregateData)
+            WakaDataFetchWorker.saveProjectDataMap(context, updatedProjectSpecificDataMap)
+
         }
     }
 }

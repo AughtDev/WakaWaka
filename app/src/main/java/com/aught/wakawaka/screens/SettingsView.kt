@@ -4,6 +4,10 @@ import DailyTargetCard
 import SuccessAlert
 import WeeklyTargetCard
 import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContract
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,15 +51,22 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.aught.wakawaka.data.AggregateData
+import com.aught.wakawaka.data.DataDump
 import com.aught.wakawaka.data.DayOfWeek
 import com.aught.wakawaka.data.StreakData
 import com.aught.wakawaka.workers.WakaDataFetchWorker
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaURL
+import com.aught.wakawaka.utils.JSONDateAdapter
 import com.aught.wakawaka.workers.WakaDataDumpWorker
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.BufferedReader
+import java.io.InputStream
+import java.io.InputStreamReader
 import java.time.Duration
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,7 +91,7 @@ fun SettingsView(modifier: Modifier = Modifier) {
 
     var withDailyTarget by remember {
         mutableStateOf(
-            aggregateData?.dailyTargetHours != null
+            aggregateData.dailyTargetHours != null
         )
     }
     var dailyTarget by remember {
@@ -336,7 +347,7 @@ fun SettingsView(modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.height(24.dp))
 
 
-        DataDumpCard(context, crtScope)
+        DataDumpCard(context)
     }
 }
 
@@ -414,22 +425,64 @@ fun ThemeSelectionCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DataDumpCard(context: Context, crtScope: CoroutineScope) {
+fun DataDumpCard(context: Context) {
+    val moshi = Moshi.Builder()
+        .add(JSONDateAdapter())
+        .addLast(KotlinJsonAdapterFactory()).build()
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+    ) { uri: Uri? ->
+        uri?.let {
+            val jsonString = readTextFromUri(context, uri)
+            if (jsonString == null) {
+                println("Failed to read JSON from URI")
+                return@let
+            }
+            println("first 100 chars of json read are ${jsonString.take(100)}")
+            val dataDump = moshi.adapter(DataDump::class.java).fromJson(jsonString)
+            if (dataDump != null) {
+                WakaDataDumpWorker.saveDataDumpToLocalStorage(context, dataDump)
+                println("Download successful: ${dataDump.user}")
+            } else {
+                println("Failed to parse DataDump")
+            }
+        }
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth()
     ) {
-        Button(
-            onClick = {
-
-                crtScope.launch {
-                    // Schedule the one time immediate worker
-                    val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaDataDumpWorker>().build()
-                    WorkManager.getInstance(context).enqueue(immediateWorkRequest)
-                }
-            }
+        Row(
+            modifier = Modifier
+                .padding(vertical = 16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
         ) {
-            Text(text = "Download Data Dump")
+            Button(
+                onClick = {
+                    launcher.launch("application/json")
+
+//                crtScope.launch {
+//                    // Schedule the one time immediate worker
+//                    val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaDataDumpWorker>().build()
+//                    WorkManager.getInstance(context).enqueue(immediateWorkRequest)
+//                }
+                }
+            ) {
+                Text(text = "Import Wakatime Data")
+            }
         }
+    }
+}
+
+fun readTextFromUri(context: Context, uri: Uri): String? {
+    return try {
+        context.contentResolver.openInputStream(uri)?.use { inputStream: InputStream ->
+            BufferedReader(InputStreamReader(inputStream)).readText()
+        }
+    } catch (e: Exception) {
+        null
     }
 }

@@ -3,7 +3,6 @@ package com.aught.wakawaka.workers
 import WakaService
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Log
 import androidx.core.content.edit
 import androidx.glance.appwidget.updateAll
 import androidx.work.CoroutineWorker
@@ -24,14 +23,10 @@ import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaStatistics
 import com.aught.wakawaka.data.WakaURL
 import com.aught.wakawaka.extras.WakaNotifications
+import com.aught.wakawaka.utils.JSONDateAdapter
 import com.aught.wakawaka.widget.aggregate.WakaAggregateWidget
 import com.aught.wakawaka.widget.project.WakaProjectWidget
-import com.squareup.moshi.FromJson
-import com.squareup.moshi.JsonAdapter
-import com.squareup.moshi.JsonReader
-import com.squareup.moshi.JsonWriter
 import com.squareup.moshi.Moshi
-import com.squareup.moshi.ToJson
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
@@ -40,35 +35,13 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
-import java.util.Date
 import java.lang.reflect.Type
 import java.time.DayOfWeek
-import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import kotlin.math.roundToInt
 
-class Iso8601UtcDateAdapter : JsonAdapter<Date>() {
-    @FromJson
-    override fun fromJson(reader: JsonReader): Date? {
-        val dateAsString = reader.nextString()
-        return try {
-            val instant = Instant.parse(dateAsString)
-            Date.from(instant)
-        } catch (e: Exception) {
-            println("Error parsing date: $dateAsString, exception: $e")
-            return null
-        }
-    }
-
-    @ToJson
-    override fun toJson(writer: JsonWriter, value: Date?) {
-        if (value != null) {
-            writer.value(value.toInstant().toString())
-        }
-    }
-}
 
 fun calculateDurationStats(dateToDurationMap: Map<String, Int>): DurationStats {
     var today = 0
@@ -121,7 +94,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
     CoroutineWorker(appContext, workerParams) {
 
     private val moshi = Moshi.Builder()
-        .add(Iso8601UtcDateAdapter())
+        .add(JSONDateAdapter())
         .addLast(KotlinJsonAdapterFactory()).build()
 
     private val wakaNotificationManager = WakaNotifications(appContext)
@@ -185,101 +158,6 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         }
     }
 
-    private fun calculateDailyStreak(
-        data: Map<String, Int>,
-        currentStreak: StreakData?,
-        target: Float?,
-        excludedDays: List<Int>?
-    ): StreakData {
-        // if there are no target hours, the target is assumed to be anything above 0
-        val targetHours = target ?: 0.01f
-        val dailyStreakData: StreakData = currentStreak ?: StreakData(0, WakaHelpers.Companion.ZERO_DAY)
-
-        // starting from yesterday, we iterate backwards until we find
-        // - a date that is not in the data
-        // - a date that has not met the target hours
-        // - the streak date
-
-        val dateFormatter = WakaHelpers.Companion.getYYYYMMDDDateFormatter()
-        val yesterday = LocalDate.now().minusDays(1)
-        var streak = 0;
-        var daysAgo = 0;
-
-
-        while (true) {
-            val date = yesterday.minusDays(daysAgo.toLong())
-            daysAgo++
-            val formattedDate = date.format(dateFormatter)
-
-            if (formattedDate == dailyStreakData.updatedAt) {
-                println("found the last updated streak date $date")
-                streak += dailyStreakData.count;
-                break
-            }
-
-            if (excludedDays?.contains(date.dayOfWeek.value) == true) {
-                println("skipping excluded day: ${date.dayOfWeek} on $date")
-                continue
-            }
-            if (!data.containsKey(formattedDate) || (data[formattedDate]!!.toFloat() / 3600) < targetHours) {
-                println("found a date that does not meet the target hours $date")
-                break
-            }
-            streak++
-        }
-
-        println("Daily Streak: $streak, updatedAt: ${yesterday.format(dateFormatter)}")
-
-        return StreakData(streak, yesterday.format(dateFormatter))
-    }
-
-    private fun calculateWeeklyStreak(
-        data: Map<String, Int>,
-        currentStreak: StreakData?,
-        target: Float?
-    ): StreakData {
-        // if there are no target hours, the target is assumed to be anything above 0
-        val targetHours = target ?: 0.01f
-        val weeklyStreakData: StreakData = currentStreak ?: StreakData(0, WakaHelpers.Companion.ZERO_DAY)
-
-        // starting from last week, we iterate backwards through the first day (monday) of every week until we find
-
-        // - a date that is not in the data
-        // - a date that has not met the target hours
-        // - the streak date
-
-        val dateFormatter = WakaHelpers.Companion.getYYYYMMDDDateFormatter()
-
-        val firstDayOfLastWeek =
-            LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusWeeks(1)
-        var streak = 0;
-
-        while (true) {
-            val date = firstDayOfLastWeek.minusWeeks(streak.toLong())
-            val formattedDate = date.format(dateFormatter)
-
-            if (formattedDate == weeklyStreakData.updatedAt) {
-                streak += weeklyStreakData.count;
-                break
-            }
-            var totalSeconds: Double = 0.0;
-
-            (0..6).forEach {
-                val day = date.plusDays(it.toLong())
-                val dayFormatted = day.format(dateFormatter)
-                if (data.containsKey(dayFormatted)) {
-                    totalSeconds += (data[dayFormatted] ?: 0)
-                }
-            }
-
-            if (!data.containsKey(formattedDate) || totalSeconds / 3600 < targetHours) {
-                break
-            }
-            streak++
-        }
-
-        return StreakData(streak, firstDayOfLastWeek.format(dateFormatter))
-    }
 
     private fun updateWakaStatistics(
         context: Context,
@@ -500,6 +378,102 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
     }
 
     companion object {
+        fun calculateDailyStreak(
+            data: Map<String, Int>,
+            currentStreak: StreakData?,
+            target: Float?,
+            excludedDays: List<Int>?
+        ): StreakData {
+            // if there are no target hours, the target is assumed to be anything above 0
+            val targetHours = target ?: 0.01f
+            val dailyStreakData: StreakData = currentStreak ?: StreakData(0, WakaHelpers.Companion.ZERO_DAY)
+
+            // starting from yesterday, we iterate backwards until we find
+            // - a date that is not in the data
+            // - a date that has not met the target hours
+            // - the streak date
+
+            val dateFormatter = WakaHelpers.Companion.getYYYYMMDDDateFormatter()
+            val yesterday = LocalDate.now().minusDays(1)
+            var streak = 0;
+            var daysAgo = 0;
+
+
+            while (true) {
+                val date = yesterday.minusDays(daysAgo.toLong())
+                daysAgo++
+                val formattedDate = date.format(dateFormatter)
+
+                if (formattedDate == dailyStreakData.updatedAt) {
+                    println("found the last updated streak date $date")
+                    streak += dailyStreakData.count;
+                    break
+                }
+
+                if (excludedDays?.contains(date.dayOfWeek.value) == true) {
+                    println("skipping excluded day: ${date.dayOfWeek} on $date")
+                    continue
+                }
+                if (!data.containsKey(formattedDate) || (data[formattedDate]!!.toFloat() / 3600) < targetHours) {
+                    println("found a date that does not meet the target hours $date")
+                    break
+                }
+                streak++
+            }
+
+            println("Daily Streak: $streak, updatedAt: ${yesterday.format(dateFormatter)}")
+
+            return StreakData(streak, yesterday.format(dateFormatter))
+        }
+
+        fun calculateWeeklyStreak(
+            data: Map<String, Int>,
+            currentStreak: StreakData?,
+            target: Float?
+        ): StreakData {
+            // if there are no target hours, the target is assumed to be anything above 0
+            val targetHours = target ?: 0.01f
+            val weeklyStreakData: StreakData = currentStreak ?: StreakData(0, WakaHelpers.Companion.ZERO_DAY)
+
+            // starting from last week, we iterate backwards through the first day (monday) of every week until we find
+
+            // - a date that is not in the data
+            // - a date that has not met the target hours
+            // - the streak date
+
+            val dateFormatter = WakaHelpers.Companion.getYYYYMMDDDateFormatter()
+
+            val firstDayOfLastWeek =
+                LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusWeeks(1)
+            var streak = 0;
+
+            while (true) {
+                val date = firstDayOfLastWeek.minusWeeks(streak.toLong())
+                val formattedDate = date.format(dateFormatter)
+
+                if (formattedDate == weeklyStreakData.updatedAt) {
+                    streak += weeklyStreakData.count;
+                    break
+                }
+                var totalSeconds: Double = 0.0;
+
+                (0..6).forEach {
+                    val day = date.plusDays(it.toLong())
+                    val dayFormatted = day.format(dateFormatter)
+                    if (data.containsKey(dayFormatted)) {
+                        totalSeconds += (data[dayFormatted] ?: 0)
+                    }
+                }
+
+                if (!data.containsKey(formattedDate) || totalSeconds / 3600 < targetHours) {
+                    break
+                }
+                streak++
+            }
+
+            return StreakData(streak, firstDayOfLastWeek.format(dateFormatter))
+        }
+
         fun loadAggregateData(context: Context): AggregateData? {
             // get the prefs and the json aggregate data
             val prefs = context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
@@ -509,7 +483,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
             // build the adapters to convert between json strings and the data
             val moshi = Moshi.Builder()
-                .add(Iso8601UtcDateAdapter())
+                .add(JSONDateAdapter())
                 .addLast(KotlinJsonAdapterFactory()).build()
 
             val aggregateDataAdapter = moshi.adapter(AggregateData::class.java)
@@ -524,7 +498,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
         fun saveAggregateData(context: Context, aggregateData: AggregateData) {
             val moshi = Moshi.Builder()
-                .add(Iso8601UtcDateAdapter())
+                .add(JSONDateAdapter())
                 .addLast(KotlinJsonAdapterFactory()).build()
             val aggregateDataAdapter = moshi.adapter(AggregateData::class.java)
             val prefs = context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
@@ -533,9 +507,30 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             }
         }
 
+        fun saveProjectDataMap(context: Context, projectDataMap: Map<String, ProjectSpecificData>) {
+            val moshi = Moshi.Builder()
+                .add(JSONDateAdapter())
+                .addLast(KotlinJsonAdapterFactory()).build()
+            val projectSpecificDataAdapter = moshi.adapter(ProjectSpecificData::class.java)
+            val mapAdapter = moshi.adapter<Map<String, String>>(getMapType())
+
+            val prefs = context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+
+            val projectDataStringMap = projectDataMap.mapValues {
+                projectSpecificDataAdapter.toJson(it.value)
+            }
+
+            prefs.edit {
+                putString(
+                    WakaHelpers.Companion.PROJECT_SPECIFIC_DATA,
+                    mapAdapter.toJson(projectDataStringMap)
+                )
+            }
+        }
+
         fun saveProjectData(context: Context, projectName: String, projectData: ProjectSpecificData) {
             val moshi = Moshi.Builder()
-                .add(Iso8601UtcDateAdapter())
+                .add(JSONDateAdapter())
                 .addLast(KotlinJsonAdapterFactory()).build()
             val projectSpecificDataAdapter = moshi.adapter(ProjectSpecificData::class.java)
             val mapAdapter = moshi.adapter<Map<String, String>>(getMapType())
@@ -576,7 +571,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
             // build the adapters to convert between json strings and the data
             val moshi = Moshi.Builder()
-                .add(Iso8601UtcDateAdapter())
+                .add(JSONDateAdapter())
                 .addLast(KotlinJsonAdapterFactory()).build()
 
             val projectSpecificDataAdapter = moshi.adapter(ProjectSpecificData::class.java)
@@ -600,7 +595,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
             // build the adapters to convert between json strings and the data
             val moshi = Moshi.Builder()
-                .add(Iso8601UtcDateAdapter())
+                .add(JSONDateAdapter())
                 .addLast(KotlinJsonAdapterFactory()).build()
 
             val wakaStatisticsAdapter = moshi.adapter(WakaStatistics::class.java)

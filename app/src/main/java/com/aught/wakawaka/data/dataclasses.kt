@@ -127,7 +127,7 @@ data class DailyAverage(
 @JsonClass(generateAdapter = true)
 data class StreakData(
     val count: Int,
-    val updatedAt: String, // in the format YYYY-MM-DD
+    val updatedAt: String = WakaHelpers.ZERO_DAY, // in the format YYYY-MM-DD
 )
 
 // endregion

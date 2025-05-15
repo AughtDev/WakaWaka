@@ -139,7 +139,7 @@ class WakaProjectWidget : GlanceAppWidget() {
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = widgetProject.uppercase(),
+                            text = WakaHelpers.truncateLabel(widgetProject).uppercase(),
                             style = TextStyle(
                                 color = primaryColor,
                                 fontSize = 16.sp,

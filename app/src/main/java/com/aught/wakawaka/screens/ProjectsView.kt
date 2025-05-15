@@ -289,7 +289,7 @@ fun ProjectGraph(wakaDataHandler: WakaDataHandler, projectName: String) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = projectName.uppercase(),
+                    text = WakaHelpers.truncateLabel(projectName).uppercase(),
                     color = projectColor,
                     fontSize = 16.sp,
                 )

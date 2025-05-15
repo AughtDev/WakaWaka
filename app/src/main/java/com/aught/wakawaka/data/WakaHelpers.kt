@@ -33,6 +33,8 @@ class WakaHelpers {
 
         val PROJECT_ASSIGNED_TO_PROJECT_WIDGET = "project_assigned_to_project_widget"
 
+        val MAX_LABEL_SIZE = 20
+
         //region INITIAL DATA
 
         val INITIAL_WAKA_STATISTICS = WakaStatistics(
@@ -125,6 +127,23 @@ class WakaHelpers {
 
         fun dateToYYYYMMDD(date: LocalDate): String {
             return date.format(getYYYYMMDDDateFormatter())
+        }
+
+        fun truncateLabel(label: String): String {
+            return if (label.length > MAX_LABEL_SIZE) {
+                label.substring(0, MAX_LABEL_SIZE - 3) + "..."
+            } else {
+                label
+            }
+        }
+
+        fun getDateSuffix(date: Int): String {
+            return when (date) {
+                1, 21, 31 -> "st"
+                2, 22 -> "nd"
+                3, 23 -> "rd"
+                else -> "th"
+            }
         }
     }
 }
