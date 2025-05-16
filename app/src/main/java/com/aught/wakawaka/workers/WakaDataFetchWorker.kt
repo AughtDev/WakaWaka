@@ -103,10 +103,14 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
     //    private val url: String = "https://wakapi.dev/api/compat/wakatime/v1/";
 
     override suspend fun doWork(): Result {
-        val prefs = applicationContext.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+        val prefs = applicationContext.getSharedPreferences(
+            WakaHelpers.Companion.PREFS,
+            Context.MODE_PRIVATE
+        )
 
         val url: String =
-            prefs.getString(WakaHelpers.Companion.WAKA_URL, WakaURL.WAKATIME.url) ?: WakaURL.WAKATIME.url
+            prefs.getString(WakaHelpers.Companion.WAKA_URL, WakaURL.WAKATIME.url)
+                ?: WakaURL.WAKATIME.url
 
         // if the url is wakapi, the authToken needs to be base 64 encoded
         var authToken: String;
@@ -176,27 +180,41 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         )
 
         prefs.edit {
-            putString(WakaHelpers.Companion.WAKA_STATISTICS, wakaStatisticsAdapter.toJson(wakaStatistics))
+            putString(
+                WakaHelpers.Companion.WAKA_STATISTICS,
+                wakaStatisticsAdapter.toJson(wakaStatistics)
+            )
         }
     }
 
-    private fun handleNotifications(prefs: SharedPreferences, aggregateData: AggregateData, projectData: Map<String, ProjectSpecificData>) {
+    private fun handleNotifications(
+        prefs: SharedPreferences,
+        aggregateData: AggregateData,
+        projectData: Map<String, ProjectSpecificData>
+    ) {
         val notificationDataAdapter = moshi.adapter(NotificationData::class.java)
         val notificationDataString = prefs.getString(WakaHelpers.Companion.NOTIFICATION_DATA, null)
 
         val notificationData: NotificationData = notificationDataString?.let {
-            (runCatching { notificationDataAdapter.fromJson(it) }.getOrNull() ?: WakaHelpers.Companion.INITIAL_NOTIFICATION_DATA)
+            (runCatching { notificationDataAdapter.fromJson(it) }.getOrNull()
+                ?: WakaHelpers.Companion.INITIAL_NOTIFICATION_DATA)
         } ?: WakaHelpers.Companion.INITIAL_NOTIFICATION_DATA
 
-        var updatedLastAggDailyTgtNotifDate = notificationData.lastAggregateDailyTargetNotificationDate
-        var updatedLastAggWeeklyTgtNotifDate = notificationData.lastAggregateWeeklyTargetNotificationDate
+        var updatedLastAggDailyTgtNotifDate =
+            notificationData.lastAggregateDailyTargetNotificationDate
+        var updatedLastAggWeeklyTgtNotifDate =
+            notificationData.lastAggregateWeeklyTargetNotificationDate
 
         val today = LocalDate.now()
 
         if (
             aggregateData.dailyTargetHours != null &&
-            dailyTargetHit(aggregateData.dailyRecords.mapValues { it.value.totalSeconds }, aggregateData.dailyTargetHours) &&
-            WakaHelpers.Companion.yyyyMMDDToDate(notificationData.lastAggregateDailyTargetNotificationDate).isBefore(today)
+            dailyTargetHit(
+                aggregateData.dailyRecords.mapValues { it.value.totalSeconds },
+                aggregateData.dailyTargetHours
+            ) &&
+            WakaHelpers.Companion.yyyyMMDDToDate(notificationData.lastAggregateDailyTargetNotificationDate)
+                .isBefore(today)
         ) {
             wakaNotificationManager.showNotification(
                 "Daily Target Hit",
@@ -215,8 +233,12 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
         if (
             aggregateData.weeklyTargetHours != null &&
-            weeklyTargetHit(aggregateData.dailyRecords.mapValues { it.value.totalSeconds }, aggregateData.weeklyTargetHours) &&
-            WakaHelpers.Companion.yyyyMMDDToDate(notificationData.lastAggregateWeeklyTargetNotificationDate).isBefore(firstDateThisWeek)
+            weeklyTargetHit(
+                aggregateData.dailyRecords.mapValues { it.value.totalSeconds },
+                aggregateData.weeklyTargetHours
+            ) &&
+            WakaHelpers.Companion.yyyyMMDDToDate(notificationData.lastAggregateWeeklyTargetNotificationDate)
+                .isBefore(firstDateThisWeek)
         ) {
             wakaNotificationManager.showNotification(
                 "Weekly Target Hit",
@@ -227,7 +249,8 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                     )
                 }", 111
             )
-            updatedLastAggWeeklyTgtNotifDate = WakaHelpers.Companion.dateToYYYYMMDD(firstDateThisWeek)
+            updatedLastAggWeeklyTgtNotifDate =
+                WakaHelpers.Companion.dateToYYYYMMDD(firstDateThisWeek)
         }
 
         // save the updated notification data
@@ -239,7 +262,10 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         )
 
         prefs.edit {
-            putString(WakaHelpers.Companion.NOTIFICATION_DATA, notificationDataAdapter.toJson(updatedNotificationData))
+            putString(
+                WakaHelpers.Companion.NOTIFICATION_DATA,
+                notificationDataAdapter.toJson(updatedNotificationData)
+            )
         }
     }
 
@@ -252,13 +278,14 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         val prefs = context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
 
         // get the current aggregate data or assign an empty initial aggregate data instance
-        val aggregateData = if (prefs.getString(WakaHelpers.Companion.AGGREGATE_DATA, null) != null) {
-            aggregateDataAdapter.fromJson(
-                prefs.getString(WakaHelpers.Companion.AGGREGATE_DATA, null)!!
-            )
-        } else {
-            WakaHelpers.Companion.INITIAL_AGGREGATE_DATA
-        } ?: return
+        val aggregateData =
+            if (prefs.getString(WakaHelpers.Companion.AGGREGATE_DATA, null) != null) {
+                aggregateDataAdapter.fromJson(
+                    prefs.getString(WakaHelpers.Companion.AGGREGATE_DATA, null)!!
+                )
+            } else {
+                WakaHelpers.Companion.INITIAL_AGGREGATE_DATA
+            } ?: return
 
         // get the current project data or assign an empty map
         val projectDataMap: MutableMap<String, ProjectSpecificData> =
@@ -367,7 +394,10 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         println("saving data")
         // save the map to the prefs
         prefs.edit() {
-            putString(WakaHelpers.Companion.AGGREGATE_DATA, aggregateDataAdapter.toJson(updatedAggregateData))
+            putString(
+                WakaHelpers.Companion.AGGREGATE_DATA,
+                aggregateDataAdapter.toJson(updatedAggregateData)
+            )
             putString(
                 WakaHelpers.Companion.PROJECT_SPECIFIC_DATA,
                 mapAdapter.toJson(projectDataStringMap.toMap())
@@ -378,6 +408,8 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
     }
 
     companion object {
+        //region CALCULATIONS
+
         fun calculateDailyStreak(
             data: Map<String, Int>,
             currentStreak: StreakData?,
@@ -386,7 +418,8 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         ): StreakData {
             // if there are no target hours, the target is assumed to be anything above 0
             val targetHours = target ?: 0.01f
-            val dailyStreakData: StreakData = currentStreak ?: StreakData(0, WakaHelpers.Companion.ZERO_DAY)
+            val dailyStreakData: StreakData =
+                currentStreak ?: StreakData(0, WakaHelpers.Companion.ZERO_DAY)
 
             // starting from yesterday, we iterate backwards until we find
             // - a date that is not in the data
@@ -433,7 +466,8 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         ): StreakData {
             // if there are no target hours, the target is assumed to be anything above 0
             val targetHours = target ?: 0.01f
-            val weeklyStreakData: StreakData = currentStreak ?: StreakData(0, WakaHelpers.Companion.ZERO_DAY)
+            val weeklyStreakData: StreakData =
+                currentStreak ?: StreakData(0, WakaHelpers.Companion.ZERO_DAY)
 
             // starting from last week, we iterate backwards through the first day (monday) of every week until we find
 
@@ -444,7 +478,8 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             val dateFormatter = WakaHelpers.Companion.getYYYYMMDDDateFormatter()
 
             val firstDayOfLastWeek =
-                LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusWeeks(1)
+                LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                    .minusWeeks(1)
             var streak = 0;
 
             while (true) {
@@ -474,134 +509,6 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             return StreakData(streak, firstDayOfLastWeek.format(dateFormatter))
         }
 
-        fun loadAggregateData(context: Context): AggregateData? {
-            // get the prefs and the json aggregate data
-            val prefs = context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
-            val json = prefs.getString(WakaHelpers.Companion.AGGREGATE_DATA, null)
-
-            if (json == null) return null
-
-            // build the adapters to convert between json strings and the data
-            val moshi = Moshi.Builder()
-                .add(JSONDateAdapter())
-                .addLast(KotlinJsonAdapterFactory()).build()
-
-            val aggregateDataAdapter = moshi.adapter(AggregateData::class.java)
-
-            return try {
-                aggregateDataAdapter.fromJson(json)
-            } catch (e: Exception) {
-                println("Error loading aggregate data to object, The exception is $e")
-                null
-            }
-        }
-
-        fun saveAggregateData(context: Context, aggregateData: AggregateData) {
-            val moshi = Moshi.Builder()
-                .add(JSONDateAdapter())
-                .addLast(KotlinJsonAdapterFactory()).build()
-            val aggregateDataAdapter = moshi.adapter(AggregateData::class.java)
-            val prefs = context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
-            prefs.edit {
-                putString(WakaHelpers.Companion.AGGREGATE_DATA, aggregateDataAdapter.toJson(aggregateData))
-            }
-        }
-
-        fun saveProjectDataMap(context: Context, projectDataMap: Map<String, ProjectSpecificData>) {
-            val moshi = Moshi.Builder()
-                .add(JSONDateAdapter())
-                .addLast(KotlinJsonAdapterFactory()).build()
-            val projectSpecificDataAdapter = moshi.adapter(ProjectSpecificData::class.java)
-            val mapAdapter = moshi.adapter<Map<String, String>>(getMapType())
-
-            val prefs = context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
-
-            val projectDataStringMap = projectDataMap.mapValues {
-                projectSpecificDataAdapter.toJson(it.value)
-            }
-
-            prefs.edit {
-                putString(
-                    WakaHelpers.Companion.PROJECT_SPECIFIC_DATA,
-                    mapAdapter.toJson(projectDataStringMap)
-                )
-            }
-        }
-
-        fun saveProjectData(context: Context, projectName: String, projectData: ProjectSpecificData) {
-            val moshi = Moshi.Builder()
-                .add(JSONDateAdapter())
-                .addLast(KotlinJsonAdapterFactory()).build()
-            val projectSpecificDataAdapter = moshi.adapter(ProjectSpecificData::class.java)
-            val mapAdapter = moshi.adapter<Map<String, String>>(getMapType())
-
-            val prefs = context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
-
-            val currProjectDataMap = loadProjectSpecificData(context).toMutableMap()
-            currProjectDataMap[projectName] = projectData
-
-            val wakaDataHandler = WakaDataHandler(null, currProjectDataMap)
-
-            val newDailyStreakCount = wakaDataHandler.calculateUpdatedStreak(DataRequest.ProjectSpecific(projectName), TimePeriod.DAY)
-            val newWeeklyStreakCount = wakaDataHandler.calculateUpdatedStreak(DataRequest.ProjectSpecific(projectName), TimePeriod.WEEK)
-
-            currProjectDataMap[projectName] = projectData.copy(
-                dailyStreak = StreakData(newDailyStreakCount, LocalDate.now().toString()),
-                weeklyStreak = StreakData(newWeeklyStreakCount, LocalDate.now().toString())
-            )
-
-            val projectDataStringMap = currProjectDataMap.mapValues {
-                projectSpecificDataAdapter.toJson(it.value)
-            }
-
-            prefs.edit {
-                putString(
-                    WakaHelpers.Companion.PROJECT_SPECIFIC_DATA,
-                    mapAdapter.toJson(projectDataStringMap)
-                )
-            }
-        }
-
-        fun loadProjectSpecificData(context: Context): Map<String, ProjectSpecificData> {
-            // get the prefs and the json aggregate data
-            val prefs = context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
-            val json = prefs.getString(WakaHelpers.Companion.PROJECT_SPECIFIC_DATA, null)
-
-            if (json == null) return mapOf()
-
-            // build the adapters to convert between json strings and the data
-            val moshi = Moshi.Builder()
-                .add(JSONDateAdapter())
-                .addLast(KotlinJsonAdapterFactory()).build()
-
-            val projectSpecificDataAdapter = moshi.adapter(ProjectSpecificData::class.java)
-            val mapAdapter = moshi.adapter<Map<String, String>>(getMapType())
-
-            val projectDataStringMap = mapAdapter.fromJson(json)
-            val projectDataMap = mutableMapOf<String, ProjectSpecificData>()
-            projectDataStringMap?.forEach {
-                projectDataMap[it.key] =
-                    projectSpecificDataAdapter.fromJson(it.value) ?: return@forEach
-            }
-
-            return projectDataMap
-        }
-
-        fun loadWakaStatistics(context: Context): WakaStatistics {
-            // get the prefs and the json aggregate data
-            val prefs = context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
-            val json = prefs.getString(WakaHelpers.Companion.WAKA_STATISTICS, null)
-            if (json == null) return WakaHelpers.Companion.INITIAL_WAKA_STATISTICS
-
-            // build the adapters to convert between json strings and the data
-            val moshi = Moshi.Builder()
-                .add(JSONDateAdapter())
-                .addLast(KotlinJsonAdapterFactory()).build()
-
-            val wakaStatisticsAdapter = moshi.adapter(WakaStatistics::class.java)
-
-            return wakaStatisticsAdapter.fromJson(json) ?: WakaHelpers.Companion.INITIAL_WAKA_STATISTICS
-        }
 
         fun dailyTargetHit(dateToDurationMap: Map<String, Int>, targetInHours: Float?): Boolean {
             val date = LocalDate.now()
@@ -635,5 +542,190 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             }
             return (totalDuration.toFloat() / 3600) >= targetInHours
         }
+
+        //endregion
+
+        //region LOAD DATA
+
+        fun loadAggregateData(context: Context): AggregateData? {
+            // get the prefs and the json aggregate data
+            val prefs =
+                context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+            val json = prefs.getString(WakaHelpers.Companion.AGGREGATE_DATA, null) ?: return null
+
+            // build the adapters to convert between json strings and the data
+            val moshi = Moshi.Builder()
+                .add(JSONDateAdapter())
+                .addLast(KotlinJsonAdapterFactory()).build()
+
+            val aggregateDataAdapter = moshi.adapter(AggregateData::class.java)
+
+            return try {
+                aggregateDataAdapter.fromJson(json)
+            } catch (e: Exception) {
+                println("Error loading aggregate data to object, The exception is $e")
+                null
+            }
+        }
+
+        fun loadProjectSpecificData(context: Context): Map<String, ProjectSpecificData> {
+            // get the prefs and the json aggregate data
+            val prefs =
+                context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+            val json = prefs.getString(WakaHelpers.Companion.PROJECT_SPECIFIC_DATA, null)
+
+            if (json == null) return mapOf()
+
+            // build the adapters to convert between json strings and the data
+            val moshi = Moshi.Builder()
+                .add(JSONDateAdapter())
+                .addLast(KotlinJsonAdapterFactory()).build()
+
+            val projectSpecificDataAdapter = moshi.adapter(ProjectSpecificData::class.java)
+            val mapAdapter = moshi.adapter<Map<String, String>>(getMapType())
+
+            val projectDataStringMap = mapAdapter.fromJson(json)
+            val projectDataMap = mutableMapOf<String, ProjectSpecificData>()
+            projectDataStringMap?.forEach {
+                projectDataMap[it.key] =
+                    projectSpecificDataAdapter.fromJson(it.value) ?: return@forEach
+            }
+
+            return projectDataMap
+        }
+
+        fun loadWakaStatistics(context: Context): WakaStatistics {
+            // get the prefs and the json aggregate data
+            val prefs =
+                context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+            val json = prefs.getString(WakaHelpers.Companion.WAKA_STATISTICS, null)
+            if (json == null) return WakaHelpers.Companion.INITIAL_WAKA_STATISTICS
+
+            // build the adapters to convert between json strings and the data
+            val moshi = Moshi.Builder()
+                .add(JSONDateAdapter())
+                .addLast(KotlinJsonAdapterFactory()).build()
+
+            val wakaStatisticsAdapter = moshi.adapter(WakaStatistics::class.java)
+
+            return wakaStatisticsAdapter.fromJson(json)
+                ?: WakaHelpers.Companion.INITIAL_WAKA_STATISTICS
+        }
+
+        fun loadNotificationData(context: Context): NotificationData {
+            val prefs =
+                context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+            val moshi = Moshi.Builder()
+                .add(JSONDateAdapter())
+                .addLast(KotlinJsonAdapterFactory()).build()
+
+            val notificationDataAdapter = moshi.adapter(NotificationData::class.java)
+            val notificationDataString =
+                prefs.getString(WakaHelpers.Companion.NOTIFICATION_DATA, null)
+
+            val notificationData: NotificationData = notificationDataString?.let {
+                (runCatching { notificationDataAdapter.fromJson(it) }.getOrNull()
+                    ?: WakaHelpers.Companion.INITIAL_NOTIFICATION_DATA)
+            } ?: WakaHelpers.Companion.INITIAL_NOTIFICATION_DATA
+
+            return notificationData
+        }
+
+        fun loadWakatimeAPI(context: Context): String {
+            val prefs =
+                context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+            return prefs.getString(WakaHelpers.Companion.WAKATIME_API, "") ?: ""
+        }
+
+        //endregion
+
+
+        //region SAVE DATA
+
+        fun saveAggregateData(context: Context, aggregateData: AggregateData) {
+            val moshi = Moshi.Builder()
+                .add(JSONDateAdapter())
+                .addLast(KotlinJsonAdapterFactory()).build()
+            val aggregateDataAdapter = moshi.adapter(AggregateData::class.java)
+            val prefs =
+                context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+            prefs.edit {
+                putString(
+                    WakaHelpers.Companion.AGGREGATE_DATA,
+                    aggregateDataAdapter.toJson(aggregateData)
+                )
+            }
+        }
+
+        fun saveProjectDataMap(context: Context, projectDataMap: Map<String, ProjectSpecificData>) {
+            val moshi = Moshi.Builder()
+                .add(JSONDateAdapter())
+                .addLast(KotlinJsonAdapterFactory()).build()
+            val projectSpecificDataAdapter = moshi.adapter(ProjectSpecificData::class.java)
+            val mapAdapter = moshi.adapter<Map<String, String>>(getMapType())
+
+            val prefs =
+                context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+
+            val projectDataStringMap = projectDataMap.mapValues {
+                projectSpecificDataAdapter.toJson(it.value)
+            }
+
+            prefs.edit {
+                putString(
+                    WakaHelpers.Companion.PROJECT_SPECIFIC_DATA,
+                    mapAdapter.toJson(projectDataStringMap)
+                )
+            }
+        }
+
+        fun saveProjectData(
+            context: Context,
+            projectName: String,
+            projectData: ProjectSpecificData
+        ) {
+            val moshi = Moshi.Builder()
+                .add(JSONDateAdapter())
+                .addLast(KotlinJsonAdapterFactory()).build()
+            val projectSpecificDataAdapter = moshi.adapter(ProjectSpecificData::class.java)
+            val mapAdapter = moshi.adapter<Map<String, String>>(getMapType())
+
+            val prefs =
+                context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+
+            val currProjectDataMap = loadProjectSpecificData(context).toMutableMap()
+            currProjectDataMap[projectName] = projectData
+
+            val wakaDataHandler = WakaDataHandler(null, currProjectDataMap)
+
+            val newDailyStreakCount = wakaDataHandler.calculateUpdatedStreak(
+                DataRequest.ProjectSpecific(projectName),
+                TimePeriod.DAY
+            )
+            val newWeeklyStreakCount = wakaDataHandler.calculateUpdatedStreak(
+                DataRequest.ProjectSpecific(projectName),
+                TimePeriod.WEEK
+            )
+
+            currProjectDataMap[projectName] = projectData.copy(
+                dailyStreak = StreakData(newDailyStreakCount, LocalDate.now().toString()),
+                weeklyStreak = StreakData(newWeeklyStreakCount, LocalDate.now().toString())
+            )
+
+            val projectDataStringMap = currProjectDataMap.mapValues {
+                projectSpecificDataAdapter.toJson(it.value)
+            }
+
+            prefs.edit {
+                putString(
+                    WakaHelpers.Companion.PROJECT_SPECIFIC_DATA,
+                    mapAdapter.toJson(projectDataStringMap)
+                )
+            }
+        }
+
+        //endregion
+
+
     }
 }

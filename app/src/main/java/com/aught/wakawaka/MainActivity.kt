@@ -6,7 +6,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
@@ -25,15 +24,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.aught.wakawaka.data.WakaHelpers
-import com.aught.wakawaka.screens.HomeView
-import com.aught.wakawaka.screens.ProjectsView
-import com.aught.wakawaka.screens.SettingsView
+import com.aught.wakawaka.screens.home.HomeView
+import com.aught.wakawaka.screens.projects.ProjectsView
+import com.aught.wakawaka.screens.settings.SettingsView
 import com.aught.wakawaka.ui.theme.WakaWakaTheme
-import androidx.core.content.edit
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
-import com.aught.wakawaka.screens.ProjectDetailsView
+import com.aught.wakawaka.screens.projects.ProjectDetailsView
 
 
 sealed class Screen(val route: String, val name: String, val icon: ImageVector) {

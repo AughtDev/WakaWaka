@@ -1,4 +1,4 @@
-package com.aught.wakawaka.screens
+package com.aught.wakawaka.screens.projects
 
 import DailyTargetCard
 import SuccessAlert

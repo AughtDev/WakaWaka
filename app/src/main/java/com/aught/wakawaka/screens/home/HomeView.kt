@@ -1,4 +1,4 @@
-package com.aught.wakawaka.screens
+package com.aught.wakawaka.screens.home
 
 import androidx.compose.ui.graphics.Color
 
@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -52,6 +53,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.toColorInt
+import com.aught.wakawaka.data.AggregateData
 import com.aught.wakawaka.data.DataRequest
 import com.aught.wakawaka.data.DurationStats
 import com.aught.wakawaka.data.TimePeriod
@@ -68,7 +70,10 @@ import kotlin.math.min
 fun HomeView() {
     var selectedProject by remember { mutableStateOf(WakaHelpers.ALL_PROJECTS_ID) }
 
-    val dataRequest = if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) DataRequest.Aggregate else DataRequest.ProjectSpecific(selectedProject)
+    val dataRequest =
+        if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) DataRequest.Aggregate else DataRequest.ProjectSpecific(
+            selectedProject
+        )
 
     val context = LocalContext.current
 
@@ -90,7 +95,11 @@ fun HomeView() {
 
     val durationLabelValueMap = mapOf(
         "Today" to durationStats.today,
-        "This Week" to wakaDataHandler.getOffsetPeriodicDurationInSeconds(dataRequest, TimePeriod.WEEK, 0),
+        "This Week" to wakaDataHandler.getOffsetPeriodicDurationInSeconds(
+            dataRequest,
+            TimePeriod.WEEK,
+            0
+        ),
 //        "Last 7 Days" to durationStats.last7Days,
         "Past 30 Days" to durationStats.last30Days,
         "Past Year" to durationStats.lastYear,
@@ -100,7 +109,10 @@ fun HomeView() {
 
     val dailyTargetHit = wakaDataHandler.targetHit(dataRequest, TimePeriod.DAY)
 
-    val streakCount = wakaDataHandler.getStreak(dataRequest, TimePeriod.DAY).count + (if (dailyTargetHit) 1 else 0)
+    val streakCount = wakaDataHandler.getStreak(
+        dataRequest,
+        TimePeriod.DAY
+    ).count + (if (dailyTargetHit) 1 else 0)
 
 
     Column(
@@ -171,23 +183,8 @@ fun HomeView() {
             }
         }
         CalendarGraph(
+            projectName = selectedProject,
             dateToDurationMap,
-//                .mapValues {
-            // divide by the target hours to get the percentage
-//                if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
-//                    if (aggregateData?.dailyTargetHours == null) {
-//                        if (it.value > 0) 1f else 0f
-//                    } else {
-//                        min(1f, it.value.toFloat() / (aggregateData.dailyTargetHours * 3600))
-//                    }
-//                } else {
-//                    if (projectSpecificData[selectedProject]?.dailyTargetHours == null) {
-//                        if (it.value > 0) 1f else 0f
-//                    } else {
-//                        min(1f, it.value.toFloat() / (projectSpecificData[selectedProject]!!.dailyTargetHours!! * 3600f))
-//                    }
-//                }
-//            },
             targetSeconds = if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
                 aggregateData?.dailyTargetHours?.times(3600) ?: 0f
             } else {
@@ -200,11 +197,13 @@ fun HomeView() {
                 if (projectSpecificData[selectedProject]?.color == null) {
                     WakaHelpers.projectNameToColor(selectedProject)
                 } else {
-                    runCatching { Color(projectSpecificData[selectedProject]!!.color.toColorInt()) }.getOrNull() ?: WakaHelpers.projectNameToColor(
-                        selectedProject
-                    )
+                    runCatching { Color(projectSpecificData[selectedProject]!!.color.toColorInt()) }.getOrNull()
+                        ?: WakaHelpers.projectNameToColor(
+                            selectedProject
+                        )
                 }
-            }
+            },
+            aggregateData
         )
         Column(
             modifier = Modifier
@@ -250,7 +249,13 @@ data class DayData(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WeekGraph(data: List<DayData>, textColor: Color, projectColor: Color, excludedDays: Set<Int>, setDialogDayData: (DayData) -> Unit) {
+fun WeekGraph(
+    data: List<DayData>,
+    textColor: Color,
+    projectColor: Color,
+    excludedDays: Set<Int>,
+    setDialogDayData: (DayData) -> Unit
+) {
     val cellSize = 48.dp
 
     val bgLuminance = ColorUtils.calculateLuminance(MaterialTheme.colorScheme.background)
@@ -282,7 +287,8 @@ fun WeekGraph(data: List<DayData>, textColor: Color, projectColor: Color, exclud
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    val luminance = WakaHelpers.PROJECT_COLOR_LUMINANCE * (data[it].duration) + bgLuminance * (1 - data[it].duration)
+                    val luminance =
+                        WakaHelpers.PROJECT_COLOR_LUMINANCE * (data[it].duration) + bgLuminance * (1 - data[it].duration)
                     val customTextColor = if (isFirstOfMonth || luminance < 0.4f) {
                         projectColor
                     } else {
@@ -328,7 +334,11 @@ fun WeekGraph(data: List<DayData>, textColor: Color, projectColor: Color, exclud
     }
 }
 
-fun generateWeeklyData(dateToDurationMap: Map<String, Int>, targetSeconds: Float, minWeeks: Int = 8): List<List<DayData>> {
+fun generateWeeklyData(
+    dateToDurationMap: Map<String, Int>,
+    targetSeconds: Float,
+    minWeeks: Int = 8
+): List<List<DayData>> {
     // first get the earliest date and calculate the number of weeks
     val numWeeks = dateToDurationMap.let {
         if (it.isEmpty()) {
@@ -380,7 +390,13 @@ fun generateWeeklyData(dateToDurationMap: Map<String, Int>, targetSeconds: Float
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CalendarGraph(dateToDurationMap: Map<String, Int>, targetSeconds: Float, projectColor: Color) {
+fun CalendarGraph(
+    projectName: String,
+    dateToDurationMap: Map<String, Int>,
+    targetSeconds: Float,
+    projectColor: Color,
+    aggregateData: AggregateData? = null
+) {
     var showDialog by remember { mutableStateOf(false) }
     var dialogDayData by remember { mutableStateOf<DayData?>(null) }
 
@@ -402,7 +418,9 @@ fun CalendarGraph(dateToDurationMap: Map<String, Int>, targetSeconds: Float, pro
                     "${it.date}${WakaHelpers.getDateSuffix(it.date)} ${it.month} ${it.year}"
                 } ?: "No date selected"
                 val durationString = dialogDayData?.let {
-                    WakaHelpers.durationInSecondsToDurationString(dateToDurationMap[it.yyyymmdd] ?: 0, "h", "m")
+                    WakaHelpers.durationInSecondsToDurationString(
+                        dateToDurationMap[it.yyyymmdd] ?: 0, "h", "m"
+                    )
                 } ?: "No duration selected"
                 val dayString = dialogDayData?.day?.uppercase() ?: "No day selected"
                 Column(
@@ -412,6 +430,18 @@ fun CalendarGraph(dateToDurationMap: Map<String, Int>, targetSeconds: Float, pro
                 ) {
                     Text(dayString, fontSize = 16.sp)
                     Text(dateString)
+                    if (projectName == WakaHelpers.ALL_PROJECTS_ID && aggregateData != null) {
+                        aggregateData.dailyRecords.forEach {
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(it.key.uppercase())
+                                Spacer(Modifier.width(8.dp))
+                                Text(WakaHelpers.durationInSecondsToDurationString(it.value.totalSeconds))
+                            }
+                        }
+                    }
                     Text(durationString)
                 }
             }
@@ -446,7 +476,13 @@ fun CalendarGraph(dateToDurationMap: Map<String, Int>, targetSeconds: Float, pro
                     }
                 }
                 if (firstJanIdx != null) {
-                    WeekGraph(it, textColor, projectColor, if (firstJanIdx != 0) (0..firstJanIdx - 1).toSet() else emptySet(), setDialogDayData)
+                    WeekGraph(
+                        it,
+                        textColor,
+                        projectColor,
+                        if (firstJanIdx != 0) (0..<firstJanIdx!!).toSet() else emptySet(),
+                        setDialogDayData
+                    )
                     // display the new year
                     Row(
                         modifier = Modifier
@@ -463,7 +499,13 @@ fun CalendarGraph(dateToDurationMap: Map<String, Int>, targetSeconds: Float, pro
                         )
                     }
                     if (firstJanIdx != 0) {
-                        WeekGraph(it, textColor, projectColor, (firstJanIdx..7).toSet(), setDialogDayData)
+                        WeekGraph(
+                            it,
+                            textColor,
+                            projectColor,
+                            (firstJanIdx!!..7).toSet(),
+                            setDialogDayData
+                        )
                     }
                 } else {
                     WeekGraph(it, textColor, projectColor, emptySet(), setDialogDayData)
@@ -526,7 +568,11 @@ fun ProjectSelector(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(text = WakaHelpers.truncateLabel(selectedProject), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(
+                text = WakaHelpers.truncateLabel(selectedProject),
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold
+            )
             IconButton(onClick = { expanded = true }) {
                 Icon(Icons.Default.ArrowDropDown, contentDescription = "Dropdown")
             }
