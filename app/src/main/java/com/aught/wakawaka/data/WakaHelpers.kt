@@ -35,6 +35,8 @@ class WakaHelpers {
 
         val MAX_LABEL_SIZE = 20
 
+        val PROJECT_COLOR_LUMINANCE = 0.9f
+
         //region INITIAL DATA
 
         val INITIAL_WAKA_STATISTICS = WakaStatistics(
@@ -82,7 +84,7 @@ class WakaHelpers {
             // but this would limit the number of distinct hues significantly.
             // Using the full spectrum with high S and V usually provides the best visual distinctness.
             val saturation = 0.6f // Adjust between 0.5f and 1.0f for desired intensity
-            val value = 0.9f      // Adjust between 0.7f and 1.0f for desired brightness
+            val value = PROJECT_COLOR_LUMINANCE      // Adjust between 0.7f and 1.0f for desired brightness
 
             // Convert HSV values to an Android ARGB color integer
             val hsv = floatArrayOf(hue.toFloat(), saturation, value)

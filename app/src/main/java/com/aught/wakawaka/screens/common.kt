@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Info
@@ -67,7 +68,8 @@ fun DailyTargetCard(
                     checked = withDailyTarget,
                     onCheckedChange = {
                         onWithDailyTargetChange(it)
-                    }
+                    },
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
@@ -182,7 +184,8 @@ fun WeeklyTargetCard(
                     checked = withWeeklyTarget,
                     onCheckedChange = {
                         onWithWeeklyTargetChange(it)
-                    }
+                    },
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
@@ -203,7 +206,7 @@ fun WeeklyTargetCard(
                         onWeeklyTargetChange(it)
                     },
                     valueRange = 5f..75f,
-                    steps = 34,
+                    steps = 69,
                     modifier = Modifier.fillMaxWidth()
                 )
             }

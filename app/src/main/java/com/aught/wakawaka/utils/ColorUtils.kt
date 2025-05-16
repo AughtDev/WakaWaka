@@ -3,6 +3,7 @@ package com.aught.wakawaka.utils
 import androidx.compose.ui.graphics.Color
 import android.graphics.Color as AndroidColor
 import androidx.compose.ui.graphics.toArgb
+import androidx.core.graphics.toColor
 import kotlin.math.floor
 import kotlin.math.ln
 import kotlin.math.max
@@ -57,7 +58,7 @@ class ColorUtils {
          * Calculate luminance of a color (perceived brightness)
          * Uses the formula from WCAG 2.0
          */
-        private fun calculateLuminance(color: Color): Float {
+        fun calculateLuminance(color: Color): Float {
             val rgb = colorToRGB(color)
 
             // Convert RGB to linear values
@@ -158,6 +159,10 @@ class ColorUtils {
             return hsl
         }
 
+        private fun rgbToColor(r: Int, g: Int, b: Int): Color {
+            return Color(AndroidColor.rgb(r, g, b))
+        }
+
         /**
          * Create a Color from HSV components
          */
@@ -165,6 +170,22 @@ class ColorUtils {
             return Color(AndroidColor.HSVToColor(floatArrayOf(hue, saturation, lightness)))
         }
 
+
+        fun mixColors(color1: Color, color2: Color, ratio: Float): Color {
+            val r1 = AndroidColor.red(color1.toArgb())
+            val g1 = AndroidColor.green(color1.toArgb())
+            val b1 = AndroidColor.blue(color1.toArgb())
+
+            val r2 = AndroidColor.red(color2.toArgb())
+            val g2 = AndroidColor.green(color2.toArgb())
+            val b2 = AndroidColor.blue(color2.toArgb())
+
+            val r = (r1 * (1 - ratio) + r2 * ratio).toInt()
+            val g = (g1 * (1 - ratio) + g2 * ratio).toInt()
+            val b = (b1 * (1 - ratio) + b2 * ratio).toInt()
+
+            return rgbToColor(r, g, b)
+        }
         // endregion
 
         // region APP SPECIFIC COLOR FUNCTIONS

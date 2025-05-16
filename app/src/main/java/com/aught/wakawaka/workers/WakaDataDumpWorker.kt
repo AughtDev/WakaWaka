@@ -25,6 +25,7 @@ import okio.IOException
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import java.time.ZoneOffset
+import java.util.Date
 
 class WakaDataDumpWorker(appContext: Context, workerParams: WorkerParameters) :
     CoroutineWorker(appContext, workerParams) {
@@ -138,14 +139,16 @@ class WakaDataDumpWorker(appContext: Context, workerParams: WorkerParameters) :
                 updatedProjectSpecificDurationMaps[projectName] = projectStats.dailyDurationInSeconds.toMutableMap()
             }
 
-            val existingDates = updatedAggregateDailyRecords.keys.toSet()
-            val existingProjects = updatedProjectSpecificDurationMaps.keys.toSet()
+            val existingProjects = updatedProjectSpecificDurationMaps.keys.toMutableSet()
+            val lastDateString = WakaHelpers.dateToYYYYMMDD(Date(dataDump.range.end * 1000).toInstant().atZone(ZoneOffset.UTC).toLocalDate())
+
 
             dataDump.days.forEach {
                 val dateString = WakaHelpers.dateToYYYYMMDD(
                     it.date.toInstant().atZone(ZoneOffset.UTC).toLocalDate()
                 )
-                if (!existingDates.contains(dateString)) {
+                // we do not update on the last date of the data dump because the data could be incomplete
+                if (dateString != lastDateString) {
                     val projectStats = mutableListOf<ProjectStats>()
                     it.projects.forEach { project ->
                         val projectName = project.name
@@ -157,7 +160,8 @@ class WakaDataDumpWorker(appContext: Context, workerParams: WorkerParameters) :
 
                         if (!existingProjects.contains(projectName)) {
                             updatedProjectSpecificDurationMaps[projectName] = mutableMapOf()
-                            existingProjects.plus(projectName)
+                            // add the projectName to existingProjects
+                            existingProjects.add(projectName)
                         }
 
                         updatedProjectSpecificDurationMaps[projectName]?.set(dateString, project.grandTotal.totalSeconds.toInt())

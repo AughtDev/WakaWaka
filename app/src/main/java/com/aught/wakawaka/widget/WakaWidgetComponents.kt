@@ -222,7 +222,7 @@ class WakaWidgetComponents {
                 }
                 if (hitTargetToday) {
                     Box(
-                        modifier = GlanceModifier.width((30 * n).dp).height(5.dp).cornerRadius(2.dp).background(streakColors[0])
+                        modifier = GlanceModifier.width((30 * n + 10 * (n-1)).dp).height(5.dp).cornerRadius(2.dp).background(streakColors[0])
                     ) {}
                 }
             }

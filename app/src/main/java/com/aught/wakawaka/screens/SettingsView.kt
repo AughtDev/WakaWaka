@@ -5,8 +5,8 @@ import SuccessAlert
 import WeeklyTargetCard
 import android.content.Context
 import android.net.Uri
+import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,13 +16,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -33,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,7 +50,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
@@ -61,7 +68,6 @@ import com.aught.wakawaka.utils.JSONDateAdapter
 import com.aught.wakawaka.workers.WakaDataDumpWorker
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.BufferedReader
@@ -135,15 +141,15 @@ fun SettingsView(modifier: Modifier = Modifier) {
             .fillMaxSize()
             .padding(16.dp)
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Header
         Text(
             text = "Settings",
             style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.fillMaxWidth()
         )
-
-        Spacer(modifier = Modifier.height(16.dp))
 
         val apiKey =
             if (selectedApiOption == WakaURL.WAKATIME.url) wakatimeAPIKey else wakapiAPIKey
@@ -161,47 +167,8 @@ fun SettingsView(modifier: Modifier = Modifier) {
             isWakatime = selectedApiOption == WakaURL.WAKATIME.url
         )
 
-        // Api URL Selection
-//        Card(
-//            modifier = Modifier.fillMaxWidth()
-//        ) {
-//            Column(
-//                modifier = Modifier.padding(16.dp),
-//                verticalArrangement = Arrangement.spacedBy(8.dp)
-//            ) {
-//                Row(
-//                    verticalAlignment = Alignment.CenterVertically,
-//                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-//                ) {
-//                    Icon(Icons.Default.Link, contentDescription = "Waka API")
-//                    Text(
-//                        text = "Waka API",
-//                        style = MaterialTheme.typography.titleMedium
-//                    )
-//                }
-//
-//                apiOptions.forEachIndexed { index, api ->
-//                    Row(
-//                        modifier = Modifier.fillMaxWidth(),
-//                        horizontalArrangement = Arrangement.SpaceBetween,
-//                        verticalAlignment = Alignment.CenterVertically
-//                    ) {
-//                        RadioButton(
-//                            selected = selectedApiOption == api,
-//                            onClick = { selectedApiOption = api }
-//                        )
-//                        Text(
-//                            text = if (api == WakaURL.WAKATIME.url) "Wakatime" else "Wakapi",
-//                        )
-//                    }
-//                }
-//
-//
-//            }
-//
-//        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         DailyTargetCard(
             dailyTarget = dailyTarget,
@@ -339,15 +306,22 @@ fun SettingsView(modifier: Modifier = Modifier) {
                 showSuccessMessage = true
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = apiKeyFilled
+            enabled = apiKeyFilled,
+            shape = RoundedCornerShape(8.dp)
         ) {
             Text("Save Settings")
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
+        HorizontalDivider(
+            modifier = Modifier
+                .fillMaxWidth(0.6f),
+            thickness = 1.dp,
+            color = MaterialTheme.colorScheme.primary
+        )
 
-        DataDumpCard(context)
+        DataSection(context)
     }
 }
 
@@ -399,7 +373,7 @@ fun ThemeSelectionCard(
         ) {
             Text(
                 text = "Theme",
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
             )
 
             themeOptions.forEachIndexed { index, theme ->
@@ -425,7 +399,9 @@ fun ThemeSelectionCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DataDumpCard(context: Context) {
+fun DataSection(context: Context) {
+    var showSuccessMessage by remember { mutableStateOf(false) }
+
     val moshi = Moshi.Builder()
         .add(JSONDateAdapter())
         .addLast(KotlinJsonAdapterFactory()).build()
@@ -444,8 +420,49 @@ fun DataDumpCard(context: Context) {
             if (dataDump != null) {
                 WakaDataDumpWorker.saveDataDumpToLocalStorage(context, dataDump)
                 println("Download successful: ${dataDump.user}")
+                showSuccessMessage = true
             } else {
                 println("Failed to parse DataDump")
+            }
+        }
+    }
+
+    LaunchedEffect(showSuccessMessage) {
+        if (showSuccessMessage) {
+            // Hide the success message after 2 seconds
+            delay(2000)
+            showSuccessMessage = false
+        }
+    }
+
+
+    // Header
+    Text(
+        text = "Data",
+        style = MaterialTheme.typography.headlineMedium,
+        modifier = Modifier.fillMaxWidth()
+    )
+
+    // Success message
+    SuccessAlert("Wakatime JSON Data imported successfully", showSuccessMessage)
+    DataImportCard(launcher)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DataImportCard(launcher: ManagedActivityResultLauncher<String, Uri?>) {
+    var showInfoDialog by remember { mutableStateOf(false) }
+
+    // Dialog for info
+    if (showInfoDialog) {
+        Dialog(
+            onDismissRequest = { showInfoDialog = false }
+        ) {
+            Column {
+                Text(
+                    text = "To get the JSON data dump, go to the wakatime website at /settings/account and scroll down to 'Export my code stats...' ",
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
@@ -453,25 +470,59 @@ fun DataDumpCard(context: Context) {
     Card(
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier
-                .padding(vertical = 16.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+        Column(
+            modifier = Modifier.padding(16.dp)
         ) {
-            Button(
-                onClick = {
-                    launcher.launch("application/json")
-
-//                crtScope.launch {
-//                    // Schedule the one time immediate worker
-//                    val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaDataDumpWorker>().build()
-//                    WorkManager.getInstance(context).enqueue(immediateWorkRequest)
-//                }
-                }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(text = "Import Wakatime Data")
+                Row(
+
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Download, contentDescription = "Data Import")
+                    Text(
+                        text = "Data Import",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                IconButton(
+                    onClick = {
+                        showInfoDialog = true
+                    },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        Icons.Outlined.Info,
+                        contentDescription = "Info",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            Text(
+                text = "Warning, this will overwrite your current data.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(8.dp)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Button(
+                    onClick = {
+                        launcher.launch("application/json")
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(text = "Import Wakatime datadump JSON")
+                }
             }
         }
     }

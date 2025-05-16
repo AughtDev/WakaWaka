@@ -348,13 +348,13 @@ fun ProjectGraph(wakaDataHandler: WakaDataHandler, projectName: String) {
                         .padding(bottom = WakaWidgetHelpers.GRAPH_BOTTOM_PADDING.dp),
                 ) {
                     // map all days or weeks depending on graph mode
-                    dates.zip(data).forEach {
+                    dates.zip(data).forEachIndexed { i, it ->
                         val date = it.first
                         val duration = it.second
 
                         Column(
                             modifier = Modifier
-                                .width(47.dp)
+                                .fillMaxWidth(1 / (7f - i))
                                 .padding(horizontal = 3.dp),
                             verticalArrangement = Arrangement.Bottom
                         ) {

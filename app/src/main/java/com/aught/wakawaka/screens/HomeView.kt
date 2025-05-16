@@ -239,7 +239,7 @@ fun DurationStatView(timeRange: String, durationInSeconds: Int) {
 data class DayData(
     val date: Int,
     val month: String,
-//    val day: String,
+    val day: String,
     val year: String,
     val yyyymmdd: String,
     val duration: Float,
@@ -252,6 +252,8 @@ data class DayData(
 @Composable
 fun WeekGraph(data: List<DayData>, textColor: Color, projectColor: Color, excludedDays: Set<Int>, setDialogDayData: (DayData) -> Unit) {
     val cellSize = 48.dp
+
+    val bgLuminance = ColorUtils.calculateLuminance(MaterialTheme.colorScheme.background)
 
     Row(
         horizontalArrangement = Arrangement.Center,
@@ -280,13 +282,23 @@ fun WeekGraph(data: List<DayData>, textColor: Color, projectColor: Color, exclud
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    if (!excludedDays.contains(it)) {
+                    val luminance = WakaHelpers.PROJECT_COLOR_LUMINANCE * (data[it].duration) + bgLuminance * (1 - data[it].duration)
+                    val customTextColor = if (isFirstOfMonth || luminance < 0.4f) {
+                        projectColor
+                    } else {
+                        if (data[it].isFutureDate) {
+                            textColor.copy(0.2f)
+                        } else {
+                            textColor.copy(if (isToday) 1f else 0.7f)
+                        }
+                    }
+                    if (!excludedDays.contains(it) && !data[it].isFutureDate) {
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = if (isToday && !isFirstOfMonth) {
                                 Modifier
                                     .fillMaxSize(0.6f)
-                                    .border(1.dp, textColor, CircleShape)
+                                    .border(1.dp, customTextColor, CircleShape)
                             } else {
                                 Modifier.fillMaxSize()
                             }
@@ -294,18 +306,7 @@ fun WeekGraph(data: List<DayData>, textColor: Color, projectColor: Color, exclud
                         ) {
                             Text(
                                 text = if (isFirstOfMonth) data[it].month.slice(0..2) else data[it].date.toString(),
-//                        textDecoration = if (data[it].isToday) TextDecoration.Underline else null,
-                                color = (
-                                        if (isFirstOfMonth) {
-                                            projectColor
-                                        } else {
-                                            if (data[it].isFutureDate) {
-                                                textColor.copy(0.2f)
-                                            } else {
-                                                textColor.copy(if (isToday) 1f else 0.7f)
-                                            }
-                                        }
-                                        ),
+                                color = customTextColor,
                                 fontSize = when {
                                     isFirstOfMonth -> 12.sp
                                     data[it].isToday -> 16.sp
@@ -357,6 +358,7 @@ fun generateWeeklyData(dateToDurationMap: Map<String, Int>, targetSeconds: Float
             val dayData = DayData(
                 date.dayOfMonth,
                 date.month.toString(),
+                date.dayOfWeek.toString(),
                 date.year.toString(),
                 dateString,
 //                if (targetSeconds == 0f) {
@@ -402,11 +404,13 @@ fun CalendarGraph(dateToDurationMap: Map<String, Int>, targetSeconds: Float, pro
                 val durationString = dialogDayData?.let {
                     WakaHelpers.durationInSecondsToDurationString(dateToDurationMap[it.yyyymmdd] ?: 0, "h", "m")
                 } ?: "No duration selected"
+                val dayString = dialogDayData?.day?.uppercase() ?: "No day selected"
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Text(dayString, fontSize = 16.sp)
                     Text(dateString)
                     Text(durationString)
                 }
