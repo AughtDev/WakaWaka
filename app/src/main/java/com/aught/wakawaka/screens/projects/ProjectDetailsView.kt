@@ -1,8 +1,10 @@
 package com.aught.wakawaka.screens.projects
 
+import AlertData
 import DailyTargetCard
-import SuccessAlert
+import AlertPane
 import WeeklyTargetCard
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,10 +18,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Card
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,8 +34,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Observer
 import androidx.navigation.NavHostController
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.aught.wakawaka.Screen
 import com.aught.wakawaka.data.ProjectSpecificData
@@ -40,7 +47,11 @@ import com.aught.wakawaka.workers.WakaDataFetchWorker
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.workers.WakaProjectWidgetUpdateWorker
 import kotlinx.coroutines.delay
+import kotlin.collections.component1
+import kotlin.collections.component2
+import kotlin.collections.iterator
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectDetailsView(projectName: String, navController: NavHostController) {
     val context = LocalContext.current
@@ -48,7 +59,7 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
     val projectData = projectSpecificData[projectName]
 
     if (projectData != null) {
-        var showSuccessMessage by remember { mutableStateOf(false) }
+        var alertData by remember { mutableStateOf<AlertData?>(null) }
 
         var withDailyTarget by remember {
             mutableStateOf(
@@ -74,11 +85,11 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
             )
         }
 
-        LaunchedEffect(showSuccessMessage) {
-            if (showSuccessMessage) {
+        LaunchedEffect(alertData) {
+            if (alertData != null) {
                 // Hide the success message after 2 seconds
                 delay(2000)
-                showSuccessMessage = false
+                alertData = null
             }
         }
 
@@ -120,10 +131,13 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
                 )
             }
 
+
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
+//                ProjectStreakCards(projectData)
+                ProjectStats(context, projectName)
                 DailyTargetCard(
                     dailyTarget = dailyTarget,
                     withDailyTarget = withDailyTarget,
@@ -143,7 +157,11 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
                 )
 
                 // Success message
-                SuccessAlert("$projectName settings saved successfully!", showSuccessMessage)
+                AlertPane(
+                    alertData,
+//                    AlertData("$projectName settings saved successfully!")
+                    alertData != null
+                )
 
 
                 // Save Button
@@ -162,9 +180,24 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
                             )
                         )
                         val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaProjectWidgetUpdateWorker>().build()
-                        WorkManager.getInstance(context).enqueue(immediateWorkRequest)
+                        val workerInstance = WorkManager.getInstance(context)
 
-                        showSuccessMessage = true
+                        workerInstance.enqueue(immediateWorkRequest)
+                        val observer = object : Observer<WorkInfo?> {
+                            override fun onChanged(workInfo: WorkInfo?) {
+                                if (workInfo?.state?.isFinished == true) {
+                                    if (workInfo.state == WorkInfo.State.SUCCEEDED) {
+                                        alertData = AlertData("$projectName settings saved successfully!")
+                                        workerInstance.getWorkInfoByIdLiveData(immediateWorkRequest.id).removeObserver(this)
+                                    } else if (workInfo.state == WorkInfo.State.FAILED) {
+                                        alertData = AlertData("Failed to save $projectName settings", AlertType.Failure)
+                                        workerInstance.getWorkInfoByIdLiveData(immediateWorkRequest.id).removeObserver(this)
+                                    }
+                                }
+                            }
+                        }
+                        workerInstance.getWorkInfoByIdLiveData(immediateWorkRequest.id).observeForever(observer)
+
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -175,5 +208,96 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
     } else {
         // Handle the case where project data is not found
         Text(text = "Project data not found")
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProjectStreakCards(projectData: ProjectSpecificData) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.5f)
+                .padding(8.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("Daily Streak", fontSize = 10.sp)
+                Text(
+                    ((projectData.dailyStreak?.count ?: 0) + if (WakaDataFetchWorker.dailyTargetHit(
+                            projectData.dailyDurationInSeconds,
+                            projectData.dailyTargetHours,
+                        )
+                    ) 1 else 0).toString(),
+                    fontSize = 32.sp
+                )
+            }
+
+        }
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Weekly Streak", fontSize = 10.sp)
+                Text(
+                    ((projectData.weeklyStreak?.count ?: 0) + if (WakaDataFetchWorker.weeklyTargetHit(
+                            projectData.dailyDurationInSeconds,
+                            projectData.weeklyTargetHours
+                        )
+                    ) 1 else 0).toString(),
+                    fontSize = 32.sp
+                )
+            }
+
+        }
+    }
+}
+
+@Composable
+fun ProjectStats(context: Context, projectName: String) {
+    val projectStats = WakaDataFetchWorker.loadWakaStatistics(context).projectStats[projectName]
+    val statsData = mapOf<String, Int>(
+        "Today" to (projectStats?.today ?: 0),
+        "Last 7 Days" to (projectStats?.last7Days ?: 0),
+        "Last 30 Days" to (projectStats?.last30Days ?: 0),
+        "Past Year" to (projectStats?.lastYear ?: 0),
+        "Total Time" to (projectStats?.allTime ?: 0),
+    )
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp)
+    ) {
+        for ((key, value) in statsData) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = key,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Text(
+                    text = WakaHelpers.durationInSecondsToDurationString(value),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+        }
     }
 }

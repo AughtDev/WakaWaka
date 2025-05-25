@@ -22,14 +22,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SearchBar
+import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,22 +74,6 @@ fun setProjectAssignedToProjectWidget(context: Context, projectName: String?) {
     prefs.edit() {
         putString(WakaHelpers.PROJECT_ASSIGNED_TO_PROJECT_WIDGET, projectName)
     }
-    // update the project widget
-//    coroutineScope.launch {
-//        WakaProjectWidget().updateAll(context)
-//        println("done, launched it")
-//    }
-//    val workId = "WakaProjectWidgetUpdate"
-//
-//    WorkManager.getInstance(context).cancelUniqueWork(workId)
-//
-//    val updateWork = OneTimeWorkRequestBuilder<WakaProjectWidgetUpdateWorker>()
-//        .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST).build()
-//    WorkManager.getInstance(context).enqueueUniqueWork(
-//        "WakaProjectWidgetUpdate${LocalTime.now().toString()}",
-//        ExistingWorkPolicy.REPLACE,
-//        updateWork
-//    )
     val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaProjectWidgetUpdateWorker>().build()
     WorkManager.getInstance(context).enqueue(immediateWorkRequest)
 }
@@ -111,18 +99,62 @@ fun ProjectsView(navController: NavHostController) {
         mutableStateOf<String?>(null)
     }
 
+    var searchQuery by remember {
+        mutableStateOf("")
+    }
+    var showSearchBar by remember {
+        mutableStateOf(false)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
             .verticalScroll(rememberScrollState()),
     ) {
-        Text(
-            text = "Projects",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-        wakaDataHandler.getSortedProjectList().forEach { it ->
+        Row(
+            modifier = Modifier
+//                .background(Color.Red)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top,
+        ) {
+            Text(
+                text = "Projects",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "Search projects",
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .clickable {
+                        showSearchBar = !showSearchBar
+                    }
+                    .size(32.dp)
+//                    .background(Color.Blue)
+            )
+        }
+        if (showSearchBar) {
+            TextField(
+                value = searchQuery,
+                onValueChange = {
+                    searchQuery = it
+                },
+                placeholder = {
+                    Text(text = "Search projects")
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+                    .animateContentSize()
+            )
+        }
+
+        wakaDataHandler.getSortedProjectList().filter {
+            searchQuery.isEmpty() || it.contains(searchQuery, ignoreCase = true)
+        }.forEach { it ->
             val projectName = it
             val isProjectAssignedToProjectWidget = projectAssignedToProjectWidget == projectName
             val isExpanded = expandedProjectName == projectName

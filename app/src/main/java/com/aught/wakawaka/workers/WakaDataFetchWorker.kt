@@ -40,6 +40,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
+import java.util.Date
 import kotlin.math.roundToInt
 
 
@@ -108,6 +109,20 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             Context.MODE_PRIVATE
         )
 
+        // get last fetch timestamp
+        val lastFetchTimestamp = prefs.getLong(WakaHelpers.LAST_FETCH_TIMESTAMP, 0)
+        val currTimestamp = System.currentTimeMillis()
+
+        // if the last fetch was less than WakaHelpers.MIN_FETCH_INTERVAL ago, return success else update the timestamp
+        if (currTimestamp - lastFetchTimestamp < WakaHelpers.MIN_FETCH_INTERVAL) {
+            println("Last fetch was less than ${WakaHelpers.MIN_FETCH_INTERVAL} ms ago, skipping fetch")
+            return Result.success()
+        } else {
+            prefs.edit {
+                putLong(WakaHelpers.LAST_FETCH_TIMESTAMP, currTimestamp)
+            }
+        }
+
         val url: String =
             prefs.getString(WakaHelpers.Companion.WAKA_URL, WakaURL.WAKATIME.url)
                 ?: WakaURL.WAKATIME.url
@@ -129,7 +144,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         // the http client with an auth interceptor and logging interceptor
         val okHttpClient = OkHttpClient.Builder()
             .addInterceptor(AuthInterceptor(authToken))
-            .addInterceptor(logging)
+//            .addInterceptor(logging)
             .build()
 
 
@@ -143,10 +158,8 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         // the wakapi service created from the retrofit instance
         val service = retrofit.create(WakaService::class.java)
 
-        println("working inside worker")
         return withContext(Dispatchers.IO) {
             try {
-                println("Fetching summaries from wakatime")
                 val response = service.getSummaries("Last 7 Days")
                 updateAppDataWithResponse(applicationContext, response)
 
@@ -155,7 +168,6 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
                 Result.success()
             } catch (e: Exception) {
-                println("The exception is $e")
                 Result.failure()
 
             }
@@ -390,8 +402,6 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         }
 
 
-
-        println("saving data")
         // save the map to the prefs
         prefs.edit() {
             putString(
@@ -402,7 +412,6 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                 WakaHelpers.Companion.PROJECT_SPECIFIC_DATA,
                 mapAdapter.toJson(projectDataStringMap.toMap())
             )
-            println("putting the data (save)")
         }
 
     }
@@ -438,23 +447,19 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                 val formattedDate = date.format(dateFormatter)
 
                 if (formattedDate == dailyStreakData.updatedAt) {
-                    println("found the last updated streak date $date")
                     streak += dailyStreakData.count;
                     break
                 }
 
                 if (excludedDays?.contains(date.dayOfWeek.value) == true) {
-                    println("skipping excluded day: ${date.dayOfWeek} on $date")
                     continue
                 }
                 if (!data.containsKey(formattedDate) || (data[formattedDate]!!.toFloat() / 3600) < targetHours) {
-                    println("found a date that does not meet the target hours $date")
                     break
                 }
                 streak++
             }
 
-            println("Daily Streak: $streak, updatedAt: ${yesterday.format(dateFormatter)}")
 
             return StreakData(streak, yesterday.format(dateFormatter))
         }
@@ -635,6 +640,11 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             val prefs =
                 context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
             return prefs.getString(WakaHelpers.Companion.WAKATIME_API, "") ?: ""
+        }
+
+        fun loadProjectAssignedToWidget(context: Context): String? {
+            val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
+            return prefs.getString(WakaHelpers.PROJECT_ASSIGNED_TO_PROJECT_WIDGET, null)
         }
 
         //endregion

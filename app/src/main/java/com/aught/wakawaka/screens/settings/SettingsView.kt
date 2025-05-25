@@ -1,13 +1,10 @@
 package com.aught.wakawaka.screens.settings
 
+import AlertData
 import DailyTargetCard
-import SuccessAlert
+import AlertPane
 import WeeklyTargetCard
 import android.content.Context
-import android.net.Uri
-import androidx.activity.compose.ManagedActivityResultLauncher
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,17 +13,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -50,29 +44,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.Observer
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.aught.wakawaka.data.AggregateData
-import com.aught.wakawaka.data.DataDump
 import com.aught.wakawaka.data.DayOfWeek
 import com.aught.wakawaka.data.StreakData
 import com.aught.wakawaka.workers.WakaDataFetchWorker
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaURL
-import com.aught.wakawaka.utils.JSONDateAdapter
-import com.aught.wakawaka.workers.WakaDataDumpWorker
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.io.BufferedReader
-import java.io.InputStream
-import java.io.InputStreamReader
 import java.time.Duration
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -134,7 +120,7 @@ fun SettingsView(modifier: Modifier = Modifier) {
     }
 
 
-    var showSuccessMessage by remember { mutableStateOf(false) }
+    var alertData by remember { mutableStateOf<AlertData?>(null) }
 
     Column(
         modifier = modifier
@@ -231,16 +217,16 @@ fun SettingsView(modifier: Modifier = Modifier) {
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        LaunchedEffect(showSuccessMessage) {
-            if (showSuccessMessage) {
+        LaunchedEffect(alertData) {
+            if (alertData != null) {
                 // Hide the success message after 2 seconds
                 delay(2000)
-                showSuccessMessage = false
+                alertData = null
             }
         }
 
         // Success message
-        SuccessAlert("Aggregate settings saved successfully!", showSuccessMessage)
+        AlertPane(alertData, alertData != null)
 
         val crtScope = rememberCoroutineScope()
 
@@ -287,12 +273,10 @@ fun SettingsView(modifier: Modifier = Modifier) {
                     val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaDataFetchWorker>().build()
                     WorkManager.getInstance(context).enqueue(immediateWorkRequest)
 
-//                    WakaWidget().updateAll(context)
-
                     // Schedule the periodic
                     val workRequest = PeriodicWorkRequestBuilder<WakaDataFetchWorker>(
                         // every hour
-                        repeatInterval = Duration.ofHours(1),
+                        repeatInterval = Duration.ofMinutes(15),
                     ).build()
 
                     WorkManager.getInstance(context).enqueueUniquePeriodicWork(
@@ -301,9 +285,10 @@ fun SettingsView(modifier: Modifier = Modifier) {
                         workRequest
                     )
                 }
-
-                // Show success message
-                showSuccessMessage = true
+                alertData = AlertData(
+                    "Settings saved successfully!",
+                    AlertType.Success
+                )
             },
             modifier = Modifier.fillMaxWidth(),
             enabled = apiKeyFilled,

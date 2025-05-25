@@ -30,7 +30,12 @@ import com.aught.wakawaka.screens.settings.SettingsView
 import com.aught.wakawaka.ui.theme.WakaWakaTheme
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.screens.projects.ProjectDetailsView
+import androidx.core.content.edit
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import com.aught.wakawaka.workers.WakaDataFetchWorker
 
 
 sealed class Screen(val route: String, val name: String, val icon: ImageVector) {
@@ -56,16 +61,20 @@ class MainActivity : ComponentActivity() {
         ) {
             requestPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
 
-        // set the edge to edge
+        // make a work request to fetch data on first render
+        val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaDataFetchWorker>().build()
+        WorkManager.getInstance(this).enqueue(immediateWorkRequest)
 
 
         super.onCreate(savedInstanceState)
-        // wipe shared prefs
-//        val sharedPrefs = getSharedPreferences(WakaHelpers.PREFS, MODE_PRIVATE)
-//
-//        sharedPrefs.edit() { clear() }
-
 
         enableEdgeToEdge()
         setContent {

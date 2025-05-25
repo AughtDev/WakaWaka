@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">WakaWaka</string>
+    <string name="aggregate_widget_name">WakaWaka Aggregate Widget</string>
+    <string name="project_widget_name">WakaWaka Project Specific Widget</string>
 </resources>

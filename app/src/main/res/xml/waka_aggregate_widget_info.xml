@@ -4,5 +4,6 @@
         android:minWidth="300dp"
         android:minHeight="80dp"
         android:widgetCategory="home_screen"
+        android:label="@string/aggregate_widget_name"
         android:updatePeriodMillis="86400000"
         android:initialLayout="@layout/glance_default_loading_layout" />

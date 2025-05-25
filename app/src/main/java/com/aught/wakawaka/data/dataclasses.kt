@@ -1,5 +1,6 @@
 package com.aught.wakawaka.data
 
+import androidx.compose.runtime.snapshots.SnapshotApplyResult
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import java.util.Date // Keep Date if you want Moshi to parse the ISO strings
@@ -206,4 +207,7 @@ data class NotificationData(
 )
 
 // endregion
+
+
+
 

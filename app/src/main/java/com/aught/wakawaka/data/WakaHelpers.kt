@@ -37,6 +37,10 @@ class WakaHelpers {
 
         val PROJECT_COLOR_LUMINANCE = 0.9f
 
+        val LAST_FETCH_TIMESTAMP = "last_fetch_timestamp"
+
+        val MIN_FETCH_INTERVAL = 1 * 60 * 1000 // update at most every 1 minute
+
         //region INITIAL DATA
 
         val INITIAL_WAKA_STATISTICS = WakaStatistics(
@@ -131,9 +135,9 @@ class WakaHelpers {
             return date.format(getYYYYMMDDDateFormatter())
         }
 
-        fun truncateLabel(label: String): String {
-            return if (label.length > MAX_LABEL_SIZE) {
-                label.substring(0, MAX_LABEL_SIZE - 3) + "..."
+        fun truncateLabel(label: String, maxLen: Int = MAX_LABEL_SIZE): String {
+            return if (label.length > maxLen) {
+                label.substring(0, maxLen - 3) + "..."
             } else {
                 label
             }

@@ -215,34 +215,56 @@ fun WeeklyTargetCard(
 
 }
 
-@Composable
-fun SuccessAlert(message: String, isVisible: Boolean) {
-    // Success message
-    AnimatedVisibility(visible = isVisible) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    Icons.Default.Info,
-                    contentDescription = "Success",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
 
-        Spacer(modifier = Modifier.height(8.dp))
+enum class AlertType(val status: String) {
+    Success("success"),
+    Failure("failure"),
+}
+
+data class AlertData(
+    val message: String,
+    val type: AlertType = AlertType.Success,
+)
+
+@Composable
+fun AlertPane(alertData: AlertData?, isVisible: Boolean) {
+    if (alertData != null) {
+        val tint = if (alertData.type == AlertType.Success) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.error
+        }
+        val containerColor = if (alertData.type == AlertType.Success) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.errorContainer
+        }
+        AnimatedVisibility(visible = isVisible) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = containerColor
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Info,
+                        contentDescription = alertData.type.status,
+                        tint = tint
+                    )
+                    Text(
+                        text = alertData.message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = tint
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+        }
     }
 }
