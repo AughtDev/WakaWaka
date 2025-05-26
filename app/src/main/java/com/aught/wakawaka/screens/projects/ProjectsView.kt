@@ -2,6 +2,7 @@ package com.aught.wakawaka.screens.projects
 
 import android.content.Context
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -137,19 +138,36 @@ fun ProjectsView(navController: NavHostController) {
             )
         }
         if (showSearchBar) {
-            TextField(
-                value = searchQuery,
-                onValueChange = {
-                    searchQuery = it
-                },
-                placeholder = {
-                    Text(text = "Search projects")
-                },
+//            SearchBar(
+//                modifier = Modifier.background(Color.Red).fillMaxWidth().height(50.dp),
+//                inputField = {
+//                    SearchBarDefaults.InputField(
+//                        searchQuery, {}, {}, false, {},
+//                        placeholder = {Text(text="Search Projects")}
+//                    )
+//                },
+//                expanded = false,
+//                onExpandedChange = {}
+//            ) {
+//            }
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp)
                     .animateContentSize()
-            )
+            ) {
+                TextField(
+                    value = searchQuery,
+                    onValueChange = {
+                        searchQuery = it
+                    },
+                    placeholder = {
+                        Text(text = "Search projects")
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                )
+            }
         }
 
         wakaDataHandler.getSortedProjectList().filter {
@@ -240,9 +258,13 @@ fun ProjectsView(navController: NavHostController) {
 
                             checked = isProjectAssignedToProjectWidget,
                             onCheckedChange = {
-                                val newProjectAssignedToWidget = if (isProjectAssignedToProjectWidget) null else projectName
+                                val newProjectAssignedToWidget =
+                                    if (isProjectAssignedToProjectWidget) null else projectName
                                 projectAssignedToProjectWidget = newProjectAssignedToWidget
-                                setProjectAssignedToProjectWidget(context, newProjectAssignedToWidget)
+                                setProjectAssignedToProjectWidget(
+                                    context,
+                                    newProjectAssignedToWidget
+                                )
                             },
                             modifier = Modifier.scale(0.6f)
                         )
@@ -451,7 +473,8 @@ fun TargetLine(targetHours: Float, maxHours: Float) {
         (3600 * targetHours) / (3600 * maxHours)
     ) + WakaWidgetHelpers.GRAPH_BOTTOM_PADDING + WakaWidgetHelpers.DATE_TEXT_HEIGHT)
 
-    val targetText = WakaHelpers.durationInSecondsToDurationString((targetHours * 3600).roundToInt())
+    val targetText =
+        WakaHelpers.durationInSecondsToDurationString((targetHours * 3600).roundToInt())
 
 
     Column(

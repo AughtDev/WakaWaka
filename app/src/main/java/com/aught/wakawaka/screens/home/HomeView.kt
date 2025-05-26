@@ -9,7 +9,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.scrollable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -77,6 +76,8 @@ import com.aught.wakawaka.utils.ColorUtils
 import java.time.LocalDate
 import kotlin.math.min
 import android.util.Log
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.lazy.LazyListState
 
 fun refreshWakaData(context: Context, setIsLoading: ((Boolean) -> Unit)) {
     Log.d("waka", "Refreshing Waka data...")
@@ -116,6 +117,7 @@ fun HomeView() {
         )
 
     val aggregateData = remember(refreshKey) {
+        Log.d("waka", "Loading aggregate data...")
         WakaDataFetchWorker.loadAggregateData(context)
     }
     val projectSpecificData = remember(refreshKey) {
@@ -153,8 +155,11 @@ fun HomeView() {
 
     val wakaDataHandler = WakaDataHandler(aggregateData, projectSpecificData)
 
-    val projects = mutableListOf(WakaHelpers.ALL_PROJECTS_ID)
-    projects.addAll(wakaDataHandler.getSortedProjectList())
+    val projects = remember {
+        mutableListOf(WakaHelpers.ALL_PROJECTS_ID).apply {
+            addAll(wakaDataHandler.getSortedProjectList())
+        }
+    }
 
 
     val durationStats: DurationStats = if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
@@ -175,11 +180,11 @@ fun HomeView() {
         "Past Year" to durationStats.lastYear,
     )
 
-    val dateToDurationMap = remember {
+    val dateToDurationMap = remember(dataRequest) {
         wakaDataHandler.getDateToDurationData(dataRequest)
     }
 
-    val dailyTargetHit = remember {
+    val dailyTargetHit = remember(dataRequest) {
         wakaDataHandler.targetHit(dataRequest, TimePeriod.DAY)
     }
 
@@ -204,6 +209,7 @@ fun HomeView() {
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
+            Log.d("waka", "Header: $selectedProject")
             // Header
             Row(
                 modifier = Modifier
@@ -227,58 +233,19 @@ fun HomeView() {
                         fontSize = 24.sp
                     )
                 }
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                ) {
-                    Box(
-                        contentAlignment = Alignment.TopStart,
-                        modifier = Modifier
-                            .height(64.dp)
-                            .width(48.dp)
-                    ) {
-                        //                    IconButton(
-                        //                        {
-                        //                            val workManagerInstance = WorkManager.getInstance(context)
-                        //                            // Schedule the one time immediate worker
-                        //                            val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaDataFetchWorker>().build()
-                        //
-                        //                            val observer = object : Observer<WorkInfo?> {
-                        //                                override fun onChanged(workInfo: WorkInfo?) {
-                        //                                    if (workInfo != null && workInfo.state.isFinished) {
-                        //                                        WorkManager.getInstance(context).getWorkInfoByIdLiveData(immediateWorkRequest.id)
-                        //                                            .removeObserver(this)
-                        //                                        reloadKey++
-                        //                                    }
-                        //                                }
-                        //                            }
-                        //
-                        //                            workManagerInstance.enqueue(immediateWorkRequest)
-                        //                            workManagerInstance.getWorkInfoByIdLiveData(immediateWorkRequest.id)
-                        //                                .observeForever(observer)
-                        //                        },
-                        //                    ) {
-                        //                        Icon(
-                        //                            Icons.Default.Refresh,
-                        //                            contentDescription = "Refresh Data",
-                        //                            modifier = Modifier
-                        //                                .size(32.dp)
-                        //                                .fillMaxHeight()
-                        //                        )
-                        //                    }
-                    }
-                    Text(
-                        text = streakCount.toString(),
-                        fontSize = 72.sp,
-                        color = if (dailyTargetHit) {
-                            MaterialTheme.colorScheme.onSurface
-                        } else {
-                            MaterialTheme.colorScheme.onSurface.copy(0.5f)
-                        },
-                        fontWeight = FontWeight.ExtraBold,
-                    )
-                }
+                Text(
+                    text = streakCount.toString(),
+                    fontSize = 72.sp,
+                    color = if (dailyTargetHit) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(0.5f)
+                    },
+                    fontWeight = FontWeight.Bold,
+                )
             }
             val targetSeconds = remember {
+                Log.d("waka", "Target seconds: ${selectedProject}")
                 if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
                     aggregateData?.dailyTargetHours?.times(3600) ?: 0f
                 } else {
@@ -288,6 +255,7 @@ fun HomeView() {
 
             val primaryColor = MaterialTheme.colorScheme.primary
             val projectColor = remember(selectedProject, projectSpecificData) {
+                Log.d("waka", "Project color: $selectedProject")
                 if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
                     primaryColor
                 } else {
@@ -517,6 +485,7 @@ fun CalendarGraph(
                     .padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
+                val dialogTextColor = Color.White
                 // date string of dialog day data of the format 15th May 2025
                 val dateString = dialogDayData?.let {
                     "${it.date}${WakaHelpers.getDateSuffix(it.date)} ${it.month} ${it.year}"
@@ -541,8 +510,8 @@ fun CalendarGraph(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(dayString, fontSize = 16.sp)
-                    Text(dateString)
+                    Text(dayString, fontSize = 16.sp, color = dialogTextColor)
+                    Text(dateString, color = dialogTextColor)
                     if (projects != null) {
                         val textSize = 12.sp
                         val padding = 8.dp
@@ -553,7 +522,11 @@ fun CalendarGraph(
                                 horizontalAlignment = Alignment.Start
                             ) {
                                 projects.forEach {
-                                    Text(WakaHelpers.truncateLabel(it.name.uppercase(), 16), fontSize = textSize)
+                                    Text(
+                                        WakaHelpers.truncateLabel(it.name.uppercase(), 16),
+                                        fontSize = textSize,
+                                        color = dialogTextColor
+                                    )
                                 }
                             }
                             Column(
@@ -563,24 +536,35 @@ fun CalendarGraph(
                                 horizontalAlignment = Alignment.End
                             ) {
                                 projects.forEach {
-                                    Text(WakaHelpers.durationInSecondsToDurationString(it.totalSeconds), fontSize = textSize)
+                                    Text(
+                                        WakaHelpers.durationInSecondsToDurationString(it.totalSeconds),
+                                        fontSize = textSize,
+                                        color = dialogTextColor
+                                    )
                                 }
                             }
                         }
                     }
-                    Text(durationString)
+                    Text(durationString, color = dialogTextColor)
                 }
             }
         }
     }
 
     val lazyListState = rememberLazyListState()
-    val weeklyData = generateWeeklyData(dateToDurationMap, targetSeconds)
-    val textColor = ColorUtils.getContrastingTextColor(projectColor)
+    val weeklyData = remember(dateToDurationMap, targetSeconds) {
+        Log.d("waka", "Generating weekly data for project: $projectName")
+        generateWeeklyData(dateToDurationMap, targetSeconds)
+    }
+    val textColor = remember(projectColor) {
+        ColorUtils.getContrastingTextColor(projectColor)
+    }
 
-    val setDialogDayData = { it: DayData ->
-        dialogDayData = it
-        showDialog = true
+    val setDialogDayData = remember {
+        { it: DayData ->
+            dialogDayData = it
+            showDialog = true
+        }
     }
 
     Box(
@@ -638,53 +622,87 @@ fun CalendarGraph(
                 }
             }
         }
-        val firstVisibleItemIndex = remember {
-            derivedStateOf {
-                lazyListState.firstVisibleItemIndex
+
+        ScrollBlurEffects(lazyListState, weeklyData.size)
+
+
+    }
+}
+
+
+@Composable
+private fun ScrollBlurEffects(
+    lazyListState: LazyListState,
+    weeklyDataSize: Int
+) {
+
+    // top blur opacity
+    val topBlurOpacity by remember {
+        // if the first item is not visible, then the opacity is 1, else the opacity is
+        // the firstItemOffset divided by the height of the first item
+        derivedStateOf {
+            val firstItem = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull()
+            if (firstItem == null) {
+                return@derivedStateOf 1f
+            }
+            if (lazyListState.firstVisibleItemIndex != 0) {
+                1f
+            } else {
+                lazyListState.firstVisibleItemScrollOffset.toFloat() / lazyListState.layoutInfo.visibleItemsInfo.first().size.toFloat()
             }
         }
+    }
 
-        val layoutInfo = remember { derivedStateOf { lazyListState.layoutInfo } }
+    // bottom blur opacity
+    val bottomBlurOpacity by remember(weeklyDataSize) {
+        derivedStateOf {
+            val lastItem = lazyListState.layoutInfo.visibleItemsInfo.lastOrNull()
+            if (lastItem == null) {
+                return@derivedStateOf 1f;
+            }
+            val distanceToBottom =
+                (lastItem.offset + lastItem.size - lazyListState.layoutInfo.viewportEndOffset)
+//            Log.d("waka", "lastItem: ${lastItem.index}, ${lastItem.size}, distToBottom $distanceToBottom , weekly data size is $weeklyDataSize")
+            if (lastItem.index != weeklyDataSize - 1) {
+                1f
+            } else {
+                distanceToBottom.toFloat() / lastItem.size.toFloat()
+            }
+        }
+    }
 
-        if (layoutInfo.value.viewportStartOffset > 0) {
+
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(
-                        80.dp
-//                        min(
-//                            80,
-//                            (layoutInfo.value.viewportStartOffset)
-//                        ).dp
-                    )
+                    .height(80.dp)
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                MaterialTheme.colorScheme.background,
+                                MaterialTheme.colorScheme.background.copy(alpha = topBlurOpacity),
                                 Color.Transparent
                             )
                         )
                     )
             )
-        }
-        if (layoutInfo.value.visibleItemsInfo.lastOrNull()?.index != weeklyData.lastIndex) {
+
+
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(
-                        // height depends on how close the last item is to the bottom of the screen
-                        80.dp
-//                        min(
-//                            80.dp,
-//                            (layoutInfo.value.viewportSize.height - layoutInfo.value.visibleItemsInfo.lastOrNull().offset)
-//                        )
-                    )
+                    .height(80.dp)
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                MaterialTheme.colorScheme.background,
+                                MaterialTheme.colorScheme.background.copy(alpha = bottomBlurOpacity),
                             )
                         )
                     )
@@ -710,7 +728,7 @@ fun ProjectSelector(
             Text(
                 text = WakaHelpers.truncateLabel(selectedProject),
                 fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.SemiBold
             )
             IconButton(onClick = { expanded = true }) {
                 Icon(Icons.Default.ArrowDropDown, contentDescription = "Dropdown")

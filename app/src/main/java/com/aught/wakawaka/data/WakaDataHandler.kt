@@ -1,6 +1,7 @@
 package com.aught.wakawaka.data
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.ui.graphics.Color
 import androidx.core.graphics.toColorInt
 import com.aught.wakawaka.workers.WakaDataFetchWorker
@@ -32,6 +33,7 @@ class WakaDataHandler(val aggregateData: AggregateData?, val projectSpecificData
     }
 
     fun getDateToDurationData(dataRequest: DataRequest): Map<String, Int> {
+//        Log.d("waka", "getDateToDurationData: $dataRequest")
         return when (dataRequest) {
             is DataRequest.Aggregate -> aggregateData?.dailyRecords?.mapValues { it.value.totalSeconds } ?: emptyMap()
             is DataRequest.ProjectSpecific -> projectSpecificData[dataRequest.projectName]?.dailyDurationInSeconds ?: emptyMap()
@@ -277,7 +279,6 @@ class WakaDataHandler(val aggregateData: AggregateData?, val projectSpecificData
 
     // get the sorted project list based on the duration over the last 30 days
     fun getSortedProjectList(): List<String> {
-        return projectSpecificData.toList().map { it.first }
         val sortedProjectList = projectSpecificData.toList().sortedByDescending { (projectName, _) ->
             val data = getDateToDurationData(DataRequest.ProjectSpecific(projectName))
             // sum up the durations weighted by the square root of the reciprocal of the number of days ago it happened

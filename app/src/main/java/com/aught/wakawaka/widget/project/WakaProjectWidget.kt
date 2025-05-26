@@ -95,11 +95,12 @@ class WakaProjectWidget : GlanceAppWidget() {
 
             val excludedDays = wakaDataHandler.getExcludedDays(dataRequest, timePeriod)
 
-            val theme = when (prefs.getInt(WakaHelpers.THEME, 0)) {
-                0 -> WakaWidgetTheme.Light
-                1 -> WakaWidgetTheme.Dark
-                else -> WakaWidgetTheme.Dark
-            }
+//            val theme = when (prefs.getInt(WakaHelpers.THEME, 0)) {
+//                0 -> WakaWidgetTheme.Light
+//                1 -> WakaWidgetTheme.Dark
+//                else -> WakaWidgetTheme.Dark
+//            }
+            val theme = WakaWidgetTheme.Dark
 
             val projectColor = wakaDataHandler.getProjectColor(widgetProject)
 
@@ -114,10 +115,7 @@ class WakaProjectWidget : GlanceAppWidget() {
             println("primary color is $primaryColor")
             Box(
                 modifier = GlanceModifier.fillMaxSize().background(
-                    (when (theme) {
-                        WakaWidgetTheme.Dark -> Color.Black
-                        WakaWidgetTheme.Light -> Color.White
-                    }).copy(alpha = 0.3f)
+                    Color.Black.copy(alpha = 0.3f)
                 )
             )
             {
@@ -203,7 +201,8 @@ class WakaProjectWidget : GlanceAppWidget() {
                     // graph container
                     Box(
                         // go to the app MainActivity
-                        modifier = GlanceModifier.fillMaxSize().clickable(actionStartActivity<MainActivity>()),
+                        modifier = GlanceModifier.fillMaxSize()
+                            .clickable(actionStartActivity<MainActivity>()),
                     ) {
                         Row(
                             verticalAlignment = Alignment.Bottom,
@@ -267,7 +266,10 @@ class WakaProjectWidget : GlanceAppWidget() {
                                             style = TextStyle(
                                                 textAlign = TextAlign.Center,
                                                 fontSize = 10.sp,
-                                                color = ColorProvider(day = textColor, night = textColor)
+                                                color = ColorProvider(
+                                                    day = textColor,
+                                                    night = textColor
+                                                )
                                             )
                                         )
                                     }
@@ -277,7 +279,11 @@ class WakaProjectWidget : GlanceAppWidget() {
                         }
 
                         // Add this Box for the target line overlay
-                        if (targetInHours != null) WakaWidgetComponents.TargetLine(targetInHours, maxHours, theme)
+                        if (targetInHours != null) WakaWidgetComponents.TargetLine(
+                            targetInHours,
+                            maxHours,
+                            theme
+                        )
                     }
                 }
             }

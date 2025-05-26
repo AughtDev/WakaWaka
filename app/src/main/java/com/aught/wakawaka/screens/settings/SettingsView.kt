@@ -358,7 +358,7 @@ fun ThemeSelectionCard(
         ) {
             Text(
                 text = "Theme",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
             )
 
             themeOptions.forEachIndexed { index, theme ->

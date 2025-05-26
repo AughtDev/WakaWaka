@@ -54,6 +54,8 @@ import kotlinx.coroutines.launch
 import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
+import androidx.core.content.edit
+import com.aught.wakawaka.utils.ColorUtils
 
 
 // region HELPER FUNCTIONS
@@ -164,7 +166,7 @@ fun JSONDataCard(context: Context, moshi: Moshi) {
                     Icon(Icons.Default.Download, contentDescription = "Data Import")
                     Text(
                         text = "Data Import",
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleSmall
                     )
                 }
                 IconButton(
@@ -238,7 +240,7 @@ fun BackupAndRestoreDataCard(context: Context) {
                 Icon(Icons.Default.Restore, contentDescription = "Backup and Restore")
                 Text(
                     text = "Backup & Restore",
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleSmall
                 )
             }
             val coroutineScope = rememberCoroutineScope()
@@ -326,6 +328,7 @@ fun DeleteDataCard(context: Context) {
                 Text(
                     text = "Are you sure you want to delete all your data?",
                     style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White
                 )
                 Button(
                     onClick = {
@@ -333,18 +336,18 @@ fun DeleteDataCard(context: Context) {
                         val prefs =
                             context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
 
-                        prefs.edit().clear()
+                        prefs.edit { clear() }
 
                         alertData = AlertData("Successfully wiped all app data")
                         confirmationDialogOpen = false
                     },
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+//                    border = BorderStroke(1.dp, Color.Red),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors().copy(
-                        containerColor = Color.Transparent
+                        containerColor = Color.Red
                     )
                 ) {
-                    Text(text = "Yes", color = MaterialTheme.colorScheme.error)
+                    Text(text = "Yes", color = Color.White)
                 }
             }
         }
@@ -366,7 +369,7 @@ fun DeleteDataCard(context: Context) {
                 Icon(Icons.Default.Delete, contentDescription = "Wipe Data")
                 Text(
                     text = "Wipe Data",
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleSmall
                 )
             }
             Text(
@@ -388,7 +391,7 @@ fun DeleteDataCard(context: Context) {
                     modifier = Modifier
                         .fillMaxWidth(),
                     colors = ButtonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        containerColor = Color.Red,
                         disabledContainerColor = MaterialTheme.colorScheme.errorContainer.copy(0.7f),
                         contentColor = Color.Red.copy(0.7f),
                         disabledContentColor = Color.Red.copy(0.4f)

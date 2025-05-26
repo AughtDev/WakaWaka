@@ -1,5 +1,6 @@
 package com.aught.wakawaka.utils
 
+import android.util.Log
 import androidx.compose.ui.graphics.Color
 import android.graphics.Color as AndroidColor
 import androidx.compose.ui.graphics.toArgb
@@ -185,6 +186,11 @@ class ColorUtils {
             val b = (b1 * (1 - ratio) + b2 * ratio).toInt()
 
             return rgbToColor(r, g, b)
+        }
+
+        fun getContrastingBlackOrWhite(color: Color): Color {
+            // if luminance is greater than 0.5, return black else white
+            return if (calculateLuminance(color) > 0.5) Color.Black else Color.White
         }
         // endregion
 

@@ -2,4 +2,10 @@
     <string name="app_name">WakaWaka</string>
     <string name="aggregate_widget_name">WakaWaka Aggregate Widget</string>
     <string name="project_widget_name">WakaWaka Project Specific Widget</string>
+    <string name="aggregate_widget_description">
+        A bar graph of total coding time on a daily/weekly basis
+    </string>
+    <string name="project_widget_description">
+        A bar graph of total coding time on a daily/weekly basis for the project chosen as widget project within the app
+    </string>
 </resources>

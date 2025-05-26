@@ -61,7 +61,7 @@ fun DailyTargetCard(
                     Icon(Icons.Default.Schedule, contentDescription = "Daily Target")
                     Text(
                         text = "Daily Target",
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleSmall
                     )
                 }
                 Checkbox(
@@ -176,7 +176,7 @@ fun WeeklyTargetCard(
                     Icon(Icons.Default.Schedule, contentDescription = "Weekly Target")
                     Text(
                         text = "Weekly Target",
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleSmall
                     )
                 }
 
