@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.layout.Box
 import androidx.glance.appwidget.GlanceAppWidget
@@ -30,6 +31,7 @@ import androidx.glance.layout.wrapContentHeight
 import androidx.glance.text.FontWeight
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
+import com.aught.wakawaka.MainActivity
 import com.aught.wakawaka.data.DataRequest
 import com.aught.wakawaka.data.GraphMode
 import com.aught.wakawaka.data.TimePeriod
@@ -200,7 +202,8 @@ class WakaProjectWidget : GlanceAppWidget() {
                     }
                     // graph container
                     Box(
-                        modifier = GlanceModifier.fillMaxSize(),
+                        // go to the app MainActivity
+                        modifier = GlanceModifier.fillMaxSize().clickable(actionStartActivity<MainActivity>()),
                     ) {
                         Row(
                             verticalAlignment = Alignment.Bottom,

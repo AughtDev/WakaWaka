@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
 import androidx.glance.LocalContext
+import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.background
@@ -31,6 +32,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
+import com.aught.wakawaka.MainActivity
 import com.aught.wakawaka.data.DataRequest
 import com.aught.wakawaka.data.GraphMode
 import com.aught.wakawaka.data.TimePeriod
@@ -84,11 +86,12 @@ class WakaAggregateWidget : GlanceAppWidget() {
 
         val excludedDays = wakaDataHandler.getExcludedDays(dataRequest, timePeriod)
 
-        val theme = when (prefs.getInt(WakaHelpers.THEME, 0)) {
-            0 -> WakaWidgetTheme.Light
-            1 -> WakaWidgetTheme.Dark
-            else -> WakaWidgetTheme.Dark
-        }
+//        val theme = when (prefs.getInt(WakaHelpers.THEME, 0)) {
+//            0 -> WakaWidgetTheme.Light
+//            1 -> WakaWidgetTheme.Dark
+//            else -> WakaWidgetTheme.Dark
+//        }
+        val theme = WakaWidgetTheme.Dark
 
         val primaryColor = if (theme == WakaWidgetTheme.Dark) {
             ColorProvider(day = Color.White, night = Color.White)
@@ -186,7 +189,8 @@ class WakaAggregateWidget : GlanceAppWidget() {
                 }
                 // graph container
                 Box(
-                    modifier = GlanceModifier.fillMaxSize(),
+                    // go to the app MainActivity
+                    modifier = GlanceModifier.fillMaxSize().clickable(actionStartActivity<MainActivity>()),
                 ) {
                     Row(
                         verticalAlignment = Alignment.Bottom,

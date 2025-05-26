@@ -7,6 +7,8 @@ import com.aught.wakawaka.workers.WakaDataFetchWorker
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
+import kotlin.math.pow
+import kotlin.math.sqrt
 
 sealed class DataRequest {
     object Aggregate : DataRequest()
@@ -274,9 +276,19 @@ class WakaDataHandler(val aggregateData: AggregateData?, val projectSpecificData
     }
 
     // get the sorted project list based on the duration over the last 30 days
-    fun getSortedProjectList() : List<String> {
+    fun getSortedProjectList(): List<String> {
+        return projectSpecificData.toList().map { it.first }
         val sortedProjectList = projectSpecificData.toList().sortedByDescending { (projectName, _) ->
-            getLastXDaysDurationInSeconds(DataRequest.ProjectSpecific(projectName), 30)
+            val data = getDateToDurationData(DataRequest.ProjectSpecific(projectName))
+            // sum up the durations weighted by the square root of the reciprocal of the number of days ago it happened
+            data.entries.sumOf { (date, duration) ->
+                val daysAgo = LocalDate.now().toEpochDay() - LocalDate.parse(date).toEpochDay()
+                if (daysAgo == 0L) {
+                    duration // today's data is not weighted
+                } else {
+                    duration / (daysAgo.toDouble()).toInt()
+                }
+            }
         }.map { it.first }
 
         return sortedProjectList

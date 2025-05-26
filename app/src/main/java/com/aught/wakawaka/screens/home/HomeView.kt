@@ -1,5 +1,7 @@
 package com.aught.wakawaka.screens.home
 
+import android.content.Context
+import android.content.SharedPreferences
 import androidx.compose.ui.graphics.Color
 
 import androidx.compose.foundation.background
@@ -38,8 +40,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.pullToRefresh
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,13 +76,38 @@ import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.utils.ColorUtils
 import java.time.LocalDate
 import kotlin.math.min
+import android.util.Log
+
+fun refreshWakaData(context: Context, setIsLoading: ((Boolean) -> Unit)) {
+    Log.d("waka", "Refreshing Waka data...")
+
+    val workManagerInstance = WorkManager.getInstance(context)
+    // Schedule the one time immediate worker
+    val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaDataFetchWorker>().build()
+
+    val observer = object : Observer<WorkInfo?> {
+        override fun onChanged(workInfo: WorkInfo?) {
+            if (workInfo != null && workInfo.state.isFinished) {
+                WorkManager.getInstance(context).getWorkInfoByIdLiveData(immediateWorkRequest.id)
+                    .removeObserver(this)
+                setIsLoading(false)
+                Log.d("waka", "Waka data refreshed successfully.")
+            }
+        }
+    }
+
+    workManagerInstance.enqueue(immediateWorkRequest)
+    workManagerInstance.getWorkInfoByIdLiveData(immediateWorkRequest.id)
+        .observeForever(observer)
+}
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeView() {
-    var reloadKey by remember { mutableStateOf(0) }
+    val context = LocalContext.current
 
+    var refreshKey by remember { mutableStateOf(0) }
     var selectedProject by remember { mutableStateOf(WakaHelpers.ALL_PROJECTS_ID) }
 
     val dataRequest =
@@ -85,16 +115,40 @@ fun HomeView() {
             selectedProject
         )
 
-    val context = LocalContext.current
+    val aggregateData = remember(refreshKey) {
+        WakaDataFetchWorker.loadAggregateData(context)
+    }
+    val projectSpecificData = remember(refreshKey) {
+        WakaDataFetchWorker.loadProjectSpecificData(context)
+    }
+    val wakaStatistics = remember(refreshKey) {
+        WakaDataFetchWorker.loadWakaStatistics(context)
+    }
+    Log.d("waka", "HomeView: refreshKey = $refreshKey, selectedProject = $selectedProject")
 
-    var aggregateData = WakaDataFetchWorker.loadAggregateData(context)
-    var projectSpecificData = WakaDataFetchWorker.loadProjectSpecificData(context)
-    var wakaStatistics = WakaDataFetchWorker.loadWakaStatistics(context)
+    val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
+    val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        Log.d("waka", "SharedPreferences changed: $key")
+        when (key) {
+            WakaHelpers.AGGREGATE_DATA -> {
+                refreshKey++
+            }
 
-    LaunchedEffect(reloadKey) {
-        aggregateData = WakaDataFetchWorker.loadAggregateData(context)
-        projectSpecificData = WakaDataFetchWorker.loadProjectSpecificData(context)
-        wakaStatistics = WakaDataFetchWorker.loadWakaStatistics(context)
+            WakaHelpers.PROJECT_SPECIFIC_DATA -> {
+                refreshKey++
+            }
+
+            WakaHelpers.WAKA_STATISTICS -> {
+                refreshKey++
+            }
+        }
+    }
+
+    DisposableEffect(prefs) {
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
     }
 
     val wakaDataHandler = WakaDataHandler(aggregateData, projectSpecificData)
@@ -121,126 +175,147 @@ fun HomeView() {
         "Past Year" to durationStats.lastYear,
     )
 
-    val dateToDurationMap = wakaDataHandler.getDateToDurationData(dataRequest)
+    val dateToDurationMap = remember {
+        wakaDataHandler.getDateToDurationData(dataRequest)
+    }
 
-    val dailyTargetHit = wakaDataHandler.targetHit(dataRequest, TimePeriod.DAY)
+    val dailyTargetHit = remember {
+        wakaDataHandler.targetHit(dataRequest, TimePeriod.DAY)
+    }
 
     val streakCount = wakaDataHandler.getStreak(
         dataRequest,
         TimePeriod.DAY
     ).count + (if (dailyTargetHit) 1 else 0)
 
+    var isRefreshingData by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-//                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                ProjectSelector(
-                    selectedProject, projects
-                ) {
-                    selectedProject = it
-                }
-
-                Text(
-                    text = WakaHelpers.durationInSecondsToDurationString(durationStats.allTime),
-                    fontSize = 24.sp
-                )
-            }
-            Row(
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                Box(
-                    contentAlignment = Alignment.TopStart,
-                    modifier = Modifier
-                        .height(64.dp)
-                        .width(48.dp)
-                ) {
-                    IconButton(
-                        {
-                            val workManagerInstance = WorkManager.getInstance(context)
-                            // Schedule the one time immediate worker
-                            val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaDataFetchWorker>().build()
-
-                            val observer = object : Observer<WorkInfo?> {
-                                override fun onChanged(workInfo: WorkInfo?) {
-                                    if (workInfo != null && workInfo.state.isFinished) {
-                                        WorkManager.getInstance(context).getWorkInfoByIdLiveData(immediateWorkRequest.id)
-                                            .removeObserver(this)
-                                        reloadKey++
-                                    }
-                                }
-                            }
-
-                            workManagerInstance.enqueue(immediateWorkRequest)
-                            workManagerInstance.getWorkInfoByIdLiveData(immediateWorkRequest.id)
-                                .observeForever(observer)
-                        },
-                    ) {
-                        Icon(
-                            Icons.Default.Refresh,
-                            contentDescription = "Refresh Data",
-                            modifier = Modifier
-                                .size(32.dp)
-                                .fillMaxHeight()
-                        )
-                    }
-                }
-                Text(
-                    text = streakCount.toString(),
-                    fontSize = 72.sp,
-                    color = if (dailyTargetHit) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        MaterialTheme.colorScheme.onSurface.copy(0.5f)
-                    },
-                    fontWeight = FontWeight.ExtraBold,
-                )
+    PullToRefreshBox(
+        isRefreshing = isRefreshingData,
+        onRefresh = {
+            isRefreshingData = true
+            refreshWakaData(context) {
+                isRefreshingData = it
             }
         }
-        CalendarGraph(
-            projectName = selectedProject,
-            dateToDurationMap,
-            targetSeconds = if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
-                aggregateData?.dailyTargetHours?.times(3600) ?: 0f
-            } else {
-                projectSpecificData[selectedProject]?.dailyTargetHours?.times(3600) ?: 0f
-            },
-
-            projectColor = if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                if (projectSpecificData[selectedProject]?.color == null) {
-                    WakaHelpers.projectNameToColor(selectedProject)
-                } else {
-                    runCatching { Color(projectSpecificData[selectedProject]!!.color.toColorInt()) }.getOrNull()
-                        ?: WakaHelpers.projectNameToColor(
-                            selectedProject
-                        )
-                }
-            },
-            aggregateData
-        )
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(vertical = 8.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .padding(16.dp)
         ) {
-            durationLabelValueMap.forEach { (timeRange, durationInSeconds) ->
-                DurationStatView(timeRange, durationInSeconds)
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    //                horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    ProjectSelector(
+                        selectedProject, projects
+                    ) {
+                        selectedProject = it
+                    }
+
+                    Text(
+                        text = WakaHelpers.durationInSecondsToDurationString(durationStats.allTime),
+                        fontSize = 24.sp
+                    )
+                }
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    Box(
+                        contentAlignment = Alignment.TopStart,
+                        modifier = Modifier
+                            .height(64.dp)
+                            .width(48.dp)
+                    ) {
+                        //                    IconButton(
+                        //                        {
+                        //                            val workManagerInstance = WorkManager.getInstance(context)
+                        //                            // Schedule the one time immediate worker
+                        //                            val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaDataFetchWorker>().build()
+                        //
+                        //                            val observer = object : Observer<WorkInfo?> {
+                        //                                override fun onChanged(workInfo: WorkInfo?) {
+                        //                                    if (workInfo != null && workInfo.state.isFinished) {
+                        //                                        WorkManager.getInstance(context).getWorkInfoByIdLiveData(immediateWorkRequest.id)
+                        //                                            .removeObserver(this)
+                        //                                        reloadKey++
+                        //                                    }
+                        //                                }
+                        //                            }
+                        //
+                        //                            workManagerInstance.enqueue(immediateWorkRequest)
+                        //                            workManagerInstance.getWorkInfoByIdLiveData(immediateWorkRequest.id)
+                        //                                .observeForever(observer)
+                        //                        },
+                        //                    ) {
+                        //                        Icon(
+                        //                            Icons.Default.Refresh,
+                        //                            contentDescription = "Refresh Data",
+                        //                            modifier = Modifier
+                        //                                .size(32.dp)
+                        //                                .fillMaxHeight()
+                        //                        )
+                        //                    }
+                    }
+                    Text(
+                        text = streakCount.toString(),
+                        fontSize = 72.sp,
+                        color = if (dailyTargetHit) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(0.5f)
+                        },
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                }
+            }
+            val targetSeconds = remember {
+                if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
+                    aggregateData?.dailyTargetHours?.times(3600) ?: 0f
+                } else {
+                    projectSpecificData[selectedProject]?.dailyTargetHours?.times(3600) ?: 0f
+                }
+            }
+
+            val primaryColor = MaterialTheme.colorScheme.primary
+            val projectColor = remember(selectedProject, projectSpecificData) {
+                if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
+                    primaryColor
+                } else {
+                    if (projectSpecificData[selectedProject]?.color == null) {
+                        WakaHelpers.projectNameToColor(selectedProject)
+                    } else {
+                        runCatching { Color(projectSpecificData[selectedProject]!!.color.toColorInt()) }.getOrNull()
+                            ?: WakaHelpers.projectNameToColor(selectedProject)
+                    }
+                }
+            }
+
+            CalendarGraph(
+                projectName = selectedProject,
+                dateToDurationMap,
+                targetSeconds = targetSeconds,
+                projectColor = projectColor,
+                aggregateData
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 8.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                durationLabelValueMap.forEach { (timeRange, durationInSeconds) ->
+                    DurationStatView(timeRange, durationInSeconds)
+                }
             }
         }
     }
@@ -425,6 +500,7 @@ fun CalendarGraph(
     projectColor: Color,
     aggregateData: AggregateData? = null
 ) {
+    Log.d("waka", "Generating calendar graph for project: $projectName")
     var showDialog by remember { mutableStateOf(false) }
     var dialogDayData by remember { mutableStateOf<DayData?>(null) }
 
@@ -570,11 +646,17 @@ fun CalendarGraph(
 
         val layoutInfo = remember { derivedStateOf { lazyListState.layoutInfo } }
 
-        if (firstVisibleItemIndex.value > 0) {
+        if (layoutInfo.value.viewportStartOffset > 0) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(80.dp)
+                    .height(
+                        80.dp
+//                        min(
+//                            80,
+//                            (layoutInfo.value.viewportStartOffset)
+//                        ).dp
+                    )
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
@@ -590,7 +672,14 @@ fun CalendarGraph(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(80.dp)
+                    .height(
+                        // height depends on how close the last item is to the bottom of the screen
+                        80.dp
+//                        min(
+//                            80.dp,
+//                            (layoutInfo.value.viewportSize.height - layoutInfo.value.visibleItemsInfo.lastOrNull().offset)
+//                        )
+                    )
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
