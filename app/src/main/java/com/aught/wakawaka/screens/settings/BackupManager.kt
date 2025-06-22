@@ -13,7 +13,6 @@ import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaStatistics
 import com.aught.wakawaka.utils.JSONDateAdapter
 import com.aught.wakawaka.workers.WakaDataFetchWorker
-import com.aught.wakawaka.workers.getMapType
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -32,6 +31,11 @@ data class BackupData(
 )
 
 object BackupManager {
+
+    private fun generateTimeStamp(): String {
+        val currentTime = System.currentTimeMillis()
+        return java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date(currentTime))
+    }
 
     fun createBackup(context: Context): File? {
         val backupData = BackupData(
@@ -54,7 +58,7 @@ object BackupManager {
         val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         // save to file
         return try {
-            val backupFile = File(downloadsDir, "wakawaka_backup.json")
+            val backupFile = File(downloadsDir, "wakawaka_backup_${generateTimeStamp()}.json")
             FileOutputStream(backupFile).use {
                 it.write(jsonString.toByteArray())
                 backupFile

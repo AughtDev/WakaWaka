@@ -1,6 +1,5 @@
-import com.aught.wakawaka.data.DataDumpsResponse
-import com.aught.wakawaka.data.PostDataDumpRequest
-import com.aught.wakawaka.data.SummariesResponse
+package com.aught.wakawaka.data
+
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST

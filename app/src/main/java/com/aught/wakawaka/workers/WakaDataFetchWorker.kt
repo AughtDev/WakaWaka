@@ -1,6 +1,6 @@
 package com.aught.wakawaka.workers
 
-import WakaService
+import com.aught.wakawaka.data.WakaService
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
@@ -40,7 +40,6 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
-import java.util.Date
 import kotlin.math.roundToInt
 
 
@@ -116,6 +115,8 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         // if the last fetch was less than WakaHelpers.MIN_FETCH_INTERVAL ago, return success else update the timestamp
         if (currTimestamp - lastFetchTimestamp < WakaHelpers.MIN_FETCH_INTERVAL) {
             println("Last fetch was less than ${WakaHelpers.MIN_FETCH_INTERVAL} ms ago, skipping fetch")
+            // wait for 2 seconds
+            kotlinx.coroutines.delay(2000)
             return Result.success()
         } else {
             prefs.edit {
@@ -426,7 +427,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             excludedDays: List<Int>?
         ): StreakData {
             // if there are no target hours, the target is assumed to be anything above 0
-            val targetHours = target ?: 0.01f
+            val targetHours = target
             val dailyStreakData: StreakData =
                 currentStreak ?: StreakData(0, WakaHelpers.Companion.ZERO_DAY)
 
@@ -454,7 +455,10 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                 if (excludedDays?.contains(date.dayOfWeek.value) == true) {
                     continue
                 }
-                if (!data.containsKey(formattedDate) || (data[formattedDate]!!.toFloat() / 3600) < targetHours) {
+                if (!data.containsKey(formattedDate) ||
+                    (targetHours == null && data[formattedDate]!! > 0) ||
+                    (targetHours != null && data[formattedDate]!! < targetHours * 3600)
+                ) {
                     break
                 }
                 streak++
@@ -470,7 +474,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             target: Float?
         ): StreakData {
             // if there are no target hours, the target is assumed to be anything above 0
-            val targetHours = target ?: 0.01f
+            val targetHours = target
             val weeklyStreakData: StreakData =
                 currentStreak ?: StreakData(0, WakaHelpers.Companion.ZERO_DAY)
 
@@ -505,7 +509,10 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                     }
                 }
 
-                if (!data.containsKey(formattedDate) || totalSeconds / 3600 < targetHours) {
+                if (!data.containsKey(formattedDate) ||
+                    (targetHours == null && totalSeconds > 0) ||
+                    (targetHours != null && totalSeconds < targetHours * 3600)
+                ) {
                     break
                 }
                 streak++

@@ -11,6 +11,7 @@ import com.aught.wakawaka.data.ProjectSpecificData
 import com.aught.wakawaka.data.ProjectStats
 import com.aught.wakawaka.data.StreakData
 import com.aught.wakawaka.data.WakaHelpers
+import com.aught.wakawaka.data.WakaService
 import com.aught.wakawaka.data.WakaURL
 import com.aught.wakawaka.utils.JSONDateAdapter
 import com.squareup.moshi.Moshi

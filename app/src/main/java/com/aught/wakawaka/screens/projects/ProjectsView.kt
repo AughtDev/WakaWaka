@@ -25,11 +25,13 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Switch
@@ -114,63 +116,85 @@ fun ProjectsView(navController: NavHostController) {
             .verticalScroll(rememberScrollState()),
     ) {
         Row(
-            modifier = Modifier
-//                .background(Color.Red)
-                .fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "Projects",
                 style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(bottom = 16.dp)
             )
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = "Search projects",
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
-                    .clickable {
-                        showSearchBar = !showSearchBar
-                    }
-                    .size(32.dp)
-//                    .background(Color.Blue)
-            )
+            if (showSearchBar) {
+                IconButton(
+                    {
+                        showSearchBar = false
+                        searchQuery = ""
+                    },
+                    modifier = Modifier
+                        .padding(0.dp)
+                        .size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = "Collapse Search",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            } else {
+                IconButton(
+                    {
+                        showSearchBar = true
+                        searchQuery = ""
+                    },
+                    modifier = Modifier
+                        .padding(0.dp)
+                        .size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = "Expand Search",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
         }
         if (showSearchBar) {
-//            SearchBar(
-//                modifier = Modifier.background(Color.Red).fillMaxWidth().height(50.dp),
-//                inputField = {
-//                    SearchBarDefaults.InputField(
-//                        searchQuery, {}, {}, false, {},
-//                        placeholder = {Text(text="Search Projects")}
-//                    )
-//                },
-//                expanded = false,
-//                onExpandedChange = {}
-//            ) {
-//            }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .animateContentSize()
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+
             ) {
-                TextField(
+                OutlinedTextField(
                     value = searchQuery,
                     onValueChange = {
                         searchQuery = it
                     },
                     placeholder = {
-                        Text(text = "Search projects")
+                        Text(
+                            text = "Search Projects...",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.8f),
+                                fontWeight = FontWeight.Light,
+                                fontSize = 16.sp
+                            ),
+                        )
                     },
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
+                        .fillMaxWidth(),
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = "Search",
+//                            modifier = Modifier.padding(end = 4.dp)
+                        )
+                    },
+                    shape = RoundedCornerShape(16.dp),
                 )
+
             }
         }
 
-        wakaDataHandler.getSortedProjectList().filter {
+        wakaDataHandler.sortedProjectList.filter {
             searchQuery.isEmpty() || it.contains(searchQuery, ignoreCase = true)
         }.forEach { it ->
             val projectName = it
