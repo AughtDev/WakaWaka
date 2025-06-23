@@ -212,7 +212,6 @@ fun DayCard(
                 val luminance =
                     WakaHelpers.PROJECT_COLOR_LUMINANCE * (cardOpacity)
 //                + dayColorData.luminance * (1 - cardOpacity)
-                val customTextColor = if (isToday || isFirstOfMonth || luminance < 0.4f) {
                     dayColorData.projectColor
                 } else {
                     if (dayData.isFutureDate) {
