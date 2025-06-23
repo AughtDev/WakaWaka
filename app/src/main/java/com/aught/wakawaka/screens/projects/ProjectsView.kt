@@ -109,14 +109,15 @@ fun ProjectsView(navController: NavHostController) {
         mutableStateOf(false)
     }
 
+    val noProjectsAvailable = wakaDataHandler.sortedProjectList.isEmpty()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -127,9 +128,12 @@ fun ProjectsView(navController: NavHostController) {
             if (showSearchBar) {
                 IconButton(
                     {
-                        showSearchBar = false
-                        searchQuery = ""
+                        if (!noProjectsAvailable) {
+                            showSearchBar = false
+                            searchQuery = ""
+                        }
                     },
+                    enabled = !noProjectsAvailable,
                     modifier = Modifier
                         .padding(0.dp)
                         .size(32.dp)
@@ -143,9 +147,12 @@ fun ProjectsView(navController: NavHostController) {
             } else {
                 IconButton(
                     {
-                        showSearchBar = true
-                        searchQuery = ""
+                        if (!noProjectsAvailable) {
+                            showSearchBar = true
+                            searchQuery = ""
+                        }
                     },
+                    enabled = wakaDataHandler.sortedProjectList.isNotEmpty(),
                     modifier = Modifier
                         .padding(0.dp)
                         .size(32.dp)
@@ -161,7 +168,9 @@ fun ProjectsView(navController: NavHostController) {
         if (showSearchBar) {
 
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
 
             ) {
                 OutlinedTextField(
@@ -194,106 +203,130 @@ fun ProjectsView(navController: NavHostController) {
             }
         }
 
-        wakaDataHandler.sortedProjectList.filter {
-            searchQuery.isEmpty() || it.contains(searchQuery, ignoreCase = true)
-        }.forEach { it ->
-            val projectName = it
-            val isProjectAssignedToProjectWidget = projectAssignedToProjectWidget == projectName
-            val isExpanded = expandedProjectName == projectName
 
-            Card(
+        if (!noProjectsAvailable) {
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-                    .animateContentSize()
+                    .fillMaxSize()
+//            .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = projectName,
-                            modifier = Modifier
-                                .padding(16.dp)
-                        )
-                        if (isProjectAssignedToProjectWidget) {
-                            Icon(
-                                Icons.Default.Widgets,
-                                contentDescription = "Project assigned to Widget",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
+                wakaDataHandler.sortedProjectList.filter {
+                    searchQuery.isEmpty() || it.contains(searchQuery, ignoreCase = true)
+                }.forEach { it ->
+                    val projectName = it
+                    val isProjectAssignedToProjectWidget = projectAssignedToProjectWidget == projectName
+                    val isExpanded = expandedProjectName == projectName
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp),
-                        modifier = Modifier
-                            .padding(end = 10.dp)
-                            .fillMaxHeight()
-                    ) {
-                        IconButton(
-//                            modifier = Modifier.width(18.dp),
-                            modifier = Modifier.size(20.dp),
-                            onClick = {
-                                // navigate to project details
-                                navController.navigate(Screen.ProjectDetails.createRoute(projectName))
-                            }
-                        ) {
-                            Icon(
-                                Icons.Default.Edit,
-                                contentDescription = "Edit project settings",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                        IconButton(
-                            modifier = Modifier.size(25.dp),
-                            onClick = {
-                                expandedProjectName = if (isExpanded) null else projectName
-                            },
-                        ) {
-                            Icon(
-                                if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                contentDescription = "Expand/Collapse project graph",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
-                }
-                if (isExpanded) {
-                    ProjectGraph(wakaDataHandler, projectName)
-                    Row(
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(vertical = 8.dp)
+                            .animateContentSize()
                     ) {
-                        Text(
-                            text = if (isProjectAssignedToProjectWidget) "Deassign $projectName from Widget" else
-                                "Assign $projectName to Widget",
-                            fontSize = 12.sp
-                        )
-                        Switch(
-
-                            checked = isProjectAssignedToProjectWidget,
-                            onCheckedChange = {
-                                val newProjectAssignedToWidget =
-                                    if (isProjectAssignedToProjectWidget) null else projectName
-                                projectAssignedToProjectWidget = newProjectAssignedToWidget
-                                setProjectAssignedToProjectWidget(
-                                    context,
-                                    newProjectAssignedToWidget
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = projectName,
+                                    modifier = Modifier
+                                        .padding(16.dp)
                                 )
-                            },
-                            modifier = Modifier.scale(0.6f)
-                        )
+                                if (isProjectAssignedToProjectWidget) {
+                                    Icon(
+                                        Icons.Default.Widgets,
+                                        contentDescription = "Project assigned to Widget",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                modifier = Modifier
+                                    .padding(end = 10.dp)
+                                    .fillMaxHeight()
+                            ) {
+                                IconButton(
+//                            modifier = Modifier.width(18.dp),
+                                    modifier = Modifier.size(20.dp),
+                                    onClick = {
+                                        // navigate to project details
+                                        navController.navigate(Screen.ProjectDetails.createRoute(projectName))
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = "Edit project settings",
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                                IconButton(
+                                    modifier = Modifier.size(25.dp),
+                                    onClick = {
+                                        expandedProjectName = if (isExpanded) null else projectName
+                                    },
+                                ) {
+                                    Icon(
+                                        if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                        contentDescription = "Expand/Collapse project graph",
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                            }
+                        }
+                        if (isExpanded) {
+                            ProjectGraph(wakaDataHandler, projectName)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (isProjectAssignedToProjectWidget) "Deassign $projectName from Widget" else
+                                        "Assign $projectName to Widget",
+                                    fontSize = 12.sp
+                                )
+                                Switch(
+
+                                    checked = isProjectAssignedToProjectWidget,
+                                    onCheckedChange = {
+                                        val newProjectAssignedToWidget =
+                                            if (isProjectAssignedToProjectWidget) null else projectName
+                                        projectAssignedToProjectWidget = newProjectAssignedToWidget
+                                        setProjectAssignedToProjectWidget(
+                                            context,
+                                            newProjectAssignedToWidget
+                                        )
+                                    },
+                                    modifier = Modifier.scale(0.6f)
+                                )
+                            }
+                        }
                     }
                 }
+            }
+        } else {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No projects yet :(",
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.titleLarge
+                )
+
             }
         }
     }

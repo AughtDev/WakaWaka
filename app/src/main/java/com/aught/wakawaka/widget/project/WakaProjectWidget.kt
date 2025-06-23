@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.layout.Box
@@ -202,7 +203,9 @@ class WakaProjectWidget : GlanceAppWidget() {
                     Box(
                         // go to the app MainActivity
                         modifier = GlanceModifier.fillMaxSize()
-                            .clickable(actionStartActivity<MainActivity>()),
+                            .clickable(actionStartActivity<MainActivity>(parameters = actionParametersOf(
+                                WakaWidgetHelpers.WIDGET_INTENT_ID to widgetProject
+                            )))
                     ) {
                         Row(
                             verticalAlignment = Alignment.Bottom,
@@ -228,7 +231,7 @@ class WakaProjectWidget : GlanceAppWidget() {
                                             targetInHours == null ||
                                             // if the day is in the exclusion list, use the primary color
                                             date.dayOfWeek.value in excludedDays ||
-                                            duration > (targetInHours * 3600)
+                                            duration >= (targetInHours * 3600)
                                         ) primaryColor
                                         else
                                             ColorProvider(day = Color.Gray, night = Color.Gray)

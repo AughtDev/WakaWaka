@@ -50,7 +50,7 @@ class WakaNotifications(val context: Context) {
 
     fun showNotification(title: String, text: String,notificationId: Int) {
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // Replace with your app's icon
+            .setSmallIcon(R.drawable.ic_notification) // Replace with your app's icon
             .setContentTitle(title)
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

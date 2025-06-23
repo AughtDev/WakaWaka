@@ -35,6 +35,8 @@ import com.aught.wakawaka.screens.projects.ProjectDetailsView
 import androidx.core.content.edit
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import com.aught.wakawaka.widget.WakaWidgetHelpers
+import com.aught.wakawaka.widget.project.WakaProjectWidget
 import com.aught.wakawaka.workers.WakaDataFetchWorker
 
 
@@ -53,6 +55,7 @@ class MainActivity : ComponentActivity() {
     ) {}
 
     override fun onCreate(savedInstanceState: Bundle?) {
+
         // if does not have notification permission, request
         if (ActivityCompat.checkSelfPermission(
                 this,
@@ -77,9 +80,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         enableEdgeToEdge()
+
+        val ogProjectId = intent.getStringExtra(WakaWidgetHelpers.WIDGET_INTENT_ID.toString())
+
         setContent {
             WakaWakaTheme {
-                WakaWakaApp()
+                WakaWakaApp(ogProjectId)
             }
         }
     }
@@ -87,7 +93,9 @@ class MainActivity : ComponentActivity() {
 
 
 @Composable
-fun WakaWakaApp() {
+fun WakaWakaApp(
+    ogProjectId: String? = null
+) {
     val navController = rememberNavController()
 
     Scaffold(
@@ -104,7 +112,7 @@ fun WakaWakaApp() {
                 ProjectsView(navController)
             }
             composable(Screen.Home.route) {
-                HomeView()
+                HomeView(ogProjectId)
             }
             composable(Screen.Settings.route) {
                 SettingsView()
