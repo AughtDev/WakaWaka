@@ -3,6 +3,7 @@ package com.aught.wakawaka.workers
 import com.aught.wakawaka.data.WakaService
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.core.content.edit
 import androidx.glance.appwidget.updateAll
 import androidx.work.CoroutineWorker
@@ -219,6 +220,15 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             notificationData.lastAggregateWeeklyTargetNotificationDate
 
         val today = LocalDate.now()
+//        wakaNotificationManager.showNotification(
+//            "Daily Target Hit",
+//            "Congratulations! You have hit your daily target of ${
+//                WakaHelpers.Companion.durationInSecondsToDurationString(
+//                    ((aggregateData.dailyTargetHours ?: (0f * 3600f))).roundToInt(),
+//                    " hours", " minutes"
+//                )
+//            }", 112
+//        )
 
         if (
             aggregateData.dailyTargetHours != null &&
@@ -441,7 +451,6 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             var streak = 0;
             var daysAgo = 0;
 
-
             while (true) {
                 val date = yesterday.minusDays(daysAgo.toLong())
                 daysAgo++
@@ -452,13 +461,14 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                     break
                 }
 
-                if (excludedDays?.contains(date.dayOfWeek.value) == true) {
-                    continue
-                }
-                if (!data.containsKey(formattedDate) ||
+                if (
+                    !data.containsKey(formattedDate) ||
                     (targetHours == null && data[formattedDate]!! > 0) ||
                     (targetHours != null && data[formattedDate]!! < targetHours * 3600)
                 ) {
+                    if (excludedDays?.contains(date.dayOfWeek.value) == true) {
+                        continue
+                    }
                     break
                 }
                 streak++

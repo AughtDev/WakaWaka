@@ -216,7 +216,7 @@ class WakaAggregateWidget : GlanceAppWidget() {
                                         targetInHours == null ||
                                         // if the day is in the exclusion list, use the primary color
                                         date.dayOfWeek.value in excludedDays ||
-                                        duration > (targetInHours * 3600)
+                                        duration >= (targetInHours * 3600)
                                     ) primaryColor
                                     else
                                         ColorProvider(day = Color.Gray, night = Color.Gray)

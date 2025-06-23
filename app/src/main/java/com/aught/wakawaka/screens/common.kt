@@ -2,13 +2,16 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Info
@@ -22,8 +25,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -268,3 +276,84 @@ fun AlertPane(alertData: AlertData?, isVisible: Boolean) {
         }
     }
 }
+@Composable
+fun ScrollBlurEffects(
+    lazyListState: LazyListState,
+    weeklyDataSize: Int
+) {
+
+    // top blur opacity
+    val topBlurOpacity by remember {
+        // if the first item is not visible, then the opacity is 1, else the opacity is
+        // the firstItemOffset divided by the height of the first item
+        derivedStateOf {
+            val firstItem = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull()
+            if (firstItem == null) {
+                return@derivedStateOf 1f
+            }
+            if (lazyListState.firstVisibleItemIndex != 0) {
+                1f
+            } else {
+                lazyListState.firstVisibleItemScrollOffset.toFloat() / lazyListState.layoutInfo.visibleItemsInfo.first().size.toFloat()
+            }
+        }
+    }
+
+    // bottom blur opacity
+    val bottomBlurOpacity by remember(weeklyDataSize) {
+        derivedStateOf {
+            val lastItem = lazyListState.layoutInfo.visibleItemsInfo.lastOrNull()
+            if (lastItem == null) {
+                return@derivedStateOf 1f;
+            }
+            val distanceToBottom =
+                (lastItem.offset + lastItem.size - lazyListState.layoutInfo.viewportEndOffset)
+//            Log.d("waka", "lastItem: ${lastItem.index}, ${lastItem.size}, distToBottom $distanceToBottom , weekly data size is $weeklyDataSize")
+            if (lastItem.index != weeklyDataSize - 1) {
+                1f
+            } else {
+                distanceToBottom.toFloat() / lastItem.size.toFloat()
+            }
+        }
+    }
+
+
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(80.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.background.copy(alpha = topBlurOpacity),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(80.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                MaterialTheme.colorScheme.background.copy(alpha = bottomBlurOpacity),
+                            )
+                        )
+                    )
+            )
+        }
+    }
+}
+
