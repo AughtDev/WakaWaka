@@ -103,6 +103,18 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
     //    private val url: String = "https://api.wakatime.com/api/v1/";
     //    private val url: String = "https://wakapi.dev/api/compat/wakatime/v1/";
 
+    private fun getRange(durationSinceLastFetch: Long) : String {
+        val now = java.time.ZonedDateTime.now()
+        val midnight = now.toLocalDate().atStartOfDay(now.zone)
+        val millisSinceMidnight = java.time.Duration.between(midnight, now).toMillis()
+
+        return if (durationSinceLastFetch < millisSinceMidnight) {
+            "Today"
+        } else {
+            "Last 7 Days"
+        }
+    }
+
     override suspend fun doWork(): Result {
         val prefs = applicationContext.getSharedPreferences(
             WakaHelpers.Companion.PREFS,
@@ -113,8 +125,10 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         val lastFetchTimestamp = prefs.getLong(WakaHelpers.LAST_FETCH_TIMESTAMP, 0)
         val currTimestamp = System.currentTimeMillis()
 
+        val durationSinceLastFetch = currTimestamp - lastFetchTimestamp
+
         // if the last fetch was less than WakaHelpers.MIN_FETCH_INTERVAL ago, return success else update the timestamp
-        if (currTimestamp - lastFetchTimestamp < WakaHelpers.MIN_FETCH_INTERVAL) {
+        if (durationSinceLastFetch < WakaHelpers.MIN_FETCH_INTERVAL) {
             println("Last fetch was less than ${WakaHelpers.MIN_FETCH_INTERVAL} ms ago, skipping fetch")
             // wait for 2 seconds
             kotlinx.coroutines.delay(2000)
@@ -139,9 +153,9 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         }
 
         // a logging interceptor to attach to the http client
-        val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        }
+//        val logging = HttpLoggingInterceptor().apply {
+//            level = HttpLoggingInterceptor.Level.BODY
+//        }
 
         // the http client with an auth interceptor and logging interceptor
         val okHttpClient = OkHttpClient.Builder()
@@ -162,7 +176,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
         return withContext(Dispatchers.IO) {
             try {
-                val response = service.getSummaries("Last 7 Days")
+                val response = service.getSummaries(getRange(durationSinceLastFetch))
                 updateAppDataWithResponse(applicationContext, response)
 
                 WakaAggregateWidget().updateAll(applicationContext)
@@ -463,7 +477,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
                 if (
                     !data.containsKey(formattedDate) ||
-                    (targetHours == null && data[formattedDate]!! > 0) ||
+                    (targetHours == null && data[formattedDate]!! == 0) ||
                     (targetHours != null && data[formattedDate]!! < targetHours * 3600)
                 ) {
                     if (excludedDays?.contains(date.dayOfWeek.value) == true) {
