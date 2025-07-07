@@ -1,15 +1,54 @@
 package com.aught.wakawaka.utils
 
+import android.content.res.Resources
+import android.graphics.Bitmap
+import android.graphics.RectF
 import android.util.Log
+import androidx.compose.foundation.Canvas as ComposeCanvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.interaction.InteractionSource
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import android.graphics.Color as AndroidColor
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColor
+import androidx.core.graphics.toRect
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlin.math.floor
 import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.drawable.RoundedBitmapDrawable
+import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory
 
 class ColorUtils {
     companion object {
@@ -148,7 +187,7 @@ class ColorUtils {
         /**
          * Convert a Color to HSV components
          */
-        private fun colorToHSV(color: Color): FloatArray {
+        fun colorToHSV(color: Color): FloatArray {
             val argb = color.toArgb()
             val hsl = FloatArray(3)
             AndroidColor.RGBToHSV(
@@ -192,6 +231,13 @@ class ColorUtils {
             // if luminance is greater than 0.5, return black else white
             return if (calculateLuminance(color) > 0.5) Color.Black else Color.White
         }
+
+        fun colorToHex(color: Color): String {
+            // Convert Color to ARGB hex string
+            val argb = color.toArgb()
+            return String.format("#%08X", argb)
+        }
+
         // endregion
 
         // region APP SPECIFIC COLOR FUNCTIONS
@@ -227,3 +273,142 @@ class ColorUtils {
         // endregion
     }
 }
+
+// region COLOR PICKER
+// ? ........................
+
+const val SATURATION = 0.7f
+const val VALUE = 0.6f
+
+@Composable
+fun HuePicker(
+    initialHue: Float,
+    setColor: (Color) -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val interactionSource = remember {
+        MutableInteractionSource()
+    }
+    val pressOffset = remember {
+        mutableStateOf<Offset?>(null)
+    }
+    ComposeCanvas(
+        modifier = Modifier
+            .height(30.dp)
+            .fillMaxWidth(0.95f)
+//            .clip(RoundedCornerShape(10))
+            .emitDragGesture(interactionSource)
+    ) {
+        if (pressOffset.value == null) {
+            pressOffset.value = Offset((initialHue / 360f) * size.width, 0f)
+        }
+        val bitmapHeight = size.height * 2 / 3
+
+        val drawScopeSize = size
+        val bitmap = createBitmap(size.width.toInt(), bitmapHeight.toInt())
+        val hueCanvas = Canvas(bitmap.asImageBitmap())
+        val huePanel = RectF(0f, (size.height / 2f - bitmapHeight / 2f), bitmap.width.toFloat(), size.height / 2f + bitmapHeight / 2f)
+        val hueColors = IntArray((huePanel.width()).toInt())
+        var hue = 0f
+        for (i in hueColors.indices) {
+            hueColors[i] = AndroidColor.HSVToColor(floatArrayOf(hue, SATURATION, VALUE))
+            hue += 360f / hueColors.size
+        }
+        val linePaint = Paint()
+        linePaint.strokeWidth = 0F
+        for (i in hueColors.indices) {
+            linePaint.color = Color(hueColors[i])
+            hueCanvas.drawLine(Offset(i.toFloat(), 0F), Offset(i.toFloat(), huePanel.bottom), linePaint)
+        }
+        drawBitmap(
+            bitmap = bitmap,
+            panel = huePanel,
+            resources = context.resources,
+            cornerRadius = 10.dp.toPx()
+        )
+        fun pointToHue(pointX: Float): Float {
+            val width = huePanel.width()
+            val x = when {
+                pointX < huePanel.left -> 0F
+                pointX > huePanel.right -> width
+                else -> pointX - huePanel.left
+            }
+            return x * 360f / width
+        }
+
+        scope.collectForPress(interactionSource) { pressPosition ->
+            val pressPos = pressPosition.x.coerceIn(0f..drawScopeSize.width)
+            pressOffset.value = Offset(pressPos, 0f)
+            val selectedHue = pointToHue(pressPos)
+            setColor(
+                Color(
+                    AndroidColor.HSVToColor(floatArrayOf(selectedHue, SATURATION, VALUE))
+                )
+            )
+        }
+
+        drawCircle(
+            Color.White,
+            radius = size.height / 2 - 4,
+            center = Offset(pressOffset.value?.x ?: 0f, size.height / 2),
+            style = Stroke(
+                width = 2.dp.toPx()
+            )
+        )
+    }
+}
+
+fun CoroutineScope.collectForPress(
+    interactionSource: InteractionSource,
+    setOffset: (Offset) -> Unit
+) {
+    launch {
+        interactionSource.interactions.collect { interaction ->
+            (interaction as? PressInteraction.Press)
+                ?.pressPosition
+                ?.let(setOffset)
+        }
+    }
+}
+
+private fun Modifier.emitDragGesture(
+    interactionSource: MutableInteractionSource
+): Modifier = composed {
+    val scope = rememberCoroutineScope()
+    pointerInput(Unit) {
+        detectDragGestures { input, _ ->
+            scope.launch {
+                interactionSource.emit(PressInteraction.Press(input.position))
+            }
+        }
+    }.clickable(interactionSource, null) {
+    }
+}
+
+
+private fun DrawScope.drawBitmap(
+    bitmap: Bitmap,
+    panel: RectF,
+    resources: Resources,
+    cornerRadius: Float = 10.dp.toPx(), // Default corner radius
+) {
+    val roundedBitmapDrawable: RoundedBitmapDrawable = RoundedBitmapDrawableFactory.create(
+        resources,
+        bitmap
+    )
+    roundedBitmapDrawable.cornerRadius = cornerRadius
+
+    drawIntoCanvas {
+        roundedBitmapDrawable.setBounds(
+            panel.left.toInt(),
+            panel.top.toInt(),
+            panel.right.toInt(),
+            panel.bottom.toInt()
+        )
+        roundedBitmapDrawable.draw(it.nativeCanvas)
+    }
+}
+
+// ? ........................
+// endregion ........................

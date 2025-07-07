@@ -223,7 +223,7 @@ class WakaProjectWidget : GlanceAppWidget() {
                                 Column(
                                     modifier = GlanceModifier
 //                            .background(Color.Green)
-                                        .width(47.dp).padding(horizontal = 3.dp),
+                                        .width((WakaWidgetHelpers.GRAPH_WIDTH / 7).dp).padding(horizontal = 3.dp),
                                     verticalAlignment = Alignment.Bottom
                                 ) {
                                     val barColor =

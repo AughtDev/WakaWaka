@@ -17,16 +17,19 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +56,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -205,7 +209,9 @@ fun DayCard(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(bgColor),
+                    .background(bgColor)
+//                    .verticalScroll(rememberScrollState())
+                ,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -250,6 +256,7 @@ fun DayCard(
                             },
                             textDecoration = if (isFirstOfMonth && isToday) TextDecoration.Underline else TextDecoration.None,
                             modifier = if (isFirstOfMonth || isToday) Modifier
+                                .widthIn(min = if (isFirstOfMonth) 28.dp else 20.dp)
                                 .clip(RoundedCornerShape(6.dp))
                                 .background(MaterialTheme.colorScheme.background)
                                 .padding(horizontal = 3.dp, vertical = 2.dp) else Modifier,
@@ -392,6 +399,18 @@ fun CalendarGraph(
     var showDialog by remember { mutableStateOf(false) }
     var dialogDayData by remember { mutableStateOf<DayData?>(null) }
 
+    var scrollState = rememberScrollState()
+
+    var winProportion = remember {
+        derivedStateOf {
+            scrollState.viewportSize / (scrollState.viewportSize + scrollState.maxValue).toFloat()
+        }
+    }
+//    Log.d(
+//        "Scroll",
+//        "viewport size: ${scrollState.viewportSize}, max value: ${scrollState.maxValue}, win proportion: ${winProportion.value}, value : ${scrollState.value}"
+//    )
+
     if (showDialog) {
         Dialog(
             onDismissRequest = {
@@ -401,10 +420,43 @@ fun CalendarGraph(
         ) {
             Box(
                 modifier = Modifier
-                    .size(230.dp)
+                    .size(240.dp)
                     .padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
+                // scroll indicator
+                if (winProportion.value < 1f) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.CenterEnd
+                    ) {
+                        with(LocalDensity.current) {
+                            Row (
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .offset(x = (-8).dp, y = (4 + scrollState.value).toDp())
+                                        .width(2.dp)
+                                        .height((winProportion.value * scrollState.viewportSize).toDp())
+                                        .clip(RoundedCornerShape(2.dp))
+                                        .background(Color.Gray.copy(0.3f))
+                                ) {}
+                                Box(
+                                    modifier = Modifier
+                                        .offset(x = 8.dp, y = (4 + scrollState.value).toDp())
+                                        .width(2.dp)
+                                        .height((winProportion.value * scrollState.viewportSize).toDp())
+                                        .clip(RoundedCornerShape(2.dp))
+                                        .background(Color.Gray.copy(0.3f))
+                                ) {}
+                            }
+                        }
+
+                    }
+                }
+
                 val dialogTextColor = Color.White
                 // date string of dialog day data of the format 15th May 2025
                 val dateString = dialogDayData?.let {
@@ -424,43 +476,51 @@ fun CalendarGraph(
                 }?.sortedByDescending { it.totalSeconds }
                 val dayString = dialogDayData?.day?.uppercase() ?: "No day selected"
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .scrollable(rememberScrollState(), Orientation.Vertical),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(dayString, fontSize = 16.sp, color = dialogTextColor)
                     Text(dateString, color = dialogTextColor)
-                    if (projects != null) {
-                        val textSize = 12.sp
-                        val padding = 8.dp
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth(0.7f),
-                                horizontalAlignment = Alignment.Start
-                            ) {
-                                projects.forEach {
-                                    Text(
-                                        WakaHelpers.truncateLabel(it.name.uppercase(), 16),
-                                        fontSize = textSize,
-                                        color = dialogTextColor
-                                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 120.dp)
+//                            .fillMaxHeight(0.85f)
+                            .verticalScroll(scrollState),
+                        verticalArrangement = Arrangement.Top,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        if (projects != null) {
+                            val textSize = 12.sp
+                            val padding = 8.dp
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.7f),
+                                    horizontalAlignment = Alignment.Start
+                                ) {
+                                    projects.forEach {
+                                        Text(
+                                            WakaHelpers.truncateLabel(it.name.uppercase(), 16),
+                                            fontSize = textSize,
+                                            color = dialogTextColor
+                                        )
+                                    }
                                 }
-                            }
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(start = padding),
-                                horizontalAlignment = Alignment.End
-                            ) {
-                                projects.forEach {
-                                    Text(
-                                        WakaHelpers.durationInSecondsToDurationString(it.totalSeconds),
-                                        fontSize = textSize,
-                                        color = dialogTextColor
-                                    )
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = padding),
+                                    horizontalAlignment = Alignment.End
+                                ) {
+                                    projects.forEach {
+                                        Text(
+                                            WakaHelpers.durationInSecondsToDurationString(it.totalSeconds),
+                                            fontSize = textSize,
+                                            color = dialogTextColor
+                                        )
+                                    }
                                 }
                             }
                         }

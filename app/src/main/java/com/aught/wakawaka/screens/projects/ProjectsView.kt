@@ -117,7 +117,9 @@ fun ProjectsView(navController: NavHostController) {
             .padding(16.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -165,41 +167,44 @@ fun ProjectsView(navController: NavHostController) {
                 }
             }
         }
-        if (showSearchBar) {
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-
-            ) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = {
-                        searchQuery = it
-                    },
-                    placeholder = {
-                        Text(
-                            text = "Search Projects...",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.8f),
-                                fontWeight = FontWeight.Light,
-                                fontSize = 16.sp
-                            ),
-                        )
-                    },
+        Box(
+            modifier = Modifier.fillMaxWidth().animateContentSize()
+        ) {
+            if (showSearchBar) {
+                Row(
                     modifier = Modifier
-                        .fillMaxWidth(),
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = "Search",
-//                            modifier = Modifier.padding(end = 4.dp)
-                        )
-                    },
-                    shape = RoundedCornerShape(16.dp),
-                )
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
 
+                ) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = {
+                            searchQuery = it
+                        },
+                        placeholder = {
+                            Text(
+                                text = "Search Projects...",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.8f),
+                                    fontWeight = FontWeight.Light,
+                                    fontSize = 16.sp
+                                ),
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = "Search",
+//                            modifier = Modifier.padding(end = 4.dp)
+                            )
+                        },
+                        shape = RoundedCornerShape(16.dp),
+                    )
+
+                }
             }
         }
 
@@ -365,7 +370,7 @@ fun ProjectGraph(wakaDataHandler: WakaDataHandler, projectName: String) {
     val excludedDays = wakaDataHandler.getExcludedDays(dataRequest, timePeriod)
 
     val projectColor = wakaDataHandler.getProjectColor(projectName)
-    val textColor = ColorUtils.desaturate(projectColor, 0.5f)
+    val textColor = ColorUtils.desaturate(projectColor, 0.3f)
 
     Box(
         modifier = Modifier
@@ -373,7 +378,7 @@ fun ProjectGraph(wakaDataHandler: WakaDataHandler, projectName: String) {
             .height((GRAPH_HEIGHT + 50 + WakaWidgetHelpers.GRAPH_BOTTOM_PADDING + WakaWidgetHelpers.DATE_TEXT_HEIGHT).dp)
             .padding(start = 12.dp, end = 12.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(Color.Black)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Box(
             modifier = Modifier
@@ -444,7 +449,7 @@ fun ProjectGraph(wakaDataHandler: WakaDataHandler, projectName: String) {
             // graph container
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxWidth(0.98f)
                     .height((GRAPH_HEIGHT + WakaWidgetHelpers.GRAPH_BOTTOM_PADDING + WakaWidgetHelpers.DATE_TEXT_HEIGHT).dp)
                     .padding(start = 8.dp, end = 16.dp)
             ) {
@@ -488,7 +493,7 @@ fun ProjectGraph(wakaDataHandler: WakaDataHandler, projectName: String) {
                                             duration / (3600 * maxHours)
                                         )).dp
                                     )
-                                    .clip(RoundedCornerShape(6.dp))
+                                    .clip(RoundedCornerShape(4.dp))
                                     .background(barColor)
                                     .padding(4.dp)
                             ) {}

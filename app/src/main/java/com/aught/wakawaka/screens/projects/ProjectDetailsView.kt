@@ -5,15 +5,20 @@ import DailyTargetCard
 import AlertPane
 import WeeklyTargetCard
 import android.content.Context
+import android.util.Log
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBackIosNew
@@ -24,6 +29,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,9 +38,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.toColorInt
 import androidx.lifecycle.Observer
 import androidx.navigation.NavHostController
 import androidx.work.OneTimeWorkRequestBuilder
@@ -45,6 +55,8 @@ import com.aught.wakawaka.data.ProjectSpecificData
 import com.aught.wakawaka.data.StreakData
 import com.aught.wakawaka.workers.WakaDataFetchWorker
 import com.aught.wakawaka.data.WakaHelpers
+import com.aught.wakawaka.utils.ColorUtils
+import com.aught.wakawaka.utils.HuePicker
 import com.aught.wakawaka.workers.WakaProjectWidgetUpdateWorker
 import kotlinx.coroutines.delay
 import kotlin.collections.component1
@@ -59,6 +71,14 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
     val projectData = projectSpecificData[projectName]
 
     if (projectData != null) {
+        var projectColor by remember {
+            mutableStateOf(
+                runCatching {
+                    Color(projectData.color.toColorInt())
+                }.getOrNull() ?: WakaHelpers.projectNameToColor(projectData.name)
+            )
+        }
+
         var alertData by remember { mutableStateOf<AlertData?>(null) }
 
         var withDailyTarget by remember {
@@ -98,15 +118,20 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
                 .fillMaxSize()
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+//            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(
-                verticalAlignment = Alignment.Top,
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
+//                    .background(Color.Red)
                     .fillMaxWidth()
-                    .height(64.dp)
+                    .height(48.dp),
             ) {
                 IconButton(
-                    modifier = Modifier.size(36.dp),
+                    modifier = Modifier
+                        .padding(end = 8.dp)
+                        .size(16.dp),
                     // go back to the projects screen
                     onClick = {
                         navController.navigate(Screen.Projects.route) {
@@ -127,10 +152,28 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
                 Text(
                     text = projectData.name,
                     style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    fontSize = 24.sp,
+                    lineHeight = 24.sp,
+                    modifier = Modifier.padding()
                 )
+                Spacer(modifier = Modifier.padding(horizontal = 4.dp))
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(projectColor)
+                ) {}
             }
+            HorizontalDivider(
+                modifier = Modifier
+                    .fillMaxWidth(0.5f)
+                    .padding(bottom = 12.dp)
+            )
+            HuePicker(
+                ColorUtils.colorToHSV(projectColor)[0]
+            ) { projectColor = it }
 
+            Spacer(modifier = Modifier.height(12.dp))
 
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -167,10 +210,11 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
                 // Save Button
                 Button(
                     onClick = {
+                        Log.d("ProjectDetailsView", "Saving project data for $projectName, color is ${ColorUtils.colorToHex(projectColor)}")
                         WakaDataFetchWorker.saveProjectData(
                             context, projectName, ProjectSpecificData(
                                 projectData.name,
-                                projectData.color,
+                                ColorUtils.colorToHex(projectColor),
                                 projectData.dailyDurationInSeconds,
                                 if (withDailyTarget) dailyTarget else null,
                                 if (withWeeklyTarget) weeklyTarget else null,

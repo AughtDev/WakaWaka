@@ -24,6 +24,7 @@ import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaStatistics
 import com.aught.wakawaka.data.WakaURL
 import com.aught.wakawaka.extras.WakaNotifications
+import com.aught.wakawaka.utils.ColorUtils
 import com.aught.wakawaka.utils.JSONDateAdapter
 import com.aught.wakawaka.widget.aggregate.WakaAggregateWidget
 import com.aught.wakawaka.widget.project.WakaProjectWidget
@@ -103,7 +104,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
     //    private val url: String = "https://api.wakatime.com/api/v1/";
     //    private val url: String = "https://wakapi.dev/api/compat/wakatime/v1/";
 
-    private fun getRange(durationSinceLastFetch: Long) : String {
+    private fun getRange(durationSinceLastFetch: Long): String {
         val now = java.time.ZonedDateTime.now()
         val midnight = now.toLocalDate().atStartOfDay(now.zone)
         val millisSinceMidnight = java.time.Duration.between(midnight, now).toMillis()
@@ -378,7 +379,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             val projectData = projectDataMap[name]
             projectDataMap[name] = ProjectSpecificData(
                 it.key,
-                projectData?.color ?: WakaHelpers.Companion.projectNameToColor(name).toString(),
+                projectData?.color ?: ColorUtils.colorToHex(WakaHelpers.Companion.projectNameToColor(name)),
                 it.value.toMap(),
                 projectData?.dailyTargetHours,
                 projectData?.weeklyTargetHours,
@@ -523,7 +524,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                     streak += weeklyStreakData.count;
                     break
                 }
-                var totalSeconds: Double = 0.0;
+                var totalSeconds: Long = 0;
 
                 (0..6).forEach {
                     val day = date.plusDays(it.toLong())
@@ -533,8 +534,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                     }
                 }
 
-                if (!data.containsKey(formattedDate) ||
-                    (targetHours == null && totalSeconds > 0) ||
+                if ((targetHours == null && totalSeconds == 0L) ||
                     (targetHours != null && totalSeconds < targetHours * 3600)
                 ) {
                     break
