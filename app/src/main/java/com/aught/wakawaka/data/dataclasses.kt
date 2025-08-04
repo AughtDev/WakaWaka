@@ -210,4 +210,12 @@ data class NotificationData(
 
 
 
+// region DATA CLASSES FOR CHEAT DAY DATA
+
+data class CheatDayData(
+    val availableDays: Map<String,Int>, // the available cheat days for each project, 0 by default. for the aggregate data, the key is WakaHelpers.ALL_PROJECTS_ID
+    val usedCheatDays: Map<String, List<String>> // the used cheat days for each project in the format yyyy-mm-dd, empty by default. for the aggregate data, the key is WakaHelpers.ALL_PROJECTS_ID
+)
+
+// endregion
 

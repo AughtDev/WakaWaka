@@ -11,13 +11,18 @@ class WakaHelpers {
     companion object {
         val PREFS = "wakawaka_prefs"
 
-        val AGGREGATE_DATA = "waka_aggregate_data"
+        //region SHARED PREFERENCES KEYS
+
+        val AGGREGATE_DATA_KEY = "waka_aggregate_data"
+        val PROJECT_SPECIFIC_DATA_KEY = "waka_project_data"
+        val WAKA_STATISTICS_KEY = "waka_statistics"
+        val NOTIFICATION_DATA_KEY = "last_notification_date"
+        val CHEAT_DAY_DATA_KEY = "cheat_day_data"
+
+        //endregion
+
         val INITIAL_AGGREGATE_DATA =
             AggregateData(emptyMap(), null, null, null, null, listOf(DayOfWeek.SUNDAY.index))
-
-        val PROJECT_SPECIFIC_DATA = "waka_project_data"
-
-        val WAKA_STATISTICS = "waka_statistics"
 
         val WAKATIME_API = "wakatime_api"
         val WAKAPI_API = "wakapi_api"
@@ -29,7 +34,6 @@ class WakaHelpers {
 
         val ALL_PROJECTS_ID = "All"
 
-        val NOTIFICATION_DATA = "last_notification_date"
 
         val PROJECT_ASSIGNED_TO_PROJECT_WIDGET = "project_assigned_to_project_widget"
 

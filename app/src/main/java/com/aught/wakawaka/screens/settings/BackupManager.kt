@@ -97,9 +97,9 @@ object BackupManager {
         WakaDataFetchWorker.saveProjectDataMap(context, backupData.projectSpecificDataMap)
 
         prefs.edit {
-            putString(WakaHelpers.AGGREGATE_DATA, aggregateDataAdapter.toJson(backupData.aggregateData))
-            putString(WakaHelpers.NOTIFICATION_DATA, notificationDataAdapter.toJson(backupData.notificationData))
-            putString(WakaHelpers.WAKA_STATISTICS, statisticsAdapter.toJson(backupData.statistics))
+            putString(WakaHelpers.AGGREGATE_DATA_KEY, aggregateDataAdapter.toJson(backupData.aggregateData))
+            putString(WakaHelpers.NOTIFICATION_DATA_KEY, notificationDataAdapter.toJson(backupData.notificationData))
+            putString(WakaHelpers.WAKA_STATISTICS_KEY, statisticsAdapter.toJson(backupData.statistics))
             putString(WakaHelpers.WAKATIME_API, backupData.wakatimeApi)
             putString(WakaHelpers.PROJECT_ASSIGNED_TO_PROJECT_WIDGET, backupData.projectAssignedToWidget)
         }

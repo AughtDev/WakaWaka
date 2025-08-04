@@ -3,7 +3,6 @@ package com.aught.wakawaka.workers
 import com.aught.wakawaka.data.WakaService
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Log
 import androidx.core.content.edit
 import androidx.glance.appwidget.updateAll
 import androidx.work.CoroutineWorker
@@ -34,7 +33,6 @@ import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import java.lang.reflect.Type
@@ -210,7 +208,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
         prefs.edit {
             putString(
-                WakaHelpers.Companion.WAKA_STATISTICS,
+                WakaHelpers.Companion.WAKA_STATISTICS_KEY,
                 wakaStatisticsAdapter.toJson(wakaStatistics)
             )
         }
@@ -222,7 +220,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         projectData: Map<String, ProjectSpecificData>
     ) {
         val notificationDataAdapter = moshi.adapter(NotificationData::class.java)
-        val notificationDataString = prefs.getString(WakaHelpers.Companion.NOTIFICATION_DATA, null)
+        val notificationDataString = prefs.getString(WakaHelpers.Companion.NOTIFICATION_DATA_KEY, null)
 
         val notificationData: NotificationData = notificationDataString?.let {
             (runCatching { notificationDataAdapter.fromJson(it) }.getOrNull()
@@ -301,7 +299,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
         prefs.edit {
             putString(
-                WakaHelpers.Companion.NOTIFICATION_DATA,
+                WakaHelpers.Companion.NOTIFICATION_DATA_KEY,
                 notificationDataAdapter.toJson(updatedNotificationData)
             )
         }
@@ -317,9 +315,9 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
         // get the current aggregate data or assign an empty initial aggregate data instance
         val aggregateData =
-            if (prefs.getString(WakaHelpers.Companion.AGGREGATE_DATA, null) != null) {
+            if (prefs.getString(WakaHelpers.Companion.AGGREGATE_DATA_KEY, null) != null) {
                 aggregateDataAdapter.fromJson(
-                    prefs.getString(WakaHelpers.Companion.AGGREGATE_DATA, null)!!
+                    prefs.getString(WakaHelpers.Companion.AGGREGATE_DATA_KEY, null)!!
                 )
             } else {
                 WakaHelpers.Companion.INITIAL_AGGREGATE_DATA
@@ -327,9 +325,9 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
         // get the current project data or assign an empty map
         val projectDataMap: MutableMap<String, ProjectSpecificData> =
-            if (prefs.getString(WakaHelpers.Companion.PROJECT_SPECIFIC_DATA, null) != null) {
+            if (prefs.getString(WakaHelpers.Companion.PROJECT_SPECIFIC_DATA_KEY, null) != null) {
                 val projectDataStringMap = mapAdapter.fromJson(
-                    prefs.getString(WakaHelpers.Companion.PROJECT_SPECIFIC_DATA, null)!!
+                    prefs.getString(WakaHelpers.Companion.PROJECT_SPECIFIC_DATA_KEY, null)!!
                 )
                 val projectDataMap = mutableMapOf<String, ProjectSpecificData>()
                 projectDataStringMap?.forEach {
@@ -431,15 +429,14 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         // save the map to the prefs
         prefs.edit() {
             putString(
-                WakaHelpers.Companion.AGGREGATE_DATA,
+                WakaHelpers.Companion.AGGREGATE_DATA_KEY,
                 aggregateDataAdapter.toJson(updatedAggregateData)
             )
             putString(
-                WakaHelpers.Companion.PROJECT_SPECIFIC_DATA,
+                WakaHelpers.Companion.PROJECT_SPECIFIC_DATA_KEY,
                 mapAdapter.toJson(projectDataStringMap.toMap())
             )
         }
-
     }
 
     companion object {
@@ -587,7 +584,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             // get the prefs and the json aggregate data
             val prefs =
                 context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
-            val json = prefs.getString(WakaHelpers.Companion.AGGREGATE_DATA, null) ?: return null
+            val json = prefs.getString(WakaHelpers.Companion.AGGREGATE_DATA_KEY, null) ?: return null
 
             // build the adapters to convert between json strings and the data
             val moshi = Moshi.Builder()
@@ -608,7 +605,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             // get the prefs and the json aggregate data
             val prefs =
                 context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
-            val json = prefs.getString(WakaHelpers.Companion.PROJECT_SPECIFIC_DATA, null)
+            val json = prefs.getString(WakaHelpers.Companion.PROJECT_SPECIFIC_DATA_KEY, null)
 
             if (json == null) return mapOf()
 
@@ -634,7 +631,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             // get the prefs and the json aggregate data
             val prefs =
                 context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
-            val json = prefs.getString(WakaHelpers.Companion.WAKA_STATISTICS, null)
+            val json = prefs.getString(WakaHelpers.Companion.WAKA_STATISTICS_KEY, null)
             if (json == null) return WakaHelpers.Companion.INITIAL_WAKA_STATISTICS
 
             // build the adapters to convert between json strings and the data
@@ -657,7 +654,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
             val notificationDataAdapter = moshi.adapter(NotificationData::class.java)
             val notificationDataString =
-                prefs.getString(WakaHelpers.Companion.NOTIFICATION_DATA, null)
+                prefs.getString(WakaHelpers.Companion.NOTIFICATION_DATA_KEY, null)
 
             val notificationData: NotificationData = notificationDataString?.let {
                 (runCatching { notificationDataAdapter.fromJson(it) }.getOrNull()
@@ -692,7 +689,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                 context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
             prefs.edit {
                 putString(
-                    WakaHelpers.Companion.AGGREGATE_DATA,
+                    WakaHelpers.Companion.AGGREGATE_DATA_KEY,
                     aggregateDataAdapter.toJson(aggregateData)
                 )
             }
@@ -714,7 +711,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
             prefs.edit {
                 putString(
-                    WakaHelpers.Companion.PROJECT_SPECIFIC_DATA,
+                    WakaHelpers.Companion.PROJECT_SPECIFIC_DATA_KEY,
                     mapAdapter.toJson(projectDataStringMap)
                 )
             }
@@ -759,7 +756,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
             prefs.edit {
                 putString(
-                    WakaHelpers.Companion.PROJECT_SPECIFIC_DATA,
+                    WakaHelpers.Companion.PROJECT_SPECIFIC_DATA_KEY,
                     mapAdapter.toJson(projectDataStringMap)
                 )
             }

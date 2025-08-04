@@ -105,15 +105,15 @@ fun HomeView(
     val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         Log.d("waka", "SharedPreferences changed: $key")
         when (key) {
-            WakaHelpers.AGGREGATE_DATA -> {
+            WakaHelpers.AGGREGATE_DATA_KEY -> {
                 aggregateData = WakaDataFetchWorker.loadAggregateData(context)
             }
 
-            WakaHelpers.PROJECT_SPECIFIC_DATA -> {
+            WakaHelpers.PROJECT_SPECIFIC_DATA_KEY -> {
                 projectSpecificData = WakaDataFetchWorker.loadProjectSpecificData(context)
             }
 
-            WakaHelpers.WAKA_STATISTICS -> {
+            WakaHelpers.WAKA_STATISTICS_KEY -> {
                 wakaStatistics = WakaDataFetchWorker.loadWakaStatistics(context)
             }
         }
