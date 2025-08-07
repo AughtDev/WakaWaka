@@ -113,7 +113,6 @@ class WakaProjectWidget : GlanceAppWidget() {
 
             val textColor = ColorUtils.desaturate(projectColor, 0.5f)
 
-            println("primary color is $primaryColor")
             Box(
                 modifier = GlanceModifier.fillMaxSize().background(
                     Color.Black.copy(alpha = 0.3f)

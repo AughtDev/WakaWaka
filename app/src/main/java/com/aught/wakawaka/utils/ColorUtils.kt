@@ -238,6 +238,16 @@ class ColorUtils {
             return String.format("#%08X", argb)
         }
 
+        fun hexToColor(hex: String): Color {
+            // Parse hex string to Color
+            return try {
+                Color(AndroidColor.parseColor(hex))
+            } catch (e: IllegalArgumentException) {
+                Log.e("ColorUtils", "Invalid hex color: $hex", e)
+                Color.Unspecified // Return unspecified color on error
+            }
+        }
+
         // endregion
 
         // region APP SPECIFIC COLOR FUNCTIONS

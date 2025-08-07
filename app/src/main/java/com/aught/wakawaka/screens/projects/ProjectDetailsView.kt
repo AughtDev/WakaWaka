@@ -150,7 +150,7 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
                     )
                 }
                 Text(
-                    text = projectData.name,
+                    text = WakaHelpers.truncateLabel(projectData.name, 28),
                     style = MaterialTheme.typography.headlineMedium,
                     fontSize = 24.sp,
                     lineHeight = 24.sp,

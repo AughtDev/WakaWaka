@@ -2,7 +2,6 @@ package com.aught.wakawaka.screens.projects
 
 import android.content.Context
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,11 +32,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SearchBar
-import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,8 +42,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -168,7 +172,9 @@ fun ProjectsView(navController: NavHostController) {
             }
         }
         Box(
-            modifier = Modifier.fillMaxWidth().animateContentSize()
+            modifier = Modifier
+                .fillMaxWidth()
+                .animateContentSize()
         ) {
             if (showSearchBar) {
                 Row(
@@ -238,7 +244,7 @@ fun ProjectsView(navController: NavHostController) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = projectName,
+                                    text = WakaHelpers.truncateLabel(projectName, 28),
                                     modifier = Modifier
                                         .padding(16.dp)
                                 )
@@ -258,6 +264,13 @@ fun ProjectsView(navController: NavHostController) {
                                     .padding(end = 10.dp)
                                     .fillMaxHeight()
                             ) {
+                                val totalHours: Int = (
+                                        wakaDataHandler.projectSpecificData[projectName]?.dailyDurationInSeconds
+                                            ?.values?.sum() ?: 0) / 3600
+
+
+                                HourCountBadge(totalHours)
+
                                 IconButton(
 //                            modifier = Modifier.width(18.dp),
                                     modifier = Modifier.size(20.dp),
@@ -674,3 +687,349 @@ fun StreakDisplay(streak: Int, hitTargetToday: Boolean, textColor: Color) {
         fontWeight = FontWeight.Bold,
     )
 }
+
+
+// region HOURS BADGE
+// ? ........................
+
+@Composable
+fun BadgeText(hours: Int, color: Color, drawBehind: DrawScope.() -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+//        modifier = Modifier.drawBehind(drawBehind)
+    ) {
+        Text(
+            text = "$hours",
+            color = color.copy(alpha = 0.5f),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .drawBehind(drawBehind)
+        )
+        Text(
+            text = "h",
+            color = color.copy(alpha = 0.3f),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.offset(y = 5.dp, x = 1.dp)
+        )
+    }
+}
+
+fun DrawScope.mainUnderline(color: Color) {
+    drawLine(
+        color.copy(alpha = 0.3f),
+        start = Offset(
+            x = 10f,
+            y = this.size.height - 10
+        ),
+        end = Offset(
+            x = this.size.width - 10,
+            y = this.size.height - 10
+        ),
+        strokeWidth = 5f,
+        cap = StrokeCap.Round
+    )
+}
+
+fun DrawScope.secondaryUnderline(color: Color) {
+    drawLine(
+        color.copy(alpha = 0.5f),
+        start = Offset(
+            x = 15f,
+            y = this.size.height - 1
+        ),
+        end = Offset(
+            x = this.size.width - 15,
+            y = this.size.height - 1
+        ),
+        strokeWidth = 3f,
+        cap = StrokeCap.Round
+    )
+}
+
+fun DrawScope.goldCrown(color: Color) {
+    val w = this.size.width
+    val crownPath = Path().apply {
+        moveTo(5f, 14f)
+        lineTo(5f, 6f)
+        quadraticTo(w / 2, 15f, w - 5f, 6f)
+        lineTo(w - 5f, 14f)
+    }
+    drawPath(
+        path = crownPath,
+        color = color.copy(alpha = 0.4f),
+        style = Stroke(
+            width = 3f,
+            cap = StrokeCap.Round
+        )
+    )
+    drawCircle(
+        color = color.copy(alpha = 0.5f),
+        radius = 3f,
+        center = Offset(5f, -2f),
+        style = Fill
+    )
+    drawCircle(
+        color = color.copy(alpha = 0.5f),
+        radius = 3f,
+        center = Offset(w / 2, -4f),
+        style = Stroke(
+            width = 3f,
+            cap = StrokeCap.Round
+        )
+    )
+    drawCircle(
+        color = color.copy(alpha = 0.5f),
+        radius = 3f,
+        center = Offset(w - 5f, -2f),
+        style = Fill
+    )
+}
+
+
+fun DrawScope.bronzeCrown(color: Color) {
+    val w = this.size.width
+    val crownPath = Path().apply {
+        moveTo(7f, 12f)
+        quadraticTo(w / 2, 12f, w / 2, 5f)
+        quadraticTo(w / 2, 12f, w - 7f, 12f)
+    }
+    drawPath(
+        path = crownPath,
+        color = color.copy(alpha = 0.4f),
+        style = Stroke(
+            width = 3f,
+            cap = StrokeCap.Round
+        )
+    )
+    drawCircle(
+        color = color.copy(alpha = 0.5f),
+        radius = 3f,
+        center = Offset(w / 2, 0f),
+        style = Fill
+    )
+}
+
+fun DrawScope.silverCrown(color: Color) {
+    val w = this.size.width
+    val crownPath = Path().apply {
+        moveTo(7f, 14f)
+        lineTo(7f, 6f)
+        quadraticTo(w / 2, 15f, w - 7f, 6f)
+        lineTo(w - 7f, 14f)
+    }
+    drawPath(
+        path = crownPath,
+        color = color.copy(alpha = 0.4f),
+        style = Stroke(
+            width = 3f,
+            cap = StrokeCap.Round
+        )
+    )
+    drawCircle(
+        color = color.copy(alpha = 0.5f),
+        radius = 3f,
+        center = Offset(w / 2, 0f),
+        style = Fill
+    )
+}
+
+fun DrawScope.diamondCrown(color: Color) {
+    val w = this.size.width
+    val crownPath = Path().apply {
+        moveTo(5f, 14f)
+        lineTo(5f, 6f)
+        quadraticTo(w / 4, 14f, w / 2, 0f)
+        quadraticTo(3 * w / 4, 14f, w - 5f, 6f)
+        lineTo(w - 5f, 14f)
+    }
+    drawPath(
+        path = crownPath,
+        color = color.copy(alpha = 0.4f),
+        style = Stroke(
+            width = 3f,
+            cap = StrokeCap.Round
+        )
+    )
+    drawCircle(
+        color = color.copy(alpha = 0.5f),
+        radius = 3f,
+        center = Offset(5f, -2f),
+        style = Fill
+    )
+    drawCircle(
+        color = color.copy(alpha = 0.5f),
+        radius = 3f,
+        center = Offset(w - 5f, -2f),
+        style = Fill
+    )
+}
+
+
+fun DrawScope.royalPurpleCrown(color: Color) {
+    val w = this.size.width
+    val crownPath = Path().apply {
+        moveTo(5f, 14f)
+        lineTo(5f, 6f)
+        quadraticTo(w / 4, 14f, w / 2, 0f)
+        quadraticTo(3 * w / 4, 14f, w - 5f, 6f)
+        lineTo(w - 5f, 14f)
+    }
+    drawPath(
+        path = crownPath,
+        color = color.copy(alpha = 0.4f),
+        style = Stroke(
+            width = 3f,
+            cap = StrokeCap.Round
+        )
+    )
+    drawCircle(
+        color = color.copy(alpha = 0.5f),
+        radius = 3f,
+        center = Offset(5f, -2f),
+        style = Fill
+    )
+    drawCircle(
+        color = color.copy(alpha = 0.5f),
+        radius = 3f,
+        center = Offset(w / 2, -8f),
+        style = Stroke(
+            width = 3f,
+            cap = StrokeCap.Round
+        )
+    )
+    drawCircle(
+        color = color.copy(alpha = 0.5f),
+        radius = 3f,
+        center = Offset(w - 5f, -2f),
+        style = Fill
+    )
+}
+
+fun DrawScope.royalRedCrown(color: Color) {
+    val w = this.size.width
+    val crownPath = Path().apply {
+        moveTo(3f, 14f)
+        lineTo(3f, 6f)
+        quadraticTo(w / 8, 14f, w / 4, 4f)
+        quadraticTo(w / 2, 14f, 3 * w / 4, 4f)
+        quadraticTo(7 * w / 8, 14f, w-3f, 6f)
+        lineTo(w - 3f, 14f)
+    }
+    val gemPath = Path().apply {
+        moveTo(w / 2 - 5f, -8f)
+        lineTo(w / 2, -4f)
+        lineTo(w / 2 + 5f, -8f)
+        lineTo(w / 2, -15f)
+        close()
+    }
+    drawPath(
+        path = crownPath,
+        color = color.copy(alpha = 0.4f),
+        style = Stroke(
+            width = 3f,
+            cap = StrokeCap.Round
+        )
+    )
+    drawPath(
+        path = gemPath,
+        color = color.copy(alpha = 0.7f),
+        style = Stroke(
+            width = 2f,
+            cap = StrokeCap.Round
+        )
+    )
+    drawCircle(
+        color = color.copy(alpha = 0.5f),
+        radius = 2f,
+        center = Offset(3f, -2f),
+        style = Fill
+    )
+//    drawCircle(
+//        color = color.copy(alpha = 0.5f),
+//        radius = 5f,
+//        center = Offset(w / 2, -8f),
+//        style = Stroke(
+//            width = 3f,
+//            cap = StrokeCap.Round
+//        )
+//    )
+    drawCircle(
+        color = color.copy(alpha = 0.6f),
+        radius = 3f,
+        center = Offset(w / 4, -6f),
+        style = Stroke(
+            width = 2f,
+            cap = StrokeCap.Round
+        )
+//        style=Fill
+    )
+    drawCircle(
+        color = color.copy(alpha = 0.6f),
+        radius = 3f,
+        center = Offset(3 * w / 4, -6f),
+        style = Stroke(
+            width = 2f,
+            cap = StrokeCap.Round
+        )
+//                style=Fill
+    )
+    drawCircle(
+        color = color.copy(alpha = 0.5f),
+        radius = 2f,
+        center = Offset(w - 3f, -2f),
+        style = Fill
+    )
+}
+
+
+@Composable
+fun HourCountBadge(hours: Int) {
+    Box() {
+        if (hours < 25) null
+        else if (hours in 25..49) {
+            val col = ColorUtils.hexToColor("#B8702E")
+            BadgeText(25, col) {
+                mainUnderline(col)
+                bronzeCrown(col)
+            }
+        } else if (hours in 50..99) {
+            val col = ColorUtils.hexToColor("#C0C0C0")
+            BadgeText(50, col) {
+                mainUnderline(col)
+                silverCrown(col)
+            }
+        } else if (hours in 100..249) {
+            val col = ColorUtils.hexToColor("#CFB53B")
+            BadgeText(100, col) {
+                mainUnderline(col)
+                goldCrown(col)
+            }
+        } else if (hours in 250..499) {
+            val col = ColorUtils.hexToColor("#00A693")
+            BadgeText(250, col) {
+                mainUnderline(col)
+                diamondCrown(col)
+            }
+        } else if (hours in 500..999) {
+            val col = ColorUtils.hexToColor("#9F7FF5")
+            BadgeText(500, col) {
+                mainUnderline(col)
+                royalPurpleCrown(col)
+            }
+        } else {
+            val col = ColorUtils.hexToColor("#F56058")
+            BadgeText(1000, col) {
+                mainUnderline(col)
+                royalRedCrown(col)
+            }
+        }
+    }
+}
+
+// ? ........................
+// endregion ........................
+
