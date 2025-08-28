@@ -79,6 +79,15 @@ class WakaDataHandler(val aggregateData: AggregateData?, val projectSpecificData
         }
     }
 
+    fun getStreakCompletion(dataRequest: DataRequest, period: TimePeriod): Float {
+        val target = getTarget(dataRequest, period)
+        val duration = getPeriodicDurationsInSeconds(dataRequest, period)[0]
+        if (target == null) {
+            return if (duration > 0) 1f else 0f
+        }
+        return (duration.toFloat() / (target * 3600)).coerceIn(0f, 1f)
+    }
+
     fun getExcludedDays(dataRequest: DataRequest, period: TimePeriod): Set<Int> {
         return when (period) {
             TimePeriod.DAY -> {

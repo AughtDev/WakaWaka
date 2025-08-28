@@ -167,16 +167,6 @@ fun HomeView(
         }
     }
 
-    val streakCountAndTargetHit by remember {
-        derivedStateOf {
-            val targetHit = wakaDataHandler.targetHit(dataRequest, TimePeriod.DAY)
-            val count = wakaDataHandler.getStreak(
-                dataRequest,
-                TimePeriod.DAY
-            ).count + (if (targetHit) 1 else 0)
-            Pair(count, targetHit)
-        }
-    }
 
     var isRefreshingData by remember { mutableStateOf(false) }
 
@@ -195,7 +185,9 @@ fun HomeView(
                 .padding(16.dp)
         ) {
             Log.d("waka", "Header: $selectedProject")
-            // Header
+            // region HEADER
+            // ? ........................
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -205,7 +197,6 @@ fun HomeView(
             ) {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    //                horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     ProjectSelector(
                         selectedProject, projects
@@ -218,17 +209,29 @@ fun HomeView(
                         fontSize = 24.sp
                     )
                 }
-                Text(
-                    text = streakCountAndTargetHit.first.toString(),
-                    fontSize = 72.sp,
-                    color = if (streakCountAndTargetHit.second) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        MaterialTheme.colorScheme.onSurface.copy(0.5f)
-                    },
-                    fontWeight = FontWeight.Bold,
-                )
+//                Text(
+//                    text = streakCountAndTargetHit.first.toString(),
+//                    fontSize = 72.sp,
+//                    color = if (streakCountAndTargetHit.second) {
+//                        MaterialTheme.colorScheme.onSurface
+//                    } else {
+//                        MaterialTheme.colorScheme.onSurface.copy(0.5f)
+//                    },
+//                    fontWeight = FontWeight.Bold,
+//                )
+                if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
+                    AggregateStreakDisplay(wakaDataHandler)
+                } else {
+                    val projectData = projectSpecificData[selectedProject]
+                    if (projectData != null) {
+                        ProjectStreakDisplay(projectData, wakaDataHandler)
+                    }
+                }
             }
+
+            // ? ........................
+            // endregion ........................
+
             val targetInHours by remember {
                 derivedStateOf {
                     if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
@@ -313,7 +316,7 @@ fun ProjectSelector(
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = WakaHelpers.truncateLabel(selectedProject),
+                text = WakaHelpers.truncateLabel(selectedProject,16),
                 fontSize = 24.sp,
                 fontWeight = FontWeight.SemiBold
             )
@@ -331,7 +334,9 @@ fun ProjectSelector(
         ) {
             projects.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(option) },
+                    text = {
+                        Text(WakaHelpers.truncateLabel(option, 25))
+                    },
                     onClick = {
                         onSelectProject(option)
                         expanded = false

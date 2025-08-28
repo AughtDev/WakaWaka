@@ -68,6 +68,7 @@ import androidx.compose.ui.window.Dialog
 import com.aught.wakawaka.data.AggregateData
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.utils.ColorUtils
+import scrollBlurEffects
 import java.time.LocalDate
 import kotlin.collections.forEach
 import kotlin.math.max
@@ -232,13 +233,6 @@ fun DayCard(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.fillMaxSize(),
-//                        modifier = if (isToday && !isFirstOfMonth) {
-//                            Modifier
-//                                .fillMaxSize(0.55f)
-//                                .border(1.dp, customTextColor, RoundedCornerShape(6.dp))
-//                        } else {
-//                            Modifier.fillMaxSize()
-//                        }
 
                     ) {
                         Text(
@@ -266,22 +260,10 @@ fun DayCard(
                     }
                 }
             }
-//            if (isToday) {
-//                Box(
-//                    modifier = Modifier
-//                        .height(3.dp)
-//                        .width(14.dp)
-//                        .offset(y = 29.dp)
-//                        .clip(RoundedCornerShape(2.dp))
-//                        .background(MaterialTheme.colorScheme.surface)
-//                )
-//            }
             if (targetInHours != null && targetCompletion == 1f) {
                 Box(
                     modifier = Modifier
                         .size(5.dp)
-//                        .height(4.dp)
-//                        .width(4.dp)
                         .offset(y = 4.dp)
                         .clip(CircleShape)
                         .background(dayColorData.projectColor)
@@ -567,6 +549,9 @@ fun CalendarGraph(
         modifier = Modifier
             .fillMaxWidth()
             .fillMaxSize(fraction = 0.65f)
+            .scrollBlurEffects(
+                lazyListState,weeklyData.size
+            )
     ) {
         LazyColumn(
             state = lazyListState,
@@ -631,8 +616,7 @@ fun CalendarGraph(
             }
         }
 
-        ScrollBlurEffects(lazyListState, weeklyData.size)
-
+//        ScrollBlurEffects(lazyListState, weeklyData.size)
 
     }
 }
