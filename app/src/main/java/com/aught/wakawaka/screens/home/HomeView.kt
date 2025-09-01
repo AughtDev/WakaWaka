@@ -49,6 +49,7 @@ import com.aught.wakawaka.workers.WakaDataFetchWorker
 import com.aught.wakawaka.data.WakaHelpers
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.filled.Share
 
 fun refreshWakaData(context: Context, setIsLoading: ((Boolean) -> Unit)) {
     Log.d("waka", "Refreshing Waka data...")
@@ -209,16 +210,6 @@ fun HomeView(
                         fontSize = 24.sp
                     )
                 }
-//                Text(
-//                    text = streakCountAndTargetHit.first.toString(),
-//                    fontSize = 72.sp,
-//                    color = if (streakCountAndTargetHit.second) {
-//                        MaterialTheme.colorScheme.onSurface
-//                    } else {
-//                        MaterialTheme.colorScheme.onSurface.copy(0.5f)
-//                    },
-//                    fontWeight = FontWeight.Bold,
-//                )
                 if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
                     AggregateStreakDisplay(wakaDataHandler)
                 } else {
@@ -226,6 +217,14 @@ fun HomeView(
                     if (projectData != null) {
                         ProjectStreakDisplay(projectData, wakaDataHandler)
                     }
+                }
+                IconButton(
+                    onClick = {}
+                ) {
+                    Icon(
+                        Icons.Default.Share,
+                        contentDescription = "Share"
+                    )
                 }
             }
 
