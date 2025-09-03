@@ -248,7 +248,7 @@ fun ProjectsView(navController: NavHostController) {
                 modifier = Modifier
                     .fillMaxSize()
                     .scrollBlurEffects(
-                        lazyListState, projects.size,0.1f
+                        lazyListState, projects.size, 0.1f
                     )
             ) {
                 LazyColumn(
@@ -272,7 +272,11 @@ fun ProjectsView(navController: NavHostController) {
                                     wakaDataHandler.projectSpecificData[projectName]?.dailyDurationInSeconds
                                         ?.values?.sum() ?: 0) / 3600
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        expandedProjectName = if (isExpanded) null else projectName
+                                    },
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -307,7 +311,7 @@ fun ProjectsView(navController: NavHostController) {
 
                                     IconButton(
 //                            modifier = Modifier.width(18.dp),
-                                        modifier = Modifier.size(20.dp),
+                                        modifier = Modifier.padding(end=6.dp).size(20.dp),
                                         onClick = {
                                             // navigate to project details
                                             navController.navigate(Screen.ProjectDetails.createRoute(projectName))
@@ -319,18 +323,18 @@ fun ProjectsView(navController: NavHostController) {
                                             tint = MaterialTheme.colorScheme.onSurface,
                                         )
                                     }
-                                    IconButton(
-                                        modifier = Modifier.size(25.dp),
-                                        onClick = {
-                                            expandedProjectName = if (isExpanded) null else projectName
-                                        },
-                                    ) {
-                                        Icon(
-                                            if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                            contentDescription = "Expand/Collapse project graph",
-                                            tint = MaterialTheme.colorScheme.onSurface,
-                                        )
-                                    }
+//                                    IconButton(
+//                                        modifier = Modifier.size(25.dp),
+//                                        onClick = {
+//                                            expandedProjectName = if (isExpanded) null else projectName
+//                                        },
+//                                    ) {
+//                                        Icon(
+//                                            if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+//                                            contentDescription = "Expand/Collapse project graph",
+//                                            tint = MaterialTheme.colorScheme.onSurface,
+//                                        )
+//                                    }
                                 }
                             }
                             if (isExpanded) {

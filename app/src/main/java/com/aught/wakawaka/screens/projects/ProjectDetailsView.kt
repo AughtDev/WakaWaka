@@ -169,11 +169,6 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
                     .fillMaxWidth(0.5f)
                     .padding(bottom = 12.dp)
             )
-            HuePicker(
-                ColorUtils.colorToHSV(projectColor)[0]
-            ) { projectColor = it }
-
-            Spacer(modifier = Modifier.height(12.dp))
 
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -181,6 +176,17 @@ fun ProjectDetailsView(projectName: String, navController: NavHostController) {
             ) {
 //                ProjectStreakCards(projectData)
                 ProjectStats(context, projectName)
+
+                HorizontalDivider(
+                    modifier = Modifier
+                        .fillMaxWidth(0.5f)
+                        .padding(bottom = 12.dp)
+                )
+
+                HuePicker(
+                    ColorUtils.colorToHSV(projectColor)[0]
+                ) { projectColor = it }
+
                 DailyTargetCard(
                     dailyTarget = dailyTarget,
                     withDailyTarget = withDailyTarget,
