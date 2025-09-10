@@ -348,31 +348,31 @@ fun StreakStatsDisplay(
             StreakValueDisplay(streak, completion, color)
         }
 
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = cheatLabel.uppercase(),
-                fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.primary.copy(0.5f),
-                fontWeight = FontWeight.SemiBold,
-            )
-//            Row(
-//                verticalAlignment = Alignment.CenterVertically,
-//                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
-//            ) {
-            StreakValueDisplay(
-                streak = numCheatPeriods,
-                completion = cheatPeriodCompletion,
-                color = MaterialTheme.colorScheme.tertiary,
-                textSize = 20,
-                xPadding = 12,
-                yPadding = 6
-            )
-
-            Text("USE")
-//            }
-        }
+//        Column(
+//            horizontalAlignment = Alignment.CenterHorizontally,
+//        ) {
+//            Text(
+//                text = cheatLabel.uppercase(),
+//                fontSize = 10.sp,
+//                color = MaterialTheme.colorScheme.primary.copy(0.5f),
+//                fontWeight = FontWeight.SemiBold,
+//            )
+////            Row(
+////                verticalAlignment = Alignment.CenterVertically,
+////                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+////            ) {
+//            StreakValueDisplay(
+//                streak = numCheatPeriods,
+//                completion = cheatPeriodCompletion,
+//                color = MaterialTheme.colorScheme.tertiary,
+//                textSize = 20,
+//                xPadding = 12,
+//                yPadding = 6
+//            )
+//
+//            Text("USE")
+////            }
+//        }
     }
 
 }

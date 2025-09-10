@@ -79,11 +79,36 @@ fun generateImage(
 }
 
 fun generateCalendarShareImage(context: Context, dateToDurationInSeconds: Map<String, Int>): Uri? {
+    val CELL_SIZE = 20f
+    val CELL_MARGIN = 8f
+
+    val HEADER_HEIGHT = 50f
+    val YEAR_LABEL_HEIGHT = 30f
+    val YEAR_LABEL_PADDING = 10f
+
+    val PADDING = 20f
+
+    val MIN_NUM_YEARS = 4
+
+    val numYears = dateToDurationInSeconds.keys.map {
+        it.split("-")[0].toIntOrNull() ?: 0
+    }.distinct().size.coerceAtLeast(MIN_NUM_YEARS)
+
+    val imageWidth = PADDING * 2 + (CELL_SIZE + CELL_MARGIN) * 53 - CELL_MARGIN
+    val imageHeight = (
+            PADDING * 2 + HEADER_HEIGHT +
+                    (YEAR_LABEL_HEIGHT + YEAR_LABEL_PADDING * 2) * numYears +
+                    ((CELL_SIZE + CELL_MARGIN) * 7 - CELL_MARGIN) * numYears
+            )
+
+
     return generateImage(
         "calendar_share_image",
         Size(800, 200),
         context
-    ) { }
+    ) {
+
+    }
 }
 
 fun generateDailyShareImage(context: Context, dateToDurationInSeconds: Map<String, Int>): Uri? {
