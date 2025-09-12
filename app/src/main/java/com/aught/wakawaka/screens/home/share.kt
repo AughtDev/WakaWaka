@@ -26,7 +26,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,87 +36,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
-import androidx.glance.LocalContext
 import com.aught.wakawaka.data.WakaDataHandler
 import com.aught.wakawaka.data.WakaHelpers
 import okio.IOException
 import java.io.File
 import androidx.core.graphics.createBitmap
+import com.aught.wakawaka.utils.ColorUtils
 import java.io.FileOutputStream
 
 
 // region IMAGE GENERATION
 // ? ........................
 
-fun generateImage(
-    imageName: String,
-    imageSize: Size,
-    context: Context,
-    drawToCanvas: Canvas.() -> Unit
-): Uri? {
-    val bitmap = createBitmap(imageSize.width, imageSize.height)
-    val canvas = Canvas(bitmap)
-
-    canvas.apply {
-        drawToCanvas()
-    }
-
-    val imagesDir = File(context.cacheDir, "images")
-    if (!imagesDir.exists()) imagesDir.mkdirs()
-    val file = File(imagesDir, "$imageName.png")
-    try {
-        val fos = FileOutputStream(file)
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
-        fos.flush()
-        fos.close()
-    } catch (e: IOException) {
-        e.printStackTrace()
-        return null
-    }
-
-    return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-}
-
-fun generateCalendarShareImage(context: Context, dateToDurationInSeconds: Map<String, Int>): Uri? {
-    val CELL_SIZE = 20f
-    val CELL_MARGIN = 8f
-
-    val HEADER_HEIGHT = 50f
-    val YEAR_LABEL_HEIGHT = 30f
-    val YEAR_LABEL_PADDING = 10f
-
-    val PADDING = 20f
-
-    val MIN_NUM_YEARS = 4
-
-    val numYears = dateToDurationInSeconds.keys.map {
-        it.split("-")[0].toIntOrNull() ?: 0
-    }.distinct().size.coerceAtLeast(MIN_NUM_YEARS)
-
-    val imageWidth = PADDING * 2 + (CELL_SIZE + CELL_MARGIN) * 53 - CELL_MARGIN
-    val imageHeight = (
-            PADDING * 2 + HEADER_HEIGHT +
-                    (YEAR_LABEL_HEIGHT + YEAR_LABEL_PADDING * 2) * numYears +
-                    ((CELL_SIZE + CELL_MARGIN) * 7 - CELL_MARGIN) * numYears
-            )
-
-
-    return generateImage(
-        "calendar_share_image",
-        Size(800, 200),
-        context
-    ) {
-
-    }
-}
-
-fun generateDailyShareImage(context: Context, dateToDurationInSeconds: Map<String, Int>): Uri? {
-    return generateImage(
-        "daily_share_image",
-        Size(800, 400),
-        context
-    ) { }
-}
 
 // ? ........................
 // endregion ........................
@@ -146,7 +76,9 @@ fun SharePane(
         Column(
             horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
-            modifier = Modifier.height(paneSize.dp).fillMaxWidth(0.7f)
+            modifier = Modifier
+                .height(paneSize.dp)
+                .fillMaxWidth(0.7f)
         ) {
             Text(
                 title,
@@ -216,10 +148,10 @@ fun ShareDialog(
     }
 
     Column(
-        modifier= Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-        ,
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest),
         verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -259,8 +191,25 @@ fun ShareDialog(
         }
 
         CaptureMode.CALENDAR -> {
+            val projectColor = if (isAggregate) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                if (wakaDataHandler.projectSpecificData[selectedProject]?.color.isNullOrEmpty()) {
+                    MaterialTheme.colorScheme.primary
+                } else
+                ColorUtils.hexToColor(
+                    wakaDataHandler.projectSpecificData[selectedProject]!!.color
+                )
+            }
             val uri = generateCalendarShareImage(
-                context, dateToDurationInSeconds
+                context, if (isAggregate) null else selectedProject,
+                ImageColors(
+                    background = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    foreground = MaterialTheme.colorScheme.onSurface,
+                    primary = projectColor,
+                    secondary = MaterialTheme.colorScheme.secondary
+                ),
+                dateToDurationInSeconds
             )
             shareImage(context, uri)
             captureMode = CaptureMode.NONE
