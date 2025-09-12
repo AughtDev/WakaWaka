@@ -3,9 +3,11 @@ package com.aught.wakawaka.screens.home
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
 import android.net.Uri
 import android.util.Size
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
@@ -43,6 +46,7 @@ import java.io.File
 import androidx.core.graphics.createBitmap
 import com.aught.wakawaka.utils.ColorUtils
 import java.io.FileOutputStream
+import kotlin.text.toInt
 
 
 // region IMAGE GENERATION
@@ -139,7 +143,8 @@ fun ShareDialog(
                 it.value.totalSeconds
             } ?: emptyMap()
         } else {
-            wakaDataHandler.projectSpecificData[selectedProject]?.dailyDurationInSeconds ?: emptyMap()
+            wakaDataHandler.projectSpecificData[selectedProject]?.dailyDurationInSeconds
+                ?: emptyMap()
         }
     }
 
@@ -197,9 +202,9 @@ fun ShareDialog(
                 if (wakaDataHandler.projectSpecificData[selectedProject]?.color.isNullOrEmpty()) {
                     MaterialTheme.colorScheme.primary
                 } else
-                ColorUtils.hexToColor(
-                    wakaDataHandler.projectSpecificData[selectedProject]!!.color
-                )
+                    ColorUtils.hexToColor(
+                        wakaDataHandler.projectSpecificData[selectedProject]!!.color
+                    )
             }
             val uri = generateCalendarShareImage(
                 context, if (isAggregate) null else selectedProject,
@@ -257,7 +262,3 @@ fun ShareButton(
         }
     }
 }
-
-
-
-

@@ -7,13 +7,17 @@ import androidx.compose.ui.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.net.Uri
+import android.util.Log
 import android.util.Size
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.FileProvider
+import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.createBitmap
+import com.aught.wakawaka.R
 import okio.IOException
 import java.io.File
 import java.io.FileOutputStream
+import java.time.LocalDate
 
 
 // region HELPERS
@@ -83,16 +87,23 @@ data class ImageColors(
     val secondary: Color,
 )
 
-fun generateCalendarShareImage(context: Context, projectName: String?, imageColors: ImageColors, dateToDurationInSeconds: Map<String, Int>): Uri? {
-    val CELL_SIZE = 20f
-    val CELL_MARGIN = 3f
-    val CELL_RADIUS = 4f
+fun generateCalendarShareImage(
+    context: Context,
+    projectName: String?,
+    imageColors: ImageColors,
+    dateToDurationInSeconds: Map<String, Int>
+): Uri? {
+    val CELL_SIZE = 40f
+    val CELL_MARGIN = 5f
+    val CELL_RADIUS = 8f
 
-    val HEADER_HEIGHT = 50f
-    val YEAR_LABEL_HEIGHT = 30f
-    val YEAR_LABEL_PADDING = 10f
+    val HEADER_HEIGHT = 70f
+    val HEADER_PADDING = 10f
 
-    val PADDING = 20f
+    val YEAR_LABEL_HEIGHT = 50f
+    val YEAR_LABEL_PADDING = 5f
+
+    val PADDING = 30f
 
     val MIN_NUM_YEARS = 4
 
@@ -102,7 +113,7 @@ fun generateCalendarShareImage(context: Context, projectName: String?, imageColo
 
     val imageWidth = (PADDING * 2 + (CELL_SIZE + CELL_MARGIN) * 53 - CELL_MARGIN).toInt()
     val imageHeight = (
-            PADDING * 2 + HEADER_HEIGHT +
+            PADDING * 2 + HEADER_HEIGHT + HEADER_PADDING * 2 +
                     (YEAR_LABEL_HEIGHT + YEAR_LABEL_PADDING * 2) * numYears +
                     ((CELL_SIZE + CELL_MARGIN) * 7 - CELL_MARGIN) * numYears
             ).toInt()
@@ -113,7 +124,13 @@ fun generateCalendarShareImage(context: Context, projectName: String?, imageColo
     val yearCalendarHeight = (CELL_SIZE + CELL_MARGIN) * 7 - CELL_MARGIN
     val yearHeaderHeight = YEAR_LABEL_HEIGHT + YEAR_LABEL_PADDING * 2
     val yearBlockHeight = yearHeaderHeight + yearCalendarHeight
+    val fullHeaderHeight = HEADER_HEIGHT + HEADER_PADDING * 2
 
+    // log all the dimension values
+    Log.d(
+        "calendar_imgen",
+        "imageWidth: $imageWidth, imageHeight: $imageHeight, innerImgWidth: $innerImgWidth, innerImgHeight: $innerImgHeight, yearCalendarHeight: $yearCalendarHeight, yearHeaderHeight: $yearHeaderHeight, yearBlockHeight: $yearBlockHeight"
+    )
 
     val opacityStops = {
         // only consider durations above 5 minutes
@@ -123,7 +140,7 @@ fun generateCalendarShareImage(context: Context, projectName: String?, imageColo
 
         val avg = if (filteredDurations.isEmpty()) 8f else filteredDurations.average().toFloat()
         listOf(
-            0f to 0f,
+            0f to 0.1f,
             avg to 0.5f,
             16f to 1f,
         )
@@ -140,7 +157,7 @@ fun generateCalendarShareImage(context: Context, projectName: String?, imageColo
         return toImage(
             when (coord) {
                 Coord.X -> v
-                Coord.Y -> HEADER_HEIGHT + (yearBlockHeight * yrIdx) + v.toFloat()
+                Coord.Y -> fullHeaderHeight + (yearBlockHeight * yrIdx) + v.toFloat()
             }, coord
         )
     }
@@ -149,12 +166,18 @@ fun generateCalendarShareImage(context: Context, projectName: String?, imageColo
         return toImage(
             when (coord) {
                 Coord.X -> v.toFloat() + (CELL_SIZE + CELL_MARGIN) * weekIdx
-                Coord.Y -> HEADER_HEIGHT + yearBlockHeight * yrIdx + yearHeaderHeight + v.toFloat()
+                Coord.Y -> fullHeaderHeight + yearBlockHeight * yrIdx + yearHeaderHeight + v.toFloat()
             }, coord
         )
     }
 
-    fun toYearCell(v: Number, yrIdx: Int, weekIdx: Int, dayIdx: Int, coord: Coord = Coord.Y): Float {
+    fun toYearCell(
+        v: Number,
+        yrIdx: Int,
+        weekIdx: Int,
+        dayIdx: Int,
+        coord: Coord = Coord.Y
+    ): Float {
         return toYearWeek(
             when (coord) {
                 Coord.X -> v
@@ -163,16 +186,30 @@ fun generateCalendarShareImage(context: Context, projectName: String?, imageColo
         )
     }
 
-    val years: List<String> = dateToDurationInSeconds.keys.map {
-        it.split("-")[0]
-    }.distinct().sortedDescending()
+    val years = mutableListOf<String>()
+
+    // get the min and current years
+    val currYear = LocalDate.now().year
+    var minYear = dateToDurationInSeconds.keys.minOf { it.split("-")[0].toInt() }
+
+    while (currYear - minYear < MIN_NUM_YEARS) {
+        minYear -= 1
+    }
+
+    // add all the years to the list
+    while (minYear <= currYear) {
+        years.add(minYear.toString())
+        minYear += 1
+    }
+    years.reverse()
 
     val totalHours = dateToDurationInSeconds.values.sum() / 3600f
 
+    val imFont = ResourcesCompat.getFont(context, R.font.grotesk)
 
     return generateImage(
         "calendar_share_image",
-        Size(800, 200),
+        Size(imageWidth, imageHeight),
         context
     ) {
         // fill background
@@ -188,10 +225,12 @@ fun generateCalendarShareImage(context: Context, projectName: String?, imageColo
         // region HEADER
         // ? ........................
 
+        val headerFontSize = HEADER_HEIGHT
+
         // on the left, the project name (or "Aggregate" if null)
         drawText(
-            projectName ?: "Aggregate",
-            0f, toImage(0, Coord.Y) + 0f,
+            (projectName ?: "Aggregate").uppercase(),
+            HEADER_PADDING, toImage(HEADER_HEIGHT + HEADER_PADDING, Coord.Y),
             Paint(
                 Paint.ANTI_ALIAS_FLAG
             ).apply {
@@ -199,20 +238,23 @@ fun generateCalendarShareImage(context: Context, projectName: String?, imageColo
                 textSize = 40f
                 isFakeBoldText = true
                 textAlign = Paint.Align.LEFT
+                typeface = imFont
             }
         )
 
         // on the right, the total hours
         drawText(
-            String.format("%.1f hrs", totalHours),
-            imageWidth - PADDING, toImage(0, Coord.Y) + 0f,
+            "${totalHours.toInt()} HRS",
+            imageWidth - PADDING - HEADER_PADDING,
+            toImage(HEADER_PADDING + HEADER_HEIGHT, Coord.Y),
             Paint(
                 Paint.ANTI_ALIAS_FLAG
             ).apply {
                 color = imageColors.foreground.toArgb()
-                textSize = 40f
+                textSize = headerFontSize
                 isFakeBoldText = true
                 textAlign = Paint.Align.RIGHT
+                typeface = imFont
             }
         )
 
@@ -229,7 +271,7 @@ fun generateCalendarShareImage(context: Context, projectName: String?, imageColo
             drawText(
                 year,
                 toYearHeader(innerImgWidth / 2, yrIdx, Coord.X),
-                toYearHeader(yearHeaderHeight / 2, yrIdx, Coord.Y),
+                toYearHeader(yearHeaderHeight - YEAR_LABEL_PADDING, yrIdx, Coord.Y),
                 Paint(
                     Paint.ANTI_ALIAS_FLAG
                 ).apply {
@@ -237,6 +279,7 @@ fun generateCalendarShareImage(context: Context, projectName: String?, imageColo
                     textSize = YEAR_LABEL_HEIGHT.toFloat()
                     isFakeBoldText = true
                     textAlign = Paint.Align.CENTER
+                    typeface = imFont
                 }
             )
 
@@ -246,7 +289,14 @@ fun generateCalendarShareImage(context: Context, projectName: String?, imageColo
 
             // iterate through the weeks (in batches of 7 days) until we reach the next year
             var weekIdx = 0
+            Log.d("calendar_imgen", "current year: $year")
+            var sz = 0
             while (currentDay.year.toString() <= year) {
+                sz += 1
+                if (sz > 52) {
+                    Log.d("calendar_imgen", "breaking at sz: $sz")
+                    break
+                }
                 // for each day of the week
                 for (dayIdx in 0 until 7) {
                     val dateStr = currentDay.toString() // "YYYY-MM-DD"
@@ -254,25 +304,47 @@ fun generateCalendarShareImage(context: Context, projectName: String?, imageColo
                     val durationInHours = durationInSeconds / 3600f
 
                     // check if the date is within the current year
-                    if (currentDay.year.toString() != year) break
+                    if (currentDay.year.toString() == year) {
 
-                    // determine opacity based on duration
-                    val opacity = linearInterpolation(durationInHours, opacityStops).coerceIn(0f, 1f)
 
-                    // draw cell
-                    drawRoundRect(
-                        RectF(
-                            toYearCell(0, yrIdx, weekIdx, dayIdx, Coord.X),
-                            toYearCell(0, yrIdx, weekIdx, dayIdx, Coord.Y),
-                            toYearCell(CELL_SIZE, yrIdx, weekIdx, dayIdx, Coord.X),
-                            toYearCell(CELL_SIZE, yrIdx, weekIdx, dayIdx, Coord.Y),
-                        ), CELL_RADIUS, CELL_RADIUS,
-                        Paint().apply {
-                            style = Paint.Style.FILL
-                            isAntiAlias = true
-                            color = imageColors.primary.copy(alpha = opacity).toArgb()
-                        }
-                    )
+                        // determine opacity based on duration
+                        val opacity =
+                            linearInterpolation(durationInHours, opacityStops).coerceIn(0f, 1f)
+
+                        // draw cell
+                        drawRoundRect(
+                            RectF(
+                                toYearCell(0, yrIdx, weekIdx, dayIdx, Coord.X),
+                                toYearCell(0, yrIdx, weekIdx, dayIdx, Coord.Y),
+                                toYearCell(CELL_SIZE, yrIdx, weekIdx, dayIdx, Coord.X),
+                                toYearCell(CELL_SIZE, yrIdx, weekIdx, dayIdx, Coord.Y),
+                            ), CELL_RADIUS, CELL_RADIUS,
+                            Paint().apply {
+                                style = Paint.Style.FILL
+                                isAntiAlias = true
+                                color = imageColors.primary.copy(alpha = opacity).toArgb()
+                            }
+                        )
+
+                        val isFirstOfMonth = currentDay.dayOfMonth == 1
+                        // write date, if first of month write shortened month
+                        drawText(
+                            if (isFirstOfMonth)
+                                currentDay.month.toString().take(3) else
+                                (currentDay.dayOfMonth).toString(),
+                            toYearCell(CELL_SIZE / 2, yrIdx, weekIdx, dayIdx, Coord.X),
+                            toYearCell(CELL_SIZE / 2, yrIdx, weekIdx, dayIdx, Coord.Y),
+                            Paint(
+                                Paint.ANTI_ALIAS_FLAG
+                            ).apply {
+                                color = imageColors.background.toArgb()
+                                textSize = CELL_SIZE / (if (isFirstOfMonth) 3f else 2f)
+                                textAlign = Paint.Align.CENTER
+                                isFakeBoldText = isFirstOfMonth
+                                typeface = imFont
+                            }
+                        )
+                    }
 
                     currentDay = currentDay.plusDays(1)
                 }

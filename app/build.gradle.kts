@@ -88,6 +88,7 @@ dependencies {
 
     // WorkManager for background tasks (Check for latest version)
     implementation(libs.androidx.work.runtime.ktx) // Use latest ktx version
+
     // OkHttp Logging Interceptor (Check for the latest version)
     implementation(libs.logging.interceptor) // Use latest
 
