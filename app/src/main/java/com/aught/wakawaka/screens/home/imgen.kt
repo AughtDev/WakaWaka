@@ -1,5 +1,6 @@
 package com.aught.wakawaka.screens.home
 
+import com.aught.wakawaka.screens.badges.MILESTONES
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -18,6 +19,8 @@ import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.createBitmap
 import com.aught.wakawaka.R
 import com.aught.wakawaka.data.WakaHelpers
+import com.aught.wakawaka.screens.badges.drawBadgeToCanvas
+import com.aught.wakawaka.screens.badges.getMilestoneIndex
 import okio.IOException
 import java.io.File
 import java.io.FileOutputStream
@@ -48,7 +51,13 @@ fun linearInterpolation(v: Float, stops: List<Pair<Float, Float>>): Float {
 }
 
 
-fun Paint.textProps(size: Float, color: Color, align: Paint.Align = Paint.Align.LEFT, isBold: Boolean = false, font: Typeface? = null): Paint {
+fun Paint.textProps(
+    size: Float,
+    color: Color,
+    align: Paint.Align = Paint.Align.LEFT,
+    isBold: Boolean = false,
+    font: Typeface? = null
+): Paint {
     return this.apply {
         this.color = color.toArgb()
         textSize = size
@@ -99,7 +108,7 @@ fun Canvas.drawProgressRoundRect(
 ) {
     val path = Path().apply {
         // start from the top
-        moveTo((rect.right - rect.left) / 2, rect.top)
+        moveTo((rect.right + rect.left) / 2, rect.top)
         // move to top right corner minus border radius
         lineTo(rect.right - cornerRadius, rect.top)
         // quadratic curve to right side
@@ -128,7 +137,9 @@ fun Canvas.drawProgressRoundRect(
     val progressPath = Path()
     pathMeasure.getSegment(0f, progressLength, progressPath, true)
 
-    val paint = Paint().apply {
+    val paint = Paint(
+        Paint.ANTI_ALIAS_FLAG
+    ).apply {
         style = Paint.Style.STROKE
         this.strokeWidth = strokeWidth
         this.strokeCap = Paint.Cap.ROUND
@@ -145,7 +156,7 @@ fun Canvas.drawProgressRoundRect(
 
         drawPath(path, backgroundPaint)
     }
-    drawPath(path, paint.apply {
+    drawPath(path, Paint(paint).apply {
         color = progressColor.copy(0.1f).toArgb()
     })
     drawPath(progressPath, paint)
@@ -165,13 +176,12 @@ fun Canvas.footer(
 
     val imFont = ResourcesCompat.getFont(context, R.font.grotesk)
 
-    val footerFontSize = height * 0.6f
     val footerFontSpacing = fontSize * 0.1f
 
     val authorPaint = Paint(
         Paint.ANTI_ALIAS_FLAG
     ).textProps(
-        size = footerFontSize * 0.8f,
+        size = fontSize * 0.8f,
         color = imageColors.secondary,
         align = Paint.Align.RIGHT,
         isBold = true,
@@ -186,9 +196,9 @@ fun Canvas.footer(
     val byPaint = Paint(
         Paint.ANTI_ALIAS_FLAG
     ).textProps(
-        size = footerFontSize * 0.6f,
+        size = fontSize * 0.6f,
         color = imageColors.foreground,
-        align = Paint.Align.LEFT,
+        align = Paint.Align.RIGHT,
         isBold = true,
         font = imFont
     )
@@ -200,7 +210,7 @@ fun Canvas.footer(
     val appNamePaint = Paint(
         Paint.ANTI_ALIAS_FLAG
     ).textProps(
-        size = footerFontSize,
+        size = fontSize,
         color = imageColors.primary,
         align = Paint.Align.RIGHT,
         isBold = true,
@@ -214,13 +224,18 @@ fun Canvas.footer(
     // draw app icon
     val icon = ResourcesCompat.getDrawable(context.resources, R.mipmap.ic_launcher, null)
 
-    val iconWidth = height
-    val iconHeight = height
+    val iconWidth = height * 1.3
+    val iconHeight = height * 1.3
 
     val iconXStart = appNameXEnd - footerFontSpacing - appNamePaint.measureText(appName) - iconWidth
-    val iconY = yEnd - height / 2 - iconHeight / 2
+    val iconY = yEnd - height / 2 - iconHeight * 0.4f
 
-    icon?.setBounds(iconXStart.toInt(), iconY.toInt(), (iconXStart + iconWidth).toInt(), (iconY + iconHeight).toInt())
+    icon?.setBounds(
+        iconXStart.toInt(),
+        iconY.toInt(),
+        (iconXStart + iconWidth).toInt(),
+        (iconY + iconHeight).toInt()
+    )
     icon?.draw(this)
 }
 
@@ -731,18 +746,18 @@ fun generateSummaryCardImage(
 ): Uri? {
 
     val sectionHeights: List<Float> = listOf(
-        50f, // header
-        100f, // badge
-        80f, // total hours
-        40f, // progress bar
-        150f, // streak values
-        250f, // stats
+        100f, // header
+        400f, // badge
+        120f, // total hours
+        100f, // progress bar
+        600f, // streak values
+        600f, // stats
         50f, // footer
     )
 
-    val imageGapSize = 10f
+    val imageGapSize = 25f
 
-    val aspectRatio = 2f
+    val aspectRatio = 0.6f
 
     val imageHeight = (
             sectionHeights.sum() + (imageGapSize * (sectionHeights.size - 1)) +
@@ -753,7 +768,7 @@ fun generateSummaryCardImage(
     val innerImageHeight = imageHeight - IMAGE_PADDING * 2
     val innerImageWidth = imageWidth - IMAGE_PADDING * 2
 
-    val progressBarWidthPercentage = 80f
+    val progressBarWidthPercentage = 90f
 
     // region POSITIONING FUNCTIONS
     // ? ........................
@@ -798,16 +813,30 @@ fun generateSummaryCardImage(
         Size(imageWidth, imageHeight),
         context
     ) {
+        // fill background
+        drawRect(
+            0f, 0f, imageWidth.toFloat(), imageHeight.toFloat(),
+            Paint().apply {
+                style = Paint.Style.FILL
+                isAntiAlias = true
+                color = imageColors.background.toArgb()
+            }
+        )
+
         // region HEADER
         // ? ........................
 
-        val headerFontSize = getSectionHeight(ProjectCardSection.HEADER) * 0.6f
+        val headerFontSize = getSectionHeight(ProjectCardSection.HEADER) * 1f
         // display the project name in the center
 
         drawAlignedText(
             projectName.uppercase(),
             toSection(innerImageWidth / 2, ProjectCardSection.HEADER, Coord.X),
-            toSection(getSectionHeight(ProjectCardSection.HEADER) / 2, ProjectCardSection.HEADER, Coord.Y),
+            toSection(
+                getSectionHeight(ProjectCardSection.HEADER) / 2,
+                ProjectCardSection.HEADER,
+                Coord.Y
+            ),
             Paint(Paint.ANTI_ALIAS_FLAG).textProps(
                 size = headerFontSize,
                 color = imageColors.primary,
@@ -820,13 +849,6 @@ fun generateSummaryCardImage(
         // ? ........................
         // endregion ........................
 
-        // region BADGE
-        // ? ........................
-
-
-        // ? ........................
-        // endregion ........................
-
 
         // region TOTAL HOURS
         // ? ........................
@@ -834,7 +856,7 @@ fun generateSummaryCardImage(
         // write out total hours in the center with total and hours separately with different styling
         val hoursString = totalHours.toInt().toString()
         val hoursPaint = Paint(Paint.ANTI_ALIAS_FLAG).textProps(
-            size = getSectionHeight(ProjectCardSection.TOTAL_HOURS) * 0.8f,
+            size = getSectionHeight(ProjectCardSection.TOTAL_HOURS) * 1f,
             color = imageColors.foreground,
             align = Paint.Align.LEFT,
             isBold = true,
@@ -843,7 +865,7 @@ fun generateSummaryCardImage(
 
         val labelString = "HRS"
         val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).textProps(
-            size = getSectionHeight(ProjectCardSection.TOTAL_HOURS) * 0.4f,
+            size = getSectionHeight(ProjectCardSection.TOTAL_HOURS) * 0.5f,
             color = imageColors.secondary,
             align = Paint.Align.LEFT,
             isBold = true,
@@ -852,22 +874,67 @@ fun generateSummaryCardImage(
 
         val spacing = getSectionHeight(ProjectCardSection.TOTAL_HOURS) * 0.1f
 
-        val txtWidth = hoursPaint.measureText(hoursString) + spacing + labelPaint.measureText(labelString)
+        val txtWidth =
+            hoursPaint.measureText(hoursString) + spacing + labelPaint.measureText(labelString)
 
         drawAlignedText(
             hoursString,
             toSection(innerImageWidth / 2 - txtWidth / 2, ProjectCardSection.TOTAL_HOURS, Coord.X),
-            toSection(getSectionHeight(ProjectCardSection.TOTAL_HOURS) / 2, ProjectCardSection.TOTAL_HOURS, Coord.Y),
-            hoursPaint, YAlign.CENTER
+            toSection(
+                getSectionHeight(ProjectCardSection.TOTAL_HOURS),
+                ProjectCardSection.TOTAL_HOURS,
+                Coord.Y
+            ),
+            hoursPaint,
         )
 
         drawAlignedText(
             labelString,
-            toSection(innerImageWidth / 2 - txtWidth / 2 + hoursPaint.measureText(hoursString) + spacing, ProjectCardSection.TOTAL_HOURS, Coord.X),
-            toSection(getSectionHeight(ProjectCardSection.TOTAL_HOURS) / 2, ProjectCardSection.TOTAL_HOURS, Coord.Y),
-            labelPaint, YAlign.CENTER
+            toSection(
+                innerImageWidth / 2 - txtWidth / 2 + hoursPaint.measureText(hoursString) + spacing,
+                ProjectCardSection.TOTAL_HOURS,
+                Coord.X
+            ),
+            toSection(
+                getSectionHeight(ProjectCardSection.TOTAL_HOURS) - getSectionHeight(
+                    ProjectCardSection.TOTAL_HOURS
+                ) * 0.15f,
+                ProjectCardSection.TOTAL_HOURS,
+                Coord.Y
+            ),
+            labelPaint,
         )
 
+
+        // ? ........................
+        // endregion ........................
+
+        val nextMilestone = runCatching {
+            MILESTONES[getMilestoneIndex(totalHours.toInt()) + 1]
+        }.getOrNull()
+
+        val progress = if (nextMilestone == null) 1f else {
+            totalHours / nextMilestone.hours
+        }
+
+        // region BADGE
+        // ? ........................
+
+        val badgeMilestone = MILESTONES[getMilestoneIndex(totalHours.toInt())]
+
+        val badgeFontSize = getSectionHeight(ProjectCardSection.BADGE) * 0.3f
+        val badgeHeight = getSectionHeight(ProjectCardSection.BADGE) * 0.7f
+        val badgeWidth = innerImageWidth * 0.3f
+
+        drawBadgeToCanvas(
+            badgeMilestone,
+            toSection(innerImageWidth / 2, ProjectCardSection.BADGE, Coord.X),
+            toSection(
+                getSectionHeight(ProjectCardSection.BADGE) / 2,
+                ProjectCardSection.BADGE,
+                Coord.Y
+            ), badgeWidth.toInt(), badgeHeight.toInt(), badgeWidth / 2, badgeFontSize, imFont
+        )
 
         // ? ........................
         // endregion ........................
@@ -876,18 +943,24 @@ fun generateSummaryCardImage(
         // region PROGRESS BAR
         // ? ........................
 
+
         val progressBarThickness = getSectionHeight(ProjectCardSection.PROGRESS_BAR) / 3
         val progressBarSpacing = progressBarThickness / 2
         val progressBarFontSize = getSectionHeight(ProjectCardSection.PROGRESS_BAR) * 0.3f
 
         val progressBarWidth = (innerImageWidth * (progressBarWidthPercentage / 100f))
 
-        val startX = toSection((innerImageWidth - progressBarWidth) / 2, ProjectCardSection.PROGRESS_BAR, Coord.X)
-        val completionX = startX + progressBarWidth * (dailyStreakData.completion.coerceIn(0f, 1f))
+        val startX = toSection(
+            (innerImageWidth - progressBarWidth) / 2,
+            ProjectCardSection.PROGRESS_BAR,
+            Coord.X
+        )
+        val completionX = startX + progressBarWidth * (progress.coerceIn(0f, 1f))
         val endX = startX + progressBarWidth
 
         val startY = toSection(
-            (getSectionHeight(ProjectCardSection.PROGRESS_BAR) - (progressBarThickness + progressBarSpacing + progressBarFontSize)) / 2,
+//            (getSectionHeight(ProjectCardSection.PROGRESS_BAR) - (progressBarThickness + progressBarSpacing + progressBarFontSize)) / 2,
+            0,
             ProjectCardSection.PROGRESS_BAR,
             Coord.Y
         )
@@ -898,7 +971,9 @@ fun generateSummaryCardImage(
             RectF(
                 startX, startY, endX, progressEndY,
             ), progressBarThickness / 2, progressBarThickness / 2,
-            Paint().apply {
+            Paint(
+                Paint.ANTI_ALIAS_FLAG
+            ).apply {
                 style = Paint.Style.FILL
                 isAntiAlias = true
                 color = imageColors.primary.copy(alpha = 0.1f).toArgb()
@@ -908,24 +983,28 @@ fun generateSummaryCardImage(
             RectF(
                 startX, startY, completionX, progressEndY
             ), progressBarThickness / 2, progressBarThickness / 2,
-            Paint().apply {
+            Paint(
+                Paint.ANTI_ALIAS_FLAG
+            ).apply {
                 style = Paint.Style.FILL
                 isAntiAlias = true
                 color = imageColors.primary.toArgb()
             }
         )
 
-        drawAlignedText(
-            "100 hrs",
-            endX, textStartY,
-            Paint(Paint.ANTI_ALIAS_FLAG).textProps(
-                size = progressBarFontSize,
-                color = imageColors.primary,
-                align = Paint.Align.CENTER,
-                isBold = true,
-                font = imFont
-            ),
-        )
+        if (nextMilestone != null) {
+            drawAlignedText(
+                "${nextMilestone.hours} hrs",
+                endX, textStartY,
+                Paint(Paint.ANTI_ALIAS_FLAG).textProps(
+                    size = progressBarFontSize,
+                    color = imageColors.primary,
+                    align = Paint.Align.CENTER,
+                    isBold = true,
+                    font = imFont
+                ),
+            )
+        }
 
         // ? ........................
         // endregion ........................
@@ -934,33 +1013,28 @@ fun generateSummaryCardImage(
         // ? ........................
 
         val streakCellSize = getSectionHeight(ProjectCardSection.STREAK_VALUES) * 0.7f
-        val streakCellCornerRadius = streakCellSize / 6
-        val streakFontSize = streakCellSize * 0.8f
-        val streakLabelFontSize = streakCellSize * 0.2f
+        val streakCellStrokeWidth = streakCellSize * 0.1f
+        val streakCellCornerRadius = streakCellSize / 4
+        val streakFontSize = streakCellSize * 0.6f
+        val streakLabelFontSize = streakCellSize * 0.1f
 
         listOf(
             "Daily" to dailyStreakData,
             "Weekly" to weeklyStreakData,
         ).forEachIndexed { idx, pair ->
             val (label, data) = pair
-            val cellCenterX = toSection(innerImageWidth / 4f + (innerImageWidth / 2f) * idx, ProjectCardSection.STREAK_VALUES, Coord.X)
-            val cellCenterY = toSection(getSectionHeight(ProjectCardSection.STREAK_VALUES) / 2f, ProjectCardSection.STREAK_VALUES, Coord.Y)
-
-            // draw cell
-            drawRoundRect(
-                RectF(
-                    cellCenterX - streakCellSize / 2,
-                    cellCenterY - streakCellSize / 2,
-                    cellCenterX + streakCellSize / 2,
-                    cellCenterY + streakCellSize / 2,
-                ), streakCellCornerRadius, streakCellCornerRadius,
-                Paint().apply {
-                    style = Paint.Style.STROKE
-                    strokeWidth = 4f
-                    isAntiAlias = true
-                    color = imageColors.primary.copy(alpha = 0.1f).toArgb()
-                }
+            val cellCenterX = toSection(
+                innerImageWidth / 4f + (innerImageWidth / 2f) * idx,
+                ProjectCardSection.STREAK_VALUES,
+                Coord.X
             )
+            val cellCenterY = toSection(
+//                getSectionHeight(ProjectCardSection.STREAK_VALUES) / 2f,
+                streakCellSize / 2 + streakCellStrokeWidth + streakLabelFontSize,
+                ProjectCardSection.STREAK_VALUES,
+                Coord.Y
+            )
+
 
             drawProgressRoundRect(
                 RectF(
@@ -970,17 +1044,16 @@ fun generateSummaryCardImage(
                     cellCenterY + streakCellSize / 2,
                 ),
                 streakCellCornerRadius,
-                6f,
+                streakCellStrokeWidth,
                 data.completion.coerceIn(0f, 1f),
                 imageColors.primary,
-//                imageColors.primary.copy(alpha = 0.1f)
             )
 
             // draw streak number
             drawAlignedText(
                 data.streak.toString(),
                 cellCenterX,
-                cellCenterY,
+                cellCenterY - streakFontSize * 0.15f,
                 Paint(Paint.ANTI_ALIAS_FLAG).textProps(
                     size = streakFontSize,
                     color = imageColors.primary,
@@ -992,17 +1065,33 @@ fun generateSummaryCardImage(
 
             // draw label
             drawAlignedText(
-                label.uppercase(),
+                "$label Streak".uppercase(),
                 cellCenterX,
-                cellCenterY + streakFontSize * 0.5f,
+                toSection(0, ProjectCardSection.STREAK_VALUES, Coord.Y),
                 Paint(Paint.ANTI_ALIAS_FLAG).textProps(
                     size = streakLabelFontSize,
                     color = imageColors.secondary,
                     align = Paint.Align.CENTER,
                     isBold = true,
                     font = imFont
-                ), YAlign.CENTER
+                ), YAlign.TOP
             )
+
+            // if target, add target text
+            if (data.target != null) {
+                drawAlignedText(
+                    "TARGET - ${data.target.toInt()} hrs",
+                    cellCenterX,
+                    cellCenterY + streakCellSize / 2 + streakLabelFontSize + streakCellStrokeWidth,
+                    Paint(Paint.ANTI_ALIAS_FLAG).textProps(
+                        size = streakLabelFontSize,
+                        color = imageColors.secondary,
+                        align = Paint.Align.CENTER,
+                        isBold = true,
+                        font = imFont
+                    ), YAlign.BOTTOM
+                )
+            }
         }
 
         // ? ........................
@@ -1012,14 +1101,15 @@ fun generateSummaryCardImage(
         // ? ........................
 
         val statHeight = getSectionHeight(ProjectCardSection.STATS) / statToDurationInSeconds.size
-        val statPadding = statHeight * 0.1f
-        val statFontSize = statHeight * 0.7f
+        val statPadding = statHeight * 0.2f
+        val statFontSize = statHeight * 0.5f
 
         // split the stats into stats.size rows
         statToDurationInSeconds.forEachIndexed { idx, stat ->
             val (statLabel, statDuration) = stat
 
-            val centerY = toSection(statHeight / 2 + statHeight * idx, ProjectCardSection.STATS, Coord.Y)
+            val centerY =
+                toSection(statHeight / 2 + statHeight * idx, ProjectCardSection.STATS, Coord.Y)
 
             drawAlignedText(
                 statLabel,
@@ -1062,8 +1152,8 @@ fun generateSummaryCardImage(
         footer(
             context,
             footerHeight,
-            toSection(innerImageWidth, ProjectCardSection.FOOTER, Coord.X),
-            toSection(footerHeight, ProjectCardSection.FOOTER, Coord.X),
+            toImage(innerImageWidth, Coord.X),
+            toImage(innerImageHeight, Coord.X),
             footerFontSize, imageColors
         )
 

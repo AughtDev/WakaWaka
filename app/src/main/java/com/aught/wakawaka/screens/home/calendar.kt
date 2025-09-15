@@ -1,6 +1,5 @@
 package com.aught.wakawaka.screens.home
 
-import ScrollBlurEffects
 import android.R
 import android.graphics.BlurMaskFilter
 import android.util.Log

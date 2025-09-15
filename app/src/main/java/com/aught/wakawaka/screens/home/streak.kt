@@ -1,8 +1,7 @@
 package com.aught.wakawaka.screens.home
 
-import HourCountBadge
-import MILESTONES
-import ScrollBlurEffects
+import com.aught.wakawaka.screens.badges.HourCountBadge
+import com.aught.wakawaka.screens.badges.MILESTONES
 import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -11,13 +10,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -44,7 +41,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
@@ -64,8 +60,7 @@ import com.aught.wakawaka.data.ProjectSpecificData
 import com.aught.wakawaka.data.TimePeriod
 import com.aught.wakawaka.data.WakaDataHandler
 import com.aught.wakawaka.data.WakaHelpers
-import com.aught.wakawaka.utils.ColorUtils
-import getMilestoneIndex
+import com.aught.wakawaka.screens.badges.getMilestoneIndex
 import scrollBlurEffects
 import kotlin.math.max
 import kotlin.math.roundToInt
