@@ -625,7 +625,7 @@ fun AggregateStreakDialog(
                                         streak = dailyStreak + if (dailyTargetHit) 1 else 0,
                                         completion = wakaDataHandler.getStreakCompletion(DataRequest.ProjectSpecific(it.name), TimePeriod.DAY),
                                         color = projectColor,
-                                        textSize = 32,
+                                        textSize = 28,
                                     )
                                 }
 
@@ -639,7 +639,7 @@ fun AggregateStreakDialog(
                                         streak = weeklyStreak + if (weeklyTargetHit) 1 else 0,
                                         completion = wakaDataHandler.getStreakCompletion(DataRequest.ProjectSpecific(it.name), TimePeriod.WEEK),
                                         color = projectColor,
-                                        textSize = 32,
+                                        textSize = 28,
                                     )
                                 }
                             }

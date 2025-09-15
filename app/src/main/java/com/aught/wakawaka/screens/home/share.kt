@@ -2,12 +2,8 @@ package com.aught.wakawaka.screens.home
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Paint
-import android.graphics.RectF
 import android.net.Uri
-import android.util.Size
-import androidx.compose.foundation.Canvas
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,18 +31,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.core.content.FileProvider
+import com.aught.wakawaka.data.DataRequest
+import com.aught.wakawaka.data.DurationStats
+import com.aught.wakawaka.data.TimePeriod
 import com.aught.wakawaka.data.WakaDataHandler
 import com.aught.wakawaka.data.WakaHelpers
-import okio.IOException
-import java.io.File
-import androidx.core.graphics.createBitmap
-import com.aught.wakawaka.utils.ColorUtils
-import java.io.FileOutputStream
-import kotlin.text.toInt
+import com.aught.wakawaka.workers.WakaDataFetchWorker
+import kotlin.math.roundToInt
 
 
 // region IMAGE GENERATION
@@ -70,10 +63,12 @@ fun SharePane(
     Row(
         modifier = Modifier
             .fillMaxWidth(0.95f)
-            .padding(4.dp)
+            .clip(RoundedCornerShape(12.dp))
             .clickable(true) {
                 onClick()
-            },
+            }
+            .padding(4.dp)
+        ,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         // sample image
@@ -120,7 +115,7 @@ fun shareImage(context: Context, uri: Uri?) {
 }
 
 enum class CaptureMode {
-    DAILY, CALENDAR, NONE
+    SUMMARY, CALENDAR, NONE
 }
 
 @Composable
@@ -164,10 +159,10 @@ fun ShareDialog(
             modifier = Modifier.height(0.dp)
         )
         SharePane(
-            "Share Daily Image",
-            "Share your current $label coding stats as an image",
+            "Share Summary Image",
+            "Share your summary $label coding stats as an image",
         ) {
-            captureMode = CaptureMode.DAILY
+            captureMode = CaptureMode.SUMMARY
         }
 
         HorizontalDivider(
@@ -187,9 +182,59 @@ fun ShareDialog(
     }
 
     when (captureMode) {
-        CaptureMode.DAILY -> {
-            val uri = generateDailyShareImage(
-                context, dateToDurationInSeconds
+
+        CaptureMode.SUMMARY -> {
+            val dataRequest = if (isAggregate) {
+                DataRequest.Aggregate
+            } else {
+                DataRequest.ProjectSpecific(selectedProject)
+            }
+            val dailyStreakData = ImageStreakData(
+                    target = wakaDataHandler.getTarget(dataRequest, TimePeriod.DAY),
+                    streak = wakaDataHandler.getStreak(dataRequest, TimePeriod.DAY).count,
+                    completion = wakaDataHandler.getStreakCompletion(dataRequest, TimePeriod.DAY)
+                )
+
+            val weeklyStreakData = ImageStreakData(
+                target = wakaDataHandler.getTarget(dataRequest, TimePeriod.WEEK),
+                streak = wakaDataHandler.getStreak(dataRequest, TimePeriod.WEEK).count,
+                completion = wakaDataHandler.getStreakCompletion(dataRequest, TimePeriod.WEEK)
+            )
+
+            val stats = WakaDataFetchWorker.loadWakaStatistics(context)
+
+            val durationStats = if (isAggregate) {
+                stats.aggregateStats
+            } else {
+                stats.projectStats[selectedProject] ?: DurationStats(0, 0, 0, 0, 0)
+            }
+
+            val statToDurationInSeconds = listOf(
+                    "Today" to durationStats.today,
+                    "This Week" to wakaDataHandler.getOffsetPeriodicDurationInSeconds(
+                        dataRequest,
+                        TimePeriod.WEEK,
+                        0
+                    ),
+                    "Past 30 Days" to durationStats.last30Days,
+                    "Past Year" to durationStats.lastYear,
+                    "All Time" to durationStats.allTime
+                )
+
+            val uri = generateSummaryCardImage(
+                context, if (isAggregate) "Aggregate" else selectedProject,
+                totalHours = (dateToDurationInSeconds.values.sum() / 3600f),
+                dailyStreakData = dailyStreakData,
+                weeklyStreakData = weeklyStreakData,
+                statToDurationInSeconds = statToDurationInSeconds,
+                ImageColors(
+                    background = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    foreground = MaterialTheme.colorScheme.onSurface,
+                    primary = if (isAggregate) MaterialTheme.colorScheme.primary else wakaDataHandler.getProjectColor(
+                        selectedProject
+                    ),
+                    secondary = MaterialTheme.colorScheme.tertiary
+                )
             )
             shareImage(context, uri)
             captureMode = CaptureMode.NONE
@@ -199,20 +244,16 @@ fun ShareDialog(
             val projectColor = if (isAggregate) {
                 MaterialTheme.colorScheme.primary
             } else {
-                if (wakaDataHandler.projectSpecificData[selectedProject]?.color.isNullOrEmpty()) {
-                    MaterialTheme.colorScheme.primary
-                } else
-                    ColorUtils.hexToColor(
-                        wakaDataHandler.projectSpecificData[selectedProject]!!.color
-                    )
+                wakaDataHandler.getProjectColor(selectedProject)
             }
+            Log.d("ShareDialog", "Project color: $projectColor")
             val uri = generateCalendarShareImage(
                 context, if (isAggregate) null else selectedProject,
                 ImageColors(
                     background = MaterialTheme.colorScheme.surfaceContainerLowest,
                     foreground = MaterialTheme.colorScheme.onSurface,
                     primary = projectColor,
-                    secondary = MaterialTheme.colorScheme.secondary
+                    secondary = MaterialTheme.colorScheme.tertiary
                 ),
                 dateToDurationInSeconds
             )
