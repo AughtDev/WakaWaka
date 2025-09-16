@@ -573,50 +573,48 @@ fun generateCalendarShareImage(
                             }
                         )
 
-                        if (isInTheFuture) {
-                            continue
-                        }
+                        if (!isInTheFuture) {
+                            var cellText = currentDay.dayOfMonth.toString()
+                            var cellTextSize = CELL_SIZE / 2.5f
+                            var cellTextColor = imageColors.background.toArgb()
 
-                        var cellText = currentDay.dayOfMonth.toString()
-                        var cellTextSize = CELL_SIZE / 2.5f
-                        var cellTextColor = imageColors.background.toArgb()
+                            if (isFirstOfMonth) {
+                                cellText = currentDay.month.toString().take(3)
+                                cellTextColor = imageColors.primary.copy(alpha = opacity).toArgb()
+                                cellTextSize = CELL_SIZE / 3.2f
 
-                        if (isFirstOfMonth) {
-                            cellText = currentDay.month.toString().take(3)
-                            cellTextColor = imageColors.primary.copy(alpha = opacity).toArgb()
-                            cellTextSize = CELL_SIZE / 3.2f
+                                // draw a cell within the cell around the month text
+                                drawRoundRect(
+                                    RectF(
+                                        toYearCell(CELL_SIZE * 0.1f, yrIdx, weekIdx, dayIdx, Coord.X),
+                                        toYearCell(CELL_SIZE * 0.1f, yrIdx, weekIdx, dayIdx, Coord.Y),
+                                        toYearCell(CELL_SIZE * 0.9f, yrIdx, weekIdx, dayIdx, Coord.X),
+                                        toYearCell(CELL_SIZE * 0.9f, yrIdx, weekIdx, dayIdx, Coord.Y),
+                                    ), CELL_RADIUS * 2 / 3, CELL_RADIUS * 2 / 3,
+                                    Paint().apply {
+                                        style = Paint.Style.FILL
+                                        isAntiAlias = true
+                                        color = imageColors.background.toArgb()
+                                    }
+                                )
+                            }
 
-                            // draw a cell within the cell around the month text
-                            drawRoundRect(
-                                RectF(
-                                    toYearCell(CELL_SIZE * 0.1f, yrIdx, weekIdx, dayIdx, Coord.X),
-                                    toYearCell(CELL_SIZE * 0.1f, yrIdx, weekIdx, dayIdx, Coord.Y),
-                                    toYearCell(CELL_SIZE * 0.9f, yrIdx, weekIdx, dayIdx, Coord.X),
-                                    toYearCell(CELL_SIZE * 0.9f, yrIdx, weekIdx, dayIdx, Coord.Y),
-                                ), CELL_RADIUS * 2 / 3, CELL_RADIUS * 2 / 3,
-                                Paint().apply {
-                                    style = Paint.Style.FILL
-                                    isAntiAlias = true
-                                    color = imageColors.background.toArgb()
-                                }
+                            // write date, if first of month write shortened month
+                            drawAlignedText(
+                                cellText,
+                                toYearCell(CELL_SIZE / 2, yrIdx, weekIdx, dayIdx, Coord.X),
+                                toYearCell(CELL_SIZE / 2, yrIdx, weekIdx, dayIdx, Coord.Y),
+                                Paint(
+                                    Paint.ANTI_ALIAS_FLAG
+                                ).textProps(
+                                    size = cellTextSize,
+                                    color = Color(cellTextColor),
+                                    align = Paint.Align.CENTER,
+                                    isBold = isFirstOfMonth,
+                                    font = imFont
+                                ), YAlign.CENTER
                             )
                         }
-
-                        // write date, if first of month write shortened month
-                        drawAlignedText(
-                            cellText,
-                            toYearCell(CELL_SIZE / 2, yrIdx, weekIdx, dayIdx, Coord.X),
-                            toYearCell(CELL_SIZE / 2, yrIdx, weekIdx, dayIdx, Coord.Y),
-                            Paint(
-                                Paint.ANTI_ALIAS_FLAG
-                            ).textProps(
-                                size = cellTextSize,
-                                color = Color(cellTextColor),
-                                align = Paint.Align.CENTER,
-                                isBold = isFirstOfMonth,
-                                font = imFont
-                            ), YAlign.CENTER
-                        )
                     }
 
                     currentDay = currentDay.plusDays(1)
@@ -632,77 +630,12 @@ fun generateCalendarShareImage(
         // region FOOTER
         // ? ........................
 
-        // write out name of app
-//        val footerFontSize = innerFooterHeight * 0.6f
-//        val footerFontSpacing = footerFontSize * 0.1f
-//
-//        val wakawakaRightXPos = innerImgWidth - footerFontSize * 6f
-//        val wakawakaPaint = Paint(
-//            Paint.ANTI_ALIAS_FLAG
-//        ).textProps(
-//            size = footerFontSize,
-//            color = imageColors.primary,
-//            align = Paint.Align.RIGHT,
-//            isBold = true,
-//            font = imFont
-//        )
-//
-//        // icon to the left of the text
-//        // draw app icon
-//        val icon = ResourcesCompat.getDrawable(context.resources, R.mipmap.ic_launcher, null)
-//        val iconWidth = fullFooterHeight
-//        val iconHeight = fullFooterHeight
-//        val iconX = toImage(wakawakaRightXPos - wakawakaPaint.measureText("WakaWaka") - footerFontSpacing - iconWidth, Coord.X)
-//        val iconY = imageHeight - IMAGE_PADDING - innerFooterHeight
-//
-//        icon?.setBounds(iconX.toInt(), iconY.toInt(), (iconX + iconWidth).toInt(), (iconY + iconHeight).toInt())
-//        icon?.draw(this)
-//
-//        drawAlignedText(
-//            "WakaWaka",
-//            toImage(wakawakaRightXPos, Coord.X),
-//            toImage(innerImgHeight - footerPadding + footerFontSize * 0.1, Coord.Y),
-//            wakawakaPaint
-//        )
-//
-//        val byLeftXPos = wakawakaRightXPos + footerFontSpacing
-//        val byPaint = Paint(
-//            Paint.ANTI_ALIAS_FLAG
-//        ).textProps(
-//            size = footerFontSize * 0.6f,
-//            color = imageColors.foreground,
-//            align = Paint.Align.LEFT,
-//            isBold = true,
-//            font = imFont
-//        )
-//        drawAlignedText(
-//            "by",
-//            toImage(byLeftXPos, Coord.X),
-//            toImage(innerImgHeight - footerPadding, Coord.Y),
-//            byPaint
-//        )
-//
-//        val aughtdevLeftXPos = byLeftXPos + byPaint.measureText("by") + footerFontSpacing
-//        drawAlignedText(
-//            "@aughtdev",
-//            toImage(aughtdevLeftXPos, Coord.X),
-//            toImage(innerImgHeight - footerPadding, Coord.Y),
-//            Paint(
-//                Paint.ANTI_ALIAS_FLAG
-//            ).textProps(
-//                size = footerFontSize * 0.8f,
-//                color = imageColors.secondary,
-//                align = Paint.Align.LEFT,
-//                isBold = true,
-//                font = imFont
-//            )
-//        )
 
         footer(
             context,
             innerFooterHeight,
             toImage(innerImgWidth, Coord.X),
-            toImage(innerImgHeight - footerPadding, Coord.Y),
+            toImage(innerImgHeight, Coord.Y),
             innerFooterHeight * 0.6f, imageColors
         )
 
@@ -744,10 +677,11 @@ fun generateSummaryCardImage(
     statToDurationInSeconds: List<Pair<String, Int>>,
     imageColors: ImageColors
 ): Uri? {
+    val milestoneIdx = getMilestoneIndex(totalHours.toInt())
 
     val sectionHeights: List<Float> = listOf(
         100f, // header
-        400f, // badge
+        if (milestoneIdx >= 0) 400f else 0f, // badge
         120f, // total hours
         100f, // progress bar
         600f, // streak values
@@ -763,12 +697,14 @@ fun generateSummaryCardImage(
             sectionHeights.sum() + (imageGapSize * (sectionHeights.size - 1)) +
                     IMAGE_PADDING * 2
             ).toInt()
-    val imageWidth = (imageHeight * aspectRatio).toInt()
+    val imageWidth = ((
+            imageHeight + if (milestoneIdx >= 0) 0f else 400f
+            ) * aspectRatio).toInt()
 
     val innerImageHeight = imageHeight - IMAGE_PADDING * 2
     val innerImageWidth = imageWidth - IMAGE_PADDING * 2
 
-    val progressBarWidthPercentage = 90f
+    val progressBarWidthPercentage = 80f
 
     // region POSITIONING FUNCTIONS
     // ? ........................
@@ -809,11 +745,11 @@ fun generateSummaryCardImage(
 
 
     return generateImage(
-        "project_card_image",
+        "summary_card_image",
         Size(imageWidth, imageHeight),
         context
     ) {
-        // fill background
+        // fill backgroundMaterialTheme.colorScheme.surfaceContainerHigh
         drawRect(
             0f, 0f, imageWidth.toFloat(), imageHeight.toFloat(),
             Paint().apply {
@@ -826,7 +762,7 @@ fun generateSummaryCardImage(
         // region HEADER
         // ? ........................
 
-        val headerFontSize = getSectionHeight(ProjectCardSection.HEADER) * 1f
+        val headerFontSize = getSectionHeight(ProjectCardSection.HEADER) * 0.9f
         // display the project name in the center
 
         drawAlignedText(
@@ -876,12 +812,17 @@ fun generateSummaryCardImage(
 
         val txtWidth =
             hoursPaint.measureText(hoursString) + spacing + labelPaint.measureText(labelString)
+        val txtHeight =
+            (hoursPaint.fontMetrics.bottom - hoursPaint.fontMetrics.top).coerceAtLeast(
+                labelPaint.fontMetrics.bottom - labelPaint.fontMetrics.top
+            ) * 0.7f
+        val ttHrsSectionHeight = getSectionHeight(ProjectCardSection.TOTAL_HOURS)
 
         drawAlignedText(
             hoursString,
             toSection(innerImageWidth / 2 - txtWidth / 2, ProjectCardSection.TOTAL_HOURS, Coord.X),
             toSection(
-                getSectionHeight(ProjectCardSection.TOTAL_HOURS),
+                ttHrsSectionHeight / 2 + txtHeight / 2,
                 ProjectCardSection.TOTAL_HOURS,
                 Coord.Y
             ),
@@ -896,9 +837,9 @@ fun generateSummaryCardImage(
                 Coord.X
             ),
             toSection(
-                getSectionHeight(ProjectCardSection.TOTAL_HOURS) - getSectionHeight(
-                    ProjectCardSection.TOTAL_HOURS
-                ) * 0.15f,
+//                getSectionHeight(ProjectCardSection.TOTAL_HOURS) -
+                ttHrsSectionHeight / 2 + txtHeight / 2 -
+                        ttHrsSectionHeight * 0.15f,
                 ProjectCardSection.TOTAL_HOURS,
                 Coord.Y
             ),
@@ -910,7 +851,7 @@ fun generateSummaryCardImage(
         // endregion ........................
 
         val nextMilestone = runCatching {
-            MILESTONES[getMilestoneIndex(totalHours.toInt()) + 1]
+            MILESTONES[milestoneIdx + 1]
         }.getOrNull()
 
         val progress = if (nextMilestone == null) 1f else {
@@ -920,21 +861,23 @@ fun generateSummaryCardImage(
         // region BADGE
         // ? ........................
 
-        val badgeMilestone = MILESTONES[getMilestoneIndex(totalHours.toInt())]
+        if (milestoneIdx >= 0) {
+            val badgeMilestone = MILESTONES[milestoneIdx]
 
-        val badgeFontSize = getSectionHeight(ProjectCardSection.BADGE) * 0.3f
-        val badgeHeight = getSectionHeight(ProjectCardSection.BADGE) * 0.7f
-        val badgeWidth = innerImageWidth * 0.3f
+            val badgeHeight = getSectionHeight(ProjectCardSection.BADGE) * 0.85f
+            val badgeWidth = innerImageWidth * 0.3f
 
-        drawBadgeToCanvas(
-            badgeMilestone,
-            toSection(innerImageWidth / 2, ProjectCardSection.BADGE, Coord.X),
-            toSection(
-                getSectionHeight(ProjectCardSection.BADGE) / 2,
-                ProjectCardSection.BADGE,
-                Coord.Y
-            ), badgeWidth.toInt(), badgeHeight.toInt(), badgeWidth / 2, badgeFontSize, imFont
-        )
+            drawBadgeToCanvas(
+                badgeMilestone,
+                this,
+                toSection(innerImageWidth / 2, ProjectCardSection.BADGE, Coord.X),
+                toSection(
+                    getSectionHeight(ProjectCardSection.BADGE) / 2,
+                    ProjectCardSection.BADGE,
+                    Coord.Y
+                ), badgeWidth, badgeHeight, badgeWidth / 2, imFont
+            )
+        }
 
         // ? ........................
         // endregion ........................
@@ -1051,12 +994,12 @@ fun generateSummaryCardImage(
 
             // draw streak number
             drawAlignedText(
-                data.streak.toString(),
+                (data.streak + (if (data.completion >= 1) 1 else 0)).toString(),
                 cellCenterX,
                 cellCenterY - streakFontSize * 0.15f,
                 Paint(Paint.ANTI_ALIAS_FLAG).textProps(
                     size = streakFontSize,
-                    color = imageColors.primary,
+                    color = if (data.completion >= 1) imageColors.primary else imageColors.foreground.copy(0.5f),
                     align = Paint.Align.CENTER,
                     isBold = true,
                     font = imFont
@@ -1080,7 +1023,7 @@ fun generateSummaryCardImage(
             // if target, add target text
             if (data.target != null) {
                 drawAlignedText(
-                    "TARGET - ${data.target.toInt()} hrs",
+                    "Target - ${data.target.toInt()} hrs",
                     cellCenterX,
                     cellCenterY + streakCellSize / 2 + streakLabelFontSize + streakCellStrokeWidth,
                     Paint(Paint.ANTI_ALIAS_FLAG).textProps(
@@ -1153,7 +1096,7 @@ fun generateSummaryCardImage(
             context,
             footerHeight,
             toImage(innerImageWidth, Coord.X),
-            toImage(innerImageHeight, Coord.X),
+            toImage(innerImageHeight + IMAGE_PADDING/2, Coord.X),
             footerFontSize, imageColors
         )
 

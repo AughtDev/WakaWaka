@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,8 +12,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,8 +34,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.aught.wakawaka.R
 import com.aught.wakawaka.data.DataRequest
 import com.aught.wakawaka.data.DurationStats
 import com.aught.wakawaka.data.TimePeriod
@@ -57,9 +64,10 @@ import kotlin.math.roundToInt
 fun SharePane(
     title: String,
     description: String,
+    image: Int,
     onClick: () -> Unit
 ) {
-    val paneSize = 65
+    val paneSize = 85
     Row(
         modifier = Modifier
             .fillMaxWidth(0.95f)
@@ -67,8 +75,7 @@ fun SharePane(
             .clickable(true) {
                 onClick()
             }
-            .padding(4.dp)
-        ,
+            .padding(4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         // sample image
@@ -77,7 +84,7 @@ fun SharePane(
             verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
             modifier = Modifier
                 .height(paneSize.dp)
-                .fillMaxWidth(0.7f)
+//                .fillMaxWidth(0.6f)
         ) {
             Text(
                 title,
@@ -94,10 +101,27 @@ fun SharePane(
         }
         Box(
             modifier = Modifier
-                .size(paneSize.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                .height(paneSize.dp),
+//                .fillMaxWidth(),
+//                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            contentAlignment = Alignment.CenterEnd
         ) {
+            Box(
+                modifier =
+                    Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .padding(2.dp)
+            ) {
+                Image(
+                    painter = painterResource(id = image),
+                    contentDescription = "Sample Image",
+                    //                contentScale = ContentScale.Crop,
+                    alignment = Alignment.TopStart,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(2.dp))
+                )
+            }
         }
     }
 }
@@ -160,7 +184,8 @@ fun ShareDialog(
         )
         SharePane(
             "Share Summary Image",
-            "Share your summary $label coding stats as an image",
+            "Share your $label summary coding stats and target streaks",
+            image = R.drawable.project_card_image
         ) {
             captureMode = CaptureMode.SUMMARY
         }
@@ -172,7 +197,8 @@ fun ShareDialog(
 
         SharePane(
             "Share Calendar Image",
-            "Share your $label coding activity calendar as an image",
+            "Share your $label coding activity calendar",
+            image = R.drawable.calendar_share_image
         ) {
             captureMode = CaptureMode.CALENDAR
         }
@@ -190,10 +216,10 @@ fun ShareDialog(
                 DataRequest.ProjectSpecific(selectedProject)
             }
             val dailyStreakData = ImageStreakData(
-                    target = wakaDataHandler.getTarget(dataRequest, TimePeriod.DAY),
-                    streak = wakaDataHandler.getStreak(dataRequest, TimePeriod.DAY).count,
-                    completion = wakaDataHandler.getStreakCompletion(dataRequest, TimePeriod.DAY)
-                )
+                target = wakaDataHandler.getTarget(dataRequest, TimePeriod.DAY),
+                streak = wakaDataHandler.getStreak(dataRequest, TimePeriod.DAY).count,
+                completion = wakaDataHandler.getStreakCompletion(dataRequest, TimePeriod.DAY)
+            )
 
             val weeklyStreakData = ImageStreakData(
                 target = wakaDataHandler.getTarget(dataRequest, TimePeriod.WEEK),
@@ -210,16 +236,16 @@ fun ShareDialog(
             }
 
             val statToDurationInSeconds = listOf(
-                    "Today" to durationStats.today,
-                    "This Week" to wakaDataHandler.getOffsetPeriodicDurationInSeconds(
-                        dataRequest,
-                        TimePeriod.WEEK,
-                        0
-                    ),
-                    "Past 30 Days" to durationStats.last30Days,
-                    "Past Year" to durationStats.lastYear,
-                    "All Time" to durationStats.allTime
-                )
+                "Today" to durationStats.today,
+                "This Week" to wakaDataHandler.getOffsetPeriodicDurationInSeconds(
+                    dataRequest,
+                    TimePeriod.WEEK,
+                    0
+                ),
+                "Past 30 Days" to durationStats.last30Days,
+                "Past Year" to durationStats.lastYear,
+                "All Time" to durationStats.allTime
+            )
 
             val uri = generateSummaryCardImage(
                 context, if (isAggregate) "Aggregate" else selectedProject,

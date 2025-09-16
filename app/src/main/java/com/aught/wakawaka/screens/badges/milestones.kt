@@ -8,7 +8,7 @@ data class Milestone(
     val hours: Int,
     val colorHex: String,
     val crown: DrawScope.(Color, Int) -> Unit,
-    val badge: Canvas.(Int, Int, Int) -> Unit
+    val badge: Canvas.(Int, Float, Float) -> Unit
 )
 
 val MILESTONES: List<Milestone> = listOf(
@@ -18,6 +18,7 @@ val MILESTONES: List<Milestone> = listOf(
     Milestone(250, "#00A693", DrawScope::diamondCrown, Canvas::drawDiamondCrown),
     Milestone(500, "#9F7FF5", DrawScope::royalPurpleCrown, Canvas::drawRoyalPurpleCrown),
     Milestone(1000, "#F56058", DrawScope::royalRedCrown, Canvas::drawRoyalRedCrown),
+    Milestone(5000, "#2FC87C", DrawScope::royalRedCrown, Canvas::drawRoyalRedCrown),
 )
 
 fun getMilestoneIndex(totalHours: Int): Int {

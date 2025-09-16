@@ -229,10 +229,7 @@ fun HomeView(
                         if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
                             AggregateStreakDisplay(wakaDataHandler)
                         } else {
-                            val projectData = projectSpecificData[selectedProject]
-                            if (projectData != null) {
-                                ProjectStreakDisplay(projectData, wakaDataHandler)
-                            }
+                            ProjectStreakDisplay(selectedProject, wakaDataHandler)
                         }
                     }
                 }

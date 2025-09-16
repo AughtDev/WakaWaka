@@ -74,7 +74,7 @@ fun DailyStreakDisplay(
     dataRequest: DataRequest,
     onClick: () -> Unit
 ) {
-    val streakCountAndTargetHit by remember {
+    val streakCountAndTargetHit by remember(dataRequest) {
         derivedStateOf {
             val targetHit = wakaDataHandler.targetHit(dataRequest, TimePeriod.DAY)
             val count = wakaDataHandler.getStreak(
@@ -140,20 +140,14 @@ fun AggregateStreakDisplay(
 
         is ActiveStreakDialog.Project -> {
             val projectName = (activeDialog as ActiveStreakDialog.Project).projectName
-            val projectData = wakaDataHandler.projectSpecificData[projectName]
-            if (projectData != null) {
-                Dialog(
-                    onDismissRequest = {
-                        activeDialog = ActiveStreakDialog.None
-                    }
-                ) {
-                    ProjectStreakDialog(projectData, wakaDataHandler) {
-                        activeDialog = ActiveStreakDialog.Aggregate
-                    }
+            Dialog(
+                onDismissRequest = {
+                    activeDialog = ActiveStreakDialog.None
                 }
-            } else {
-                // if project data is null, just close the dialog
-                activeDialog = ActiveStreakDialog.None
+            ) {
+                ProjectStreakDialog(projectName, wakaDataHandler) {
+                    activeDialog = ActiveStreakDialog.Aggregate
+                }
             }
         }
     }
@@ -161,14 +155,21 @@ fun AggregateStreakDisplay(
 
 @Composable
 fun ProjectStreakDisplay(
-    project: ProjectSpecificData,
+    projectName: String,
     wakaDataHandler: WakaDataHandler
 ) {
     var dialogIsOpen by remember {
         mutableStateOf(false)
     }
 
-    DailyStreakDisplay(wakaDataHandler, DataRequest.ProjectSpecific(project.name)) {
+    val dataRequest by remember(projectName) {
+        derivedStateOf {
+            DataRequest.ProjectSpecific(projectName)
+        }
+    }
+    Log.d("StreakDisplay", "ProjectStreakDisplay for project: $projectName, with dataRequest: $dataRequest")
+
+    DailyStreakDisplay(wakaDataHandler, dataRequest) {
         dialogIsOpen = true
     }
 
@@ -178,7 +179,7 @@ fun ProjectStreakDisplay(
                 dialogIsOpen = false
             }
         ) {
-            ProjectStreakDialog(project, wakaDataHandler, null)
+            ProjectStreakDialog(projectName, wakaDataHandler, null)
         }
     }
 }
@@ -575,7 +576,7 @@ fun AggregateStreakDialog(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 4.dp,bottom = 16.dp)
+                    .padding(top = 4.dp, bottom = 16.dp)
                     .scrollBlurEffects(
                         lazyListState, projects.size
                     )
@@ -651,111 +652,135 @@ fun AggregateStreakDialog(
 
 @Composable
 fun ProjectStreakDialog(
-    project: ProjectSpecificData,
+    projectName: String,
     wakaDataHandler: WakaDataHandler,
     backToAggregateStreakDialog: (() -> Unit)?
 ) {
-    Log.d(
-        "StreakDisplay",
-        "Opening ProjectStreakDialog for project: ${project.name} with color: ${project.color}"
-    )
-    val projectColor = getProjectColor(project)
-    val totalHours: Int = (
-            wakaDataHandler.projectSpecificData[project.name]?.dailyDurationInSeconds
-                ?.values?.sum() ?: 0) / 3600
-    Box(
-        modifier = Modifier
-            .clip(
-                MaterialTheme.shapes.large
-            )
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest.copy(0.7f))
-            .fillMaxWidth().padding(bottom = 16.dp),
-//            .height(450.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        if (backToAggregateStreakDialog != null) {
-            IconButton(
-                onClick = backToAggregateStreakDialog,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .offset(x = (-4).dp,y = (-4).dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ChevronLeft,
-                    contentDescription = "Back",
+    val project = wakaDataHandler.projectSpecificData[projectName]
+    if (project != null) {
+        Log.d(
+            "StreakDisplay",
+            "Opening ProjectStreakDialog for project: ${project.name} with color: ${project.color}"
+        )
+        val projectColor = getProjectColor(project)
+        val totalHours: Int = (
+                wakaDataHandler.projectSpecificData[project.name]?.dailyDurationInSeconds
+                    ?.values?.sum() ?: 0) / 3600
+        Box(
+            modifier = Modifier
+                .clip(
+                    MaterialTheme.shapes.large
                 )
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest.copy(0.7f))
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+//            .height(450.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (backToAggregateStreakDialog != null) {
+                IconButton(
+                    onClick = backToAggregateStreakDialog,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .offset(x = (-4).dp, y = (-4).dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ChevronLeft,
+                        contentDescription = "Back",
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = project.name.uppercase(),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = projectColor,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(
+                        top = 8.dp,
+                        start = if (backToAggregateStreakDialog != null) 24.dp else 0.dp,
+                        end = if (backToAggregateStreakDialog != null) 24.dp else 0.dp
+                    )
+                )
+
+                Box(
+                    modifier = Modifier.offset(x = 8.dp)
+                ) {
+                    HourCountBadge(totalHours, 32, true)
+                }
+
+                Text(
+                    text = "$totalHours Hrs",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+
+                HourMilestoneIndicator(
+                    color = projectColor, totalHours
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceAround
+                ) {
+                    val dailyStreak = wakaDataHandler.getStreak(DataRequest.ProjectSpecific(project.name), TimePeriod.DAY).count
+                    val dailyTargetHit = wakaDataHandler.targetHit(DataRequest.ProjectSpecific(project.name), TimePeriod.DAY)
+                    // daily streak
+                    StreakStatsDisplay(
+                        label = "Daily",
+                        streak = dailyStreak + if (dailyTargetHit) 1 else 0,
+                        target = project.dailyTargetHours?.roundToInt(),
+                        completion = wakaDataHandler.getStreakCompletion(DataRequest.ProjectSpecific(project.name), TimePeriod.DAY),
+                        color = projectColor,
+                        cheatLabel = "Cheat Days",
+                        numCheatPeriods = 2,
+                        cheatPeriodCompletion = 0.5f,
+                    ) {
+                    }
+
+                    val weeklyStreak = wakaDataHandler.getStreak(DataRequest.ProjectSpecific(project.name), TimePeriod.WEEK).count
+                    val weeklyTargetHit = wakaDataHandler.targetHit(DataRequest.ProjectSpecific(project.name), TimePeriod.WEEK)
+                    // weekly streak
+                    StreakStatsDisplay(
+                        label = "Weekly",
+                        streak = weeklyStreak + if (weeklyTargetHit) 1 else 0,
+                        target = project.weeklyTargetHours?.roundToInt(),
+                        completion = wakaDataHandler.getStreakCompletion(DataRequest.ProjectSpecific(project.name), TimePeriod.WEEK),
+                        color = projectColor,
+                        cheatLabel = "Cheat Weeks",
+                        numCheatPeriods = 1,
+                        cheatPeriodCompletion = 0.25f,
+                    ) {
+                    }
+                }
             }
         }
-        Column(
+    } else {
+        Log.e("StreakDisplay", "ProjectStreakDialog: Project data for $projectName is null")
+        Box(
             modifier = Modifier
+                .clip(
+                    MaterialTheme.shapes.large
+                )
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest.copy(0.7f))
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .height(200.dp),
+            contentAlignment = Alignment.Center
         ) {
             Text(
-                text = project.name.uppercase(),
-                fontSize = 22.sp,
+                text = "Project data not found",
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = projectColor,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(
-                    top = 8.dp,
-                    start = if (backToAggregateStreakDialog != null) 24.dp else 0.dp,
-                    end = if (backToAggregateStreakDialog != null) 24.dp else 0.dp)
+                color = MaterialTheme.colorScheme.onSurface.copy(0.6f)
             )
-
-            Box(
-                modifier = Modifier.offset(x = 8.dp)
-            ) {
-                HourCountBadge(totalHours, 32, true)
-            }
-
-            Text(
-                text = "$totalHours Hrs",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-            )
-
-            HourMilestoneIndicator(
-                color = projectColor, totalHours
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceAround
-            ) {
-                val dailyStreak = wakaDataHandler.getStreak(DataRequest.ProjectSpecific(project.name), TimePeriod.DAY).count
-                val dailyTargetHit = wakaDataHandler.targetHit(DataRequest.ProjectSpecific(project.name), TimePeriod.DAY)
-                // daily streak
-                StreakStatsDisplay(
-                    label = "Daily",
-                    streak = dailyStreak + if (dailyTargetHit) 1 else 0,
-                    target = project.dailyTargetHours?.roundToInt(),
-                    completion = wakaDataHandler.getStreakCompletion(DataRequest.ProjectSpecific(project.name), TimePeriod.DAY),
-                    color = projectColor,
-                    cheatLabel = "Cheat Days",
-                    numCheatPeriods = 2,
-                    cheatPeriodCompletion = 0.5f,
-                ) {
-                }
-
-                val weeklyStreak = wakaDataHandler.getStreak(DataRequest.ProjectSpecific(project.name), TimePeriod.WEEK).count
-                val weeklyTargetHit = wakaDataHandler.targetHit(DataRequest.ProjectSpecific(project.name), TimePeriod.WEEK)
-                // weekly streak
-                StreakStatsDisplay(
-                    label = "Weekly",
-                    streak = weeklyStreak + if (weeklyTargetHit) 1 else 0,
-                    target = project.weeklyTargetHours?.roundToInt(),
-                    completion = wakaDataHandler.getStreakCompletion(DataRequest.ProjectSpecific(project.name), TimePeriod.WEEK),
-                    color = projectColor,
-                    cheatLabel = "Cheat Weeks",
-                    numCheatPeriods = 1,
-                    cheatPeriodCompletion = 0.25f,
-                ) {
-                }
-            }
         }
     }
 }
