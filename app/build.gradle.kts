@@ -94,4 +94,11 @@ dependencies {
 
     // SharedPreferences (or DataStore)
     implementation(libs.androidx.preference.ktx) // For SharedPreferences simplicity, or use DataStore
+
+
+    // koin
+    // https://mvnrepository.com/artifact/io.insert-koin/koin-androidx-compose
+    implementation(libs.insert.koin.koin.androidx.compose)
+    // https://mvnrepository.com/artifact/io.insert-koin/koin-core
+    implementation(libs.insert.koin.koin.core)
 }

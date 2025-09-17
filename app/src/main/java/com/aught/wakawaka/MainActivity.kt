@@ -33,11 +33,14 @@ import androidx.navigation.navArgument
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.screens.projects.ProjectDetailsView
 import androidx.core.content.edit
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
 import com.aught.wakawaka.widget.WakaWidgetHelpers
 import com.aught.wakawaka.widget.project.WakaProjectWidget
 import com.aught.wakawaka.workers.WakaDataFetchWorker
+import java.util.concurrent.TimeUnit
 
 
 sealed class Screen(val route: String, val name: String, val icon: ImageVector) {
@@ -73,8 +76,27 @@ class MainActivity : ComponentActivity() {
         }
 
         // make a work request to fetch data on first render
+//        val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaDataFetchWorker>().build()
+//        WorkManager.getInstance(this).enqueue(immediateWorkRequest)
+
+        // Make a one-time work request to fetch data on first render. This is good practice.
         val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaDataFetchWorker>().build()
         WorkManager.getInstance(this).enqueue(immediateWorkRequest)
+
+        // The periodic work should be enqueued here to ensure it is always scheduled
+        // when the app is launched. Using `KEEP` prevents duplicate workers.
+        val periodicWorkRequest = PeriodicWorkRequest.Builder(
+            WakaDataFetchWorker::class.java,
+            // Per WorkManager best practices, the minimum repeat interval is 15 minutes.
+            repeatInterval = 15,
+            repeatIntervalTimeUnit = TimeUnit.MINUTES
+        ).build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "WakaWakaDataFetch",
+            ExistingPeriodicWorkPolicy.KEEP,
+            periodicWorkRequest
+        )
 
 
         super.onCreate(savedInstanceState)

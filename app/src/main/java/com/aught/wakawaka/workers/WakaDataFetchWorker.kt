@@ -220,7 +220,8 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         projectData: Map<String, ProjectSpecificData>
     ) {
         val notificationDataAdapter = moshi.adapter(NotificationData::class.java)
-        val notificationDataString = prefs.getString(WakaHelpers.Companion.NOTIFICATION_DATA_KEY, null)
+        val notificationDataString =
+            prefs.getString(WakaHelpers.Companion.NOTIFICATION_DATA_KEY, null)
 
         val notificationData: NotificationData = notificationDataString?.let {
             (runCatching { notificationDataAdapter.fromJson(it) }.getOrNull()
@@ -377,7 +378,8 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             val projectData = projectDataMap[name]
             projectDataMap[name] = ProjectSpecificData(
                 it.key,
-                projectData?.color ?: ColorUtils.colorToHex(WakaHelpers.Companion.projectNameToColor(name)),
+                projectData?.color
+                    ?: ColorUtils.colorToHex(WakaHelpers.Companion.projectNameToColor(name)),
                 it.value.toMap(),
                 projectData?.dailyTargetHours,
                 projectData?.weeklyTargetHours,
@@ -580,11 +582,19 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
         //region LOAD DATA
 
-        fun loadAggregateData(context: Context): AggregateData? {
+        private val emptyAggregateData = AggregateData(
+            emptyMap(),
+            null, null, null, null,
+            emptyList()
+        )
+
+        fun loadAggregateData(context: Context): AggregateData {
             // get the prefs and the json aggregate data
             val prefs =
                 context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
-            val json = prefs.getString(WakaHelpers.Companion.AGGREGATE_DATA_KEY, null) ?: return null
+            val json =
+                prefs.getString(WakaHelpers.Companion.AGGREGATE_DATA_KEY, null)
+                    ?: return emptyAggregateData
 
             // build the adapters to convert between json strings and the data
             val moshi = Moshi.Builder()
@@ -593,12 +603,12 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
             val aggregateDataAdapter = moshi.adapter(AggregateData::class.java)
 
-            return try {
+            return (try {
                 aggregateDataAdapter.fromJson(json)
             } catch (e: Exception) {
                 println("Error loading aggregate data to object, The exception is $e")
                 null
-            }
+            } ?: emptyAggregateData)
         }
 
         fun loadProjectSpecificData(context: Context): Map<String, ProjectSpecificData> {

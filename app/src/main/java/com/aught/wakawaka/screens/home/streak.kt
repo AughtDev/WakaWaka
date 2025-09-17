@@ -74,7 +74,7 @@ fun DailyStreakDisplay(
     dataRequest: DataRequest,
     onClick: () -> Unit
 ) {
-    val streakCountAndTargetHit by remember(dataRequest) {
+    val streakCountAndTargetHit by remember(dataRequest, wakaDataHandler) {
         derivedStateOf {
             val targetHit = wakaDataHandler.targetHit(dataRequest, TimePeriod.DAY)
             val count = wakaDataHandler.getStreak(
@@ -167,7 +167,10 @@ fun ProjectStreakDisplay(
             DataRequest.ProjectSpecific(projectName)
         }
     }
-    Log.d("StreakDisplay", "ProjectStreakDisplay for project: $projectName, with dataRequest: $dataRequest")
+    Log.d(
+        "StreakDisplay",
+        "ProjectStreakDisplay for project: $projectName, with dataRequest: $dataRequest"
+    )
 
     DailyStreakDisplay(wakaDataHandler, dataRequest) {
         dialogIsOpen = true
@@ -243,7 +246,11 @@ fun StreakValueDisplay(
                                     progressPathPadding,
                                     size.width - progressPathPadding,
                                     size.height - progressPathPadding
-                                ), cornerRadius = CornerRadius(cornerRadius.toFloat(), cornerRadius.toFloat())
+                                ),
+                                cornerRadius = CornerRadius(
+                                    cornerRadius.toFloat(),
+                                    cornerRadius.toFloat()
+                                )
                             )
                         )
                     }
@@ -483,14 +490,19 @@ fun AggregateStreakDialog(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
-                val dailyStreak = wakaDataHandler.getStreak(DataRequest.Aggregate, TimePeriod.DAY).count
-                val dailyTargetHit = wakaDataHandler.targetHit(DataRequest.Aggregate, TimePeriod.DAY)
+                val dailyStreak =
+                    wakaDataHandler.getStreak(DataRequest.Aggregate, TimePeriod.DAY).count
+                val dailyTargetHit =
+                    wakaDataHandler.targetHit(DataRequest.Aggregate, TimePeriod.DAY)
                 // daily streak
                 StreakStatsDisplay(
                     label = "Daily",
                     streak = dailyStreak + if (dailyTargetHit) 1 else 0,
                     target = wakaDataHandler.aggregateData?.dailyTargetHours?.roundToInt(),
-                    completion = wakaDataHandler.getStreakCompletion(DataRequest.Aggregate, TimePeriod.DAY),
+                    completion = wakaDataHandler.getStreakCompletion(
+                        DataRequest.Aggregate,
+                        TimePeriod.DAY
+                    ),
                     color = MaterialTheme.colorScheme.primary,
                     cheatLabel = "Cheat Days",
                     numCheatPeriods = 4,
@@ -499,14 +511,19 @@ fun AggregateStreakDialog(
                     // todo: work on cheat day logic
                 }
 
-                val weeklyStreak = wakaDataHandler.getStreak(DataRequest.Aggregate, TimePeriod.WEEK).count
-                val weeklyTargetHit = wakaDataHandler.targetHit(DataRequest.Aggregate, TimePeriod.WEEK)
+                val weeklyStreak =
+                    wakaDataHandler.getStreak(DataRequest.Aggregate, TimePeriod.WEEK).count
+                val weeklyTargetHit =
+                    wakaDataHandler.targetHit(DataRequest.Aggregate, TimePeriod.WEEK)
                 // weekly streak
                 StreakStatsDisplay(
                     label = "Weekly",
                     streak = weeklyStreak + if (weeklyTargetHit) 1 else 0,
                     target = wakaDataHandler.aggregateData?.weeklyTargetHours?.roundToInt(),
-                    completion = wakaDataHandler.getStreakCompletion(DataRequest.Aggregate, TimePeriod.WEEK),
+                    completion = wakaDataHandler.getStreakCompletion(
+                        DataRequest.Aggregate,
+                        TimePeriod.WEEK
+                    ),
                     color = MaterialTheme.colorScheme.primary,
                     cheatLabel = "Cheat Weeks",
                     numCheatPeriods = 2,
@@ -615,11 +632,21 @@ fun AggregateStreakDialog(
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                 ) {
-                                    val dailyStreak = wakaDataHandler.getStreak(DataRequest.ProjectSpecific(it.name), TimePeriod.DAY).count
-                                    val dailyTargetHit = wakaDataHandler.targetHit(DataRequest.ProjectSpecific(it.name), TimePeriod.DAY)
+                                    val dailyStreak = wakaDataHandler.getStreak(
+                                        DataRequest.ProjectSpecific(it.name),
+                                        TimePeriod.DAY
+                                    ).count
+                                    val dailyTargetHit = wakaDataHandler.targetHit(
+                                        DataRequest.ProjectSpecific(it.name),
+                                        TimePeriod.DAY
+                                    )
                                     StreakValueDisplay(
                                         streak = dailyStreak + if (dailyTargetHit) 1 else 0,
-                                        completion = wakaDataHandler.getStreakCompletion(DataRequest.ProjectSpecific(it.name), TimePeriod.DAY),
+                                        completion = wakaDataHandler.getStreakCompletion(
+                                            DataRequest.ProjectSpecific(
+                                                it.name
+                                            ), TimePeriod.DAY
+                                        ),
                                         color = projectColor,
                                         textSize = 28,
                                     )
@@ -629,11 +656,21 @@ fun AggregateStreakDialog(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                 ) {
 //                                        )
-                                    val weeklyStreak = wakaDataHandler.getStreak(DataRequest.ProjectSpecific(it.name), TimePeriod.WEEK).count
-                                    val weeklyTargetHit = wakaDataHandler.targetHit(DataRequest.ProjectSpecific(it.name), TimePeriod.WEEK)
+                                    val weeklyStreak = wakaDataHandler.getStreak(
+                                        DataRequest.ProjectSpecific(it.name),
+                                        TimePeriod.WEEK
+                                    ).count
+                                    val weeklyTargetHit = wakaDataHandler.targetHit(
+                                        DataRequest.ProjectSpecific(it.name),
+                                        TimePeriod.WEEK
+                                    )
                                     StreakValueDisplay(
                                         streak = weeklyStreak + if (weeklyTargetHit) 1 else 0,
-                                        completion = wakaDataHandler.getStreakCompletion(DataRequest.ProjectSpecific(it.name), TimePeriod.WEEK),
+                                        completion = wakaDataHandler.getStreakCompletion(
+                                            DataRequest.ProjectSpecific(
+                                                it.name
+                                            ), TimePeriod.WEEK
+                                        ),
                                         color = projectColor,
                                         textSize = 28,
                                     )
@@ -731,14 +768,24 @@ fun ProjectStreakDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceAround
                 ) {
-                    val dailyStreak = wakaDataHandler.getStreak(DataRequest.ProjectSpecific(project.name), TimePeriod.DAY).count
-                    val dailyTargetHit = wakaDataHandler.targetHit(DataRequest.ProjectSpecific(project.name), TimePeriod.DAY)
+                    val dailyStreak = wakaDataHandler.getStreak(
+                        DataRequest.ProjectSpecific(project.name),
+                        TimePeriod.DAY
+                    ).count
+                    val dailyTargetHit = wakaDataHandler.targetHit(
+                        DataRequest.ProjectSpecific(project.name),
+                        TimePeriod.DAY
+                    )
                     // daily streak
                     StreakStatsDisplay(
                         label = "Daily",
                         streak = dailyStreak + if (dailyTargetHit) 1 else 0,
                         target = project.dailyTargetHours?.roundToInt(),
-                        completion = wakaDataHandler.getStreakCompletion(DataRequest.ProjectSpecific(project.name), TimePeriod.DAY),
+                        completion = wakaDataHandler.getStreakCompletion(
+                            DataRequest.ProjectSpecific(
+                                project.name
+                            ), TimePeriod.DAY
+                        ),
                         color = projectColor,
                         cheatLabel = "Cheat Days",
                         numCheatPeriods = 2,
@@ -746,14 +793,24 @@ fun ProjectStreakDialog(
                     ) {
                     }
 
-                    val weeklyStreak = wakaDataHandler.getStreak(DataRequest.ProjectSpecific(project.name), TimePeriod.WEEK).count
-                    val weeklyTargetHit = wakaDataHandler.targetHit(DataRequest.ProjectSpecific(project.name), TimePeriod.WEEK)
+                    val weeklyStreak = wakaDataHandler.getStreak(
+                        DataRequest.ProjectSpecific(project.name),
+                        TimePeriod.WEEK
+                    ).count
+                    val weeklyTargetHit = wakaDataHandler.targetHit(
+                        DataRequest.ProjectSpecific(project.name),
+                        TimePeriod.WEEK
+                    )
                     // weekly streak
                     StreakStatsDisplay(
                         label = "Weekly",
                         streak = weeklyStreak + if (weeklyTargetHit) 1 else 0,
                         target = project.weeklyTargetHours?.roundToInt(),
-                        completion = wakaDataHandler.getStreakCompletion(DataRequest.ProjectSpecific(project.name), TimePeriod.WEEK),
+                        completion = wakaDataHandler.getStreakCompletion(
+                            DataRequest.ProjectSpecific(
+                                project.name
+                            ), TimePeriod.WEEK
+                        ),
                         color = projectColor,
                         cheatLabel = "Cheat Weeks",
                         numCheatPeriods = 1,
