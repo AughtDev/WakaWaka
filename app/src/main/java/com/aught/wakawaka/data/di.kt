@@ -10,8 +10,8 @@ val wakaAppModule = module {
         WakaDataRepositoryImpl(androidContext())
     }
 
-    factory<WakaDataTransformer> {
-        WakaDataTransformer(get())
+    factory<WakaDataUseCase> {
+        WakaDataUseCase(get())
     }
 
     viewModel { HomeViewModel(get()) }
