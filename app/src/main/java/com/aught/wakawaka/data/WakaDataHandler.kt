@@ -20,20 +20,28 @@ enum class TimePeriod {
     YEAR
 }
 
-class WakaDataHandler(val aggregateData: AggregateData?, val projectSpecificData: Map<String, ProjectSpecificData>) {
+class WakaDataHandler(
+    val aggregateData: AggregateData?,
+    val projectSpecificData: Map<String, ProjectSpecificData>
+) {
     companion object {
         fun fromContext(context: Context): WakaDataHandler {
             val aggregateData = WakaDataFetchWorker.loadAggregateData(context)
             val projectSpecificData = WakaDataFetchWorker.loadProjectSpecificData(context)
             return WakaDataHandler(aggregateData, projectSpecificData)
         }
+
+
     }
 
     fun getDateToDurationData(dataRequest: DataRequest): Map<String, Int> {
 //        Log.d("waka", "getDateToDurationData: $dataRequest")
         return when (dataRequest) {
-            is DataRequest.Aggregate -> aggregateData?.dailyRecords?.mapValues { it.value.totalSeconds } ?: emptyMap()
-            is DataRequest.ProjectSpecific -> projectSpecificData[dataRequest.projectName]?.dailyDurationInSeconds ?: emptyMap()
+            is DataRequest.Aggregate -> aggregateData?.dailyRecords?.mapValues { it.value.totalSeconds }
+                ?: emptyMap()
+
+            is DataRequest.ProjectSpecific -> projectSpecificData[dataRequest.projectName]?.dailyDurationInSeconds
+                ?: emptyMap()
         }
     }
 
@@ -92,8 +100,11 @@ class WakaDataHandler(val aggregateData: AggregateData?, val projectSpecificData
         return when (period) {
             TimePeriod.DAY -> {
                 when (dataRequest) {
-                    is DataRequest.Aggregate -> aggregateData?.excludedDaysFromDailyStreak ?: emptyList()
-                    is DataRequest.ProjectSpecific -> projectSpecificData[dataRequest.projectName]?.excludedDaysFromDailyStreak ?: emptyList()
+                    is DataRequest.Aggregate -> aggregateData?.excludedDaysFromDailyStreak
+                        ?: emptyList()
+
+                    is DataRequest.ProjectSpecific -> projectSpecificData[dataRequest.projectName]?.excludedDaysFromDailyStreak
+                        ?: emptyList()
                 }
             }
 
@@ -116,24 +127,6 @@ class WakaDataHandler(val aggregateData: AggregateData?, val projectSpecificData
         return total
     }
 
-    fun getPeriodicDateAtOffset(dataRequest: DataRequest, period: TimePeriod, offset: Int): LocalDate {
-        if (offset < 0) {
-            throw IllegalArgumentException("Offset must be greater than or equal to 0")
-        }
-        val today = LocalDate.now()
-        return when (period) {
-            TimePeriod.DAY -> today.minusDays(offset.toLong())
-            TimePeriod.WEEK -> today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusWeeks(offset.toLong())
-            TimePeriod.MONTH -> today.with(TemporalAdjusters.firstDayOfMonth()).minusMonths(offset.toLong())
-            TimePeriod.YEAR -> today.with(TemporalAdjusters.firstDayOfYear()).minusYears(offset.toLong())
-        }
-    }
-
-    fun getPeriodicDates(dataRequest: DataRequest, period: TimePeriod, reps: Int = 1): List<LocalDate> {
-        return (0..reps - 1).reversed().map { i ->
-            getPeriodicDateAtOffset(dataRequest, period, i)
-        }
-    }
 
     /**
      * Get the duration in seconds for the offset-th time period before the current time period.
@@ -141,7 +134,11 @@ class WakaDataHandler(val aggregateData: AggregateData?, val projectSpecificData
      * e.g if offset is 1, it returns the previous time period
      * e.g if offset is 2, it returns the time period before the previous time period
      */
-    fun getOffsetPeriodicDurationInSeconds(dataRequest: DataRequest, period: TimePeriod, offset: Int): Int {
+    fun getOffsetPeriodicDurationInSeconds(
+        dataRequest: DataRequest,
+        period: TimePeriod,
+        offset: Int
+    ): Int {
         if (offset < 0) {
             throw IllegalArgumentException("Offset must be greater than or equal to 0")
         }
@@ -191,7 +188,11 @@ class WakaDataHandler(val aggregateData: AggregateData?, val projectSpecificData
      * TimePeriod.Month returns the last X months (1st to end of month) with this month included
      * TimePeriod.Year returns the last X years (1st Jan to end of year) with this year included
      */
-    fun getPeriodicDurationsInSeconds(dataRequest: DataRequest, period: TimePeriod, reps: Int = 1): List<Int> {
+    fun getPeriodicDurationsInSeconds(
+        dataRequest: DataRequest,
+        period: TimePeriod,
+        reps: Int = 1
+    ): List<Int> {
         return (0..reps - 1).reversed().map { i ->
             getOffsetPeriodicDurationInSeconds(dataRequest, period, i)
         }
@@ -252,7 +253,7 @@ class WakaDataHandler(val aggregateData: AggregateData?, val projectSpecificData
 
         while (true) {
             offset++
-            val date = getPeriodicDateAtOffset(dataRequest, period, offset)
+            val date = getPeriodicDateAtOffset(period, offset)
             if (date.toString() == currentStreak.updatedAt) {
                 streak += currentStreak.count
                 break
@@ -285,18 +286,19 @@ class WakaDataHandler(val aggregateData: AggregateData?, val projectSpecificData
 
     // get the sorted project list based on the duration over the last 30 days
     private fun generateSortedProjectsList(): List<String> {
-        val sortedProjectList = projectSpecificData.toList().sortedByDescending { (projectName, _) ->
-            val data = getDateToDurationData(DataRequest.ProjectSpecific(projectName))
-            // sum up the durations weighted by the square root of the reciprocal of the number of days ago it happened
-            data.entries.sumOf { (date, duration) ->
-                val daysAgo = LocalDate.now().toEpochDay() - LocalDate.parse(date).toEpochDay()
-                if (daysAgo == 0L) {
-                    duration // today's data is not weighted
-                } else {
-                    duration / (daysAgo.toDouble()).toInt()
+        val sortedProjectList =
+            projectSpecificData.toList().sortedByDescending { (projectName, _) ->
+                val data = getDateToDurationData(DataRequest.ProjectSpecific(projectName))
+                // sum up the durations weighted by the square root of the reciprocal of the number of days ago it happened
+                data.entries.sumOf { (date, duration) ->
+                    val daysAgo = LocalDate.now().toEpochDay() - LocalDate.parse(date).toEpochDay()
+                    if (daysAgo == 0L) {
+                        duration // today's data is not weighted
+                    } else {
+                        duration / (daysAgo.toDouble()).toInt()
+                    }
                 }
-            }
-        }.map { it.first }
+            }.map { it.first }
 
         return sortedProjectList
     }
@@ -306,4 +308,27 @@ class WakaDataHandler(val aggregateData: AggregateData?, val projectSpecificData
     }
 
     // endregion
+}
+fun getPeriodicDateAtOffset(period: TimePeriod, offset: Int): LocalDate {
+    if (offset < 0) {
+        throw IllegalArgumentException("Offset must be greater than or equal to 0")
+    }
+    val today = LocalDate.now()
+    return when (period) {
+        TimePeriod.DAY -> today.minusDays(offset.toLong())
+        TimePeriod.WEEK -> today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            .minusWeeks(offset.toLong())
+
+        TimePeriod.MONTH -> today.with(TemporalAdjusters.firstDayOfMonth())
+            .minusMonths(offset.toLong())
+
+        TimePeriod.YEAR -> today.with(TemporalAdjusters.firstDayOfYear())
+            .minusYears(offset.toLong())
+    }
+}
+
+fun getPeriodicDates(period: TimePeriod, reps: Int = 1): List<LocalDate> {
+    return (0..reps - 1).reversed().map { i ->
+        getPeriodicDateAtOffset(period, i)
+    }
 }

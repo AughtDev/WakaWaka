@@ -39,6 +39,7 @@ import com.aught.wakawaka.data.TimePeriod
 import com.aught.wakawaka.data.WakaDataHandler
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaWidgetTheme
+import com.aught.wakawaka.data.getPeriodicDates
 import com.aught.wakawaka.ui.theme.Grotesk
 import com.aught.wakawaka.widget.WakaWidgetComponents
 import com.aught.wakawaka.widget.WakaWidgetHelpers
@@ -70,7 +71,7 @@ class WakaAggregateWidget : GlanceAppWidget() {
             GraphMode.Weekly -> TimePeriod.WEEK
         }
         val data = wakaDataHandler.getPeriodicDurationsInSeconds(dataRequest, timePeriod, 7)
-        val dates = wakaDataHandler.getPeriodicDates(dataRequest, timePeriod, 7)
+        val dates = getPeriodicDates( timePeriod, 7)
 
 
         val targetInHours = wakaDataHandler.getTarget(dataRequest, timePeriod)

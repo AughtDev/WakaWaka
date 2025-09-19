@@ -61,6 +61,7 @@ import com.aught.wakawaka.data.DataRequest
 import com.aught.wakawaka.data.GraphMode
 import com.aught.wakawaka.data.TimePeriod
 import com.aught.wakawaka.data.WakaDataHandler
+import com.aught.wakawaka.data.getPeriodicDates
 import com.aught.wakawaka.utils.ColorUtils
 import com.aught.wakawaka.widget.WakaWidgetHelpers
 import com.aught.wakawaka.workers.WakaProjectWidgetUpdateWorker
@@ -241,7 +242,8 @@ fun ProjectsView(
                 ) {
                     items(projects) {
                         val projectName = it.name
-                        val isProjectAssignedToProjectWidget = projectAssignedToProjectWidget == projectName
+                        val isProjectAssignedToProjectWidget =
+                            projectAssignedToProjectWidget == projectName
                         val isExpanded = expandedProjectName == projectName
 
                         Card(
@@ -296,7 +298,11 @@ fun ProjectsView(
                                             .size(20.dp),
                                         onClick = {
                                             // navigate to project details
-                                            navController.navigate(Screen.ProjectDetails.createRoute(projectName))
+                                            navController.navigate(
+                                                Screen.ProjectDetails.createRoute(
+                                                    projectName
+                                                )
+                                            )
                                         }
                                     ) {
                                         Icon(
@@ -308,7 +314,7 @@ fun ProjectsView(
                                 }
                             }
                             if (isExpanded) {
-                                ProjectGraph(wakaDataHandler, projectName)
+                                ProjectGraph(projectName)
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -327,7 +333,8 @@ fun ProjectsView(
                                         onCheckedChange = {
                                             val newProjectAssignedToWidget =
                                                 if (isProjectAssignedToProjectWidget) null else projectName
-                                            projectAssignedToProjectWidget = newProjectAssignedToWidget
+                                            projectAssignedToProjectWidget =
+                                                newProjectAssignedToWidget
                                             setProjectAssignedToProjectWidget(
                                                 context,
                                                 newProjectAssignedToWidget
@@ -362,7 +369,11 @@ fun ProjectsView(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProjectGraph(wakaDataHandler: WakaDataHandler, projectName: String) {
+fun ProjectGraph(
+//    wakaDataHandler: WakaDataHandler,
+    projectName: String,
+    viewModel: ProjectsViewModel = koinViewModel()
+) {
 
     val dataRequest = DataRequest.ProjectSpecific(projectName)
 
@@ -374,10 +385,13 @@ fun ProjectGraph(wakaDataHandler: WakaDataHandler, projectName: String) {
         GraphMode.Weekly -> TimePeriod.WEEK
     }
 
-    val data = wakaDataHandler.getPeriodicDurationsInSeconds(dataRequest, timePeriod, 7)
-    val dates = wakaDataHandler.getPeriodicDates(dataRequest, timePeriod, 7)
+    // graph data
+    val gd = viewModel.getProjectGraphData(projectName, timePeriod) ?: return
 
-    val targetInHours = wakaDataHandler.getTarget(dataRequest, timePeriod)
+//    val data = wakaDataHandler.getPeriodicDurationsInSeconds(dataRequest, timePeriod, 7)
+//    val dates = getPeriodicDates(timePeriod, 7)
+
+//    val targetInHours = wakaDataHandler.getTarget(dataRequest, timePeriod)
 
     val maxHours =
         when (graphMode) {
@@ -385,14 +399,14 @@ fun ProjectGraph(wakaDataHandler: WakaDataHandler, projectName: String) {
             GraphMode.Weekly -> 24 * 7 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
         }
 
-    val streak = wakaDataHandler.getStreak(dataRequest, timePeriod).count
-
-    val hitTargetToday = wakaDataHandler.targetHit(dataRequest, timePeriod)
-
-    val excludedDays = wakaDataHandler.getExcludedDays(dataRequest, timePeriod)
-
-    val projectColor = wakaDataHandler.getProjectColor(projectName)
-    val textColor = ColorUtils.desaturate(projectColor, 0.3f)
+//    val streak = wakaDataHandler.getStreak(dataRequest, timePeriod).count
+//
+//    val hitTargetToday = wakaDataHandler.targetHit(dataRequest, timePeriod)
+//
+//    val excludedDays = wakaDataHandler.getExcludedDays(dataRequest, timePeriod)
+//
+//    val projectColor = wakaDataHandler.getProjectColor(projectName)
+    val textColor = ColorUtils.desaturate(gd.color, 0.3f)
 
     Box(
         modifier = Modifier
@@ -407,7 +421,7 @@ fun ProjectGraph(wakaDataHandler: WakaDataHandler, projectName: String) {
                 .height(100.dp)
                 .padding(start = 10.dp, top = 40.dp)
         ) {
-            StreakDisplay(streak, hitTargetToday, textColor)
+            StreakDisplay(gd.streak, gd.hitTarget, textColor)
         }
 
         DurationScale(5, maxHours, textColor)
@@ -428,7 +442,7 @@ fun ProjectGraph(wakaDataHandler: WakaDataHandler, projectName: String) {
             ) {
                 Text(
                     text = WakaHelpers.truncateLabel(projectName).uppercase(),
-                    color = projectColor,
+                    color = gd.color,
                     fontSize = 16.sp,
                 )
                 Row(
@@ -438,7 +452,7 @@ fun ProjectGraph(wakaDataHandler: WakaDataHandler, projectName: String) {
                         text = "DAILY",
                         fontSize = 12.sp,
                         color = when (graphMode) {
-                            GraphMode.Daily -> projectColor
+                            GraphMode.Daily -> gd.color
                             GraphMode.Weekly -> Color.Gray
                         },
                         fontWeight = when (graphMode) {
@@ -455,7 +469,7 @@ fun ProjectGraph(wakaDataHandler: WakaDataHandler, projectName: String) {
                         fontSize = 12.sp,
                         color = when (graphMode) {
                             GraphMode.Daily -> Color.Gray
-                            GraphMode.Weekly -> projectColor
+                            GraphMode.Weekly -> gd.color
                         },
                         fontWeight = when (graphMode) {
                             GraphMode.Daily -> FontWeight.Normal
@@ -486,7 +500,7 @@ fun ProjectGraph(wakaDataHandler: WakaDataHandler, projectName: String) {
                         .padding(bottom = WakaWidgetHelpers.GRAPH_BOTTOM_PADDING.dp),
                 ) {
                     // map all days or weeks depending on graph mode
-                    dates.zip(data).forEachIndexed { i, it ->
+                    gd.dates.zip(gd.data).forEachIndexed { i, it ->
                         val date = it.first
                         val duration = it.second
 
@@ -498,11 +512,11 @@ fun ProjectGraph(wakaDataHandler: WakaDataHandler, projectName: String) {
                         ) {
                             val barColor =
                                 if (
-                                    targetInHours == null ||
+                                    gd.targetInHours == null ||
                                     // if the day is in the exclusion list, use the primary color
-                                    date.dayOfWeek.value in excludedDays ||
-                                    duration > (targetInHours * 3600)
-                                ) projectColor
+                                    date.dayOfWeek.value in gd.excludedDays ||
+                                    duration > (gd.targetInHours * 3600)
+                                ) gd.color
                                 else
                                     Color.Gray
 
@@ -542,8 +556,8 @@ fun ProjectGraph(wakaDataHandler: WakaDataHandler, projectName: String) {
             }
         }
 
-        if (targetInHours != null) {
-            TargetLine(targetInHours, maxHours)
+        if (gd.targetInHours != null) {
+            TargetLine(gd.targetInHours, maxHours)
         }
     }
 }

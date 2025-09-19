@@ -68,6 +68,12 @@ object WakaDataTransformers {
         }
     }
 
+    fun calcPeriodicDurationsInSeconds(data: Map<String, Int>, period: TimePeriod,reps: Int = 1): List<Int> {
+        return (0..reps - 1).reversed().map { i ->
+            calcOffsetPeriodicDurationInSeconds(data, period, i)
+        }
+    }
+
     fun calcLabelledDurationStats(dataRequest: DataRequest,stats: WakaStatistics,thisWeekDuration: Int): Map<String,Int> {
         val relevantStats = when (dataRequest) {
             is DataRequest.Aggregate -> stats.aggregateStats
@@ -81,6 +87,92 @@ object WakaDataTransformers {
             "All Time" to relevantStats.allTime
         )
     }
+
+    // region AGGREGATE DATA
+    // ? ........................
+
+    fun getAggregateTarget(aggregateData: AggregateData, period: TimePeriod): Float? {
+        return when (period) {
+            TimePeriod.DAY -> aggregateData.dailyTargetHours
+            TimePeriod.WEEK -> aggregateData.weeklyTargetHours
+            TimePeriod.MONTH, TimePeriod.YEAR -> null
+        }
+    }
+
+    fun getAggregateStreak(aggregateData: AggregateData, period: TimePeriod): StreakData {
+        return when (period) {
+            TimePeriod.DAY -> aggregateData.dailyStreak
+            TimePeriod.WEEK -> aggregateData.weeklyStreak
+            TimePeriod.MONTH, TimePeriod.YEAR -> StreakData(0, WakaHelpers.ZERO_DAY)
+        } ?: StreakData(0, WakaHelpers.ZERO_DAY)
+    }
+
+    fun getAggregateExcludedDays(aggregateData: AggregateData, period: TimePeriod): Set<Int> {
+        return when (period) {
+            TimePeriod.DAY -> aggregateData.excludedDaysFromDailyStreak.toSet()
+            TimePeriod.WEEK, TimePeriod.MONTH, TimePeriod.YEAR -> emptySet()
+        }
+    }
+
+    // ? ........................
+    // endregion ........................
+
+
+    // region PROJECT DATA
+    // ? ........................
+
+    fun getProjectTarget(projectData: ProjectSpecificData?, period: TimePeriod): Float? {
+        return when (period) {
+            TimePeriod.DAY -> projectData?.dailyTargetHours
+            TimePeriod.WEEK -> projectData?.weeklyTargetHours
+            TimePeriod.MONTH, TimePeriod.YEAR -> null
+        }
+    }
+
+    fun getProjectStreak(projectData: ProjectSpecificData?, period: TimePeriod): StreakData {
+        return when (period) {
+            TimePeriod.DAY -> projectData?.dailyStreak
+            TimePeriod.WEEK -> projectData?.weeklyStreak
+            TimePeriod.MONTH, TimePeriod.YEAR -> StreakData(0, WakaHelpers.ZERO_DAY)
+        } ?: StreakData(0, WakaHelpers.ZERO_DAY)
+    }
+
+    fun getProjectExcludedDays(projectData: ProjectSpecificData?, period: TimePeriod): Set<Int> {
+        return when (period) {
+            TimePeriod.DAY -> projectData?.excludedDaysFromDailyStreak?.toSet() ?: emptySet()
+            TimePeriod.WEEK, TimePeriod.MONTH, TimePeriod.YEAR -> emptySet()
+        }
+    }
+    fun getProjectColor(projectData: ProjectSpecificData?): Color? {
+        return if (projectData?.color != null) {
+            runCatching { Color(projectData.color.toColorInt()) }.getOrNull()
+                ?: WakaHelpers.projectNameToColor(projectData.name)
+        } else {
+            WakaHelpers.projectNameToColor(null)
+        }
+    }
+
+    // ? ........................
+    // endregion ........................
+
+
+    fun calcCompletion(target: Float?, duration: Int): Float {
+        return if (target == null) {
+            if (duration > 0) 1f else 0f
+        } else {
+            (duration.toFloat() / (target * 3600)).coerceIn(0f, 1f)
+        }
+    }
+
+    fun calcLastXDaysDurationInSeconds(data: Map<String, Int>, days: Int): Int {
+        val today = LocalDate.now()
+        return (0 until days).sumOf { i ->
+            val date = today.minusDays(i.toLong())
+            data[date.toString()] ?: 0
+        }
+    }
+
+
 }
 
 class WakaDataUseCase(wakaDataRepository: WakaDataRepository) {
@@ -89,7 +181,7 @@ class WakaDataUseCase(wakaDataRepository: WakaDataRepository) {
 
     // helpers
 
-    // region DataState helpers
+    // region DATA STATE HELPERS
 
     private fun <T, R> Flow<T>.toDataState(mapper: (T) -> R): Flow<DataState<R>> =
         this.map { DataState.Success(mapper(it)) as DataState<R> }
@@ -202,55 +294,66 @@ class WakaDataUseCase(wakaDataRepository: WakaDataRepository) {
     }
 
     fun getTarget(dataRequest: DataRequest, period: TimePeriod): Flow<DataState<Float?>> {
-        return when (period) {
-            TimePeriod.DAY -> when (dataRequest) {
-                is DataRequest.Aggregate -> p.getAggregate().map { it.dailyTargetHours }.toDataState()
-                is DataRequest.ProjectSpecific -> p.get(dataRequest.projectName).map { it?.dailyTargetHours }.toDataState()
-            }
-            TimePeriod.WEEK -> when (dataRequest) {
-                is DataRequest.Aggregate -> p.getAggregate().map { it.weeklyTargetHours }.toDataState()
-                is DataRequest.ProjectSpecific -> p.get(dataRequest.projectName).map { it?.weeklyTargetHours }.toDataState()
-            }
-            TimePeriod.MONTH, TimePeriod.YEAR -> flowOf(DataState.Success(null))
+        return when (dataRequest) {
+            is DataRequest.Aggregate -> p.getAggregate().map {
+                WakaDataTransformers.getAggregateTarget(it, period)
+            }.toDataState()
+            is DataRequest.ProjectSpecific -> p.get(dataRequest.projectName).map {
+                WakaDataTransformers.getProjectTarget(it, period)
+            }.toDataState()
         }
+//        return when (period) {
+//            TimePeriod.DAY -> when (dataRequest) {
+//                is DataRequest.Aggregate -> p.getAggregate().map { it.dailyTargetHours }.toDataState()
+//                is DataRequest.ProjectSpecific -> p.get(dataRequest.projectName).map { it?.dailyTargetHours }.toDataState()
+//            }
+//            TimePeriod.WEEK -> when (dataRequest) {
+//                is DataRequest.Aggregate -> p.getAggregate().map { it.weeklyTargetHours }.toDataState()
+//                is DataRequest.ProjectSpecific -> p.get(dataRequest.projectName).map { it?.weeklyTargetHours }.toDataState()
+//            }
+//            TimePeriod.MONTH, TimePeriod.YEAR -> flowOf(DataState.Success(null))
+//        }
     }
 
     fun getStreak(dataRequest: DataRequest, period: TimePeriod): Flow<DataState<StreakData>> {
-        val defaultStreak = StreakData(0, WakaHelpers.ZERO_DAY)
-        val baseFlow: Flow<StreakData?> = when (period) {
-            TimePeriod.DAY -> when (dataRequest) {
-                is DataRequest.Aggregate -> p.getAggregate().map { it.dailyStreak }
-                is DataRequest.ProjectSpecific -> p.get(dataRequest.projectName).map { it?.dailyStreak }
-            }
-            TimePeriod.WEEK -> when (dataRequest) {
-                is DataRequest.Aggregate -> p.getAggregate().map { it.weeklyStreak }
-                is DataRequest.ProjectSpecific -> p.get(dataRequest.projectName).map { it?.weeklyStreak }
-            }
-            TimePeriod.MONTH, TimePeriod.YEAR -> flowOf(null)
+//        val defaultStreak = StreakData(0, WakaHelpers.ZERO_DAY)
+//        val baseFlow: Flow<StreakData?> = when (period) {
+//            TimePeriod.DAY -> when (dataRequest) {
+//                is DataRequest.Aggregate -> p.getAggregate().map { it.dailyStreak }
+//                is DataRequest.ProjectSpecific -> p.get(dataRequest.projectName).map { it?.dailyStreak }
+//            }
+//            TimePeriod.WEEK -> when (dataRequest) {
+//                is DataRequest.Aggregate -> p.getAggregate().map { it.weeklyStreak }
+//                is DataRequest.ProjectSpecific -> p.get(dataRequest.projectName).map { it?.weeklyStreak }
+//            }
+//            TimePeriod.MONTH, TimePeriod.YEAR -> flowOf(null)
+//        }
+//        return baseFlow.map { it ?: defaultStreak }.toDataState()
+        return when (dataRequest) {
+            is DataRequest.Aggregate -> p.getAggregate().map {
+                WakaDataTransformers.getAggregateStreak(it, period)
+            }.toDataState()
+            is DataRequest.ProjectSpecific -> p.get(dataRequest.projectName).map {
+                WakaDataTransformers.getProjectStreak(it, period)
+            }.toDataState()
         }
-        return baseFlow.map { it ?: defaultStreak }.toDataState()
+
     }
 
     fun getStreakCompletion(dataRequest: DataRequest, period: TimePeriod): Flow<DataState<Float>> {
         return combineDataState(
             getTarget(dataRequest, period),
-            getPeriodicDurationsInSeconds(dataRequest, period, 1)
-        ) { target, durations ->
-            val duration = durations.getOrElse(0) { 0 }
-            if (target == null) {
-                if (duration > 0) 1f else 0f
-            } else {
-                (duration.toFloat() / (target * 3600)).coerceIn(0f, 1f)
-            }
+            getOffsetPeriodicDurationInSeconds(dataRequest, period, 0)
+        ) { target, duration ->
+            WakaDataTransformers.calcCompletion(target, duration)
         }
     }
 
     fun targetHit(dataRequest: DataRequest, period: TimePeriod): Flow<DataState<Boolean>> {
         return combineDataState(
             getTarget(dataRequest, period),
-            getPeriodicDurationsInSeconds(dataRequest, period, 1)
-        ) { target, durations ->
-            val duration = durations.getOrElse(0) { 0 }
+            getOffsetPeriodicDurationInSeconds(dataRequest, period, 0)
+        ) { target, duration ->
             if (target == null) duration > 0 else duration >= target * 3600
         }
     }
@@ -275,11 +378,7 @@ class WakaDataUseCase(wakaDataRepository: WakaDataRepository) {
         return getDateToDurationData(dataRequest).map { state ->
             when (state) {
                 is DataState.Success -> {
-                    val today = LocalDate.now()
-                    (0 until days).sumOf { i ->
-                        val date = today.minusDays(i.toLong())
-                        state.data[date.toString()] ?: 0
-                    }
+                    WakaDataTransformers.calcLastXDaysDurationInSeconds(state.data, days)
                 }
                 else -> null
             }
@@ -314,10 +413,10 @@ class WakaDataUseCase(wakaDataRepository: WakaDataRepository) {
         return when (period) {
             TimePeriod.DAY -> when (dataRequest) {
                 is DataRequest.Aggregate -> p.getAggregate()
-                    .map { it.excludedDaysFromDailyStreak.toSet() }
+                    .map { WakaDataTransformers.getAggregateExcludedDays(it, period) }
                     .toDataState()
                 is DataRequest.ProjectSpecific -> p.get(dataRequest.projectName)
-                    .map { it?.excludedDaysFromDailyStreak?.toSet() ?: emptySet() }
+                    .map { WakaDataTransformers.getProjectExcludedDays(it, period) }
                     .toDataState()
             }
             else -> flowOf(DataState.Success(emptySet()))
@@ -327,21 +426,11 @@ class WakaDataUseCase(wakaDataRepository: WakaDataRepository) {
     fun getProjectColor(dataRequest: DataRequest): Flow<DataState<Color?>> {
         Log.d("HomeViewModel", "Getting project color for request: $dataRequest")
         return when (dataRequest) {
-            is DataRequest.Aggregate -> flowOf(DataState.Success(null))
+            is DataRequest.Aggregate -> flowOf(null)
             is DataRequest.ProjectSpecific -> {
                 p.get(dataRequest.projectName)
-                    .map { project ->
-                        Log.d("HomeViewModel", "Fetched project: $project")
-                        val color = if (project?.color != null) {
-                            runCatching { Color(project.color.toColorInt()) }.getOrNull()
-                                ?: WakaHelpers.projectNameToColor(project.name)
-                        } else {
-                            WakaHelpers.projectNameToColor(project?.name)
-                        }
-                        DataState.Success(color) as DataState<Color?>
-                    }
-                    .onStart { emit(DataState.Loading) }
+                    .map { project -> WakaDataTransformers.getProjectColor(project) }
             }
-        }
+        }.toDataState()
     }
 }

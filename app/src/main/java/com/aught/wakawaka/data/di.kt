@@ -1,6 +1,7 @@
 package com.aught.wakawaka.data
 
 import com.aught.wakawaka.screens.home.HomeViewModel
+import com.aught.wakawaka.screens.projects.ProjectsViewModel
 import org.koin.dsl.module
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
@@ -15,5 +16,7 @@ val wakaAppModule = module {
     }
 
     viewModel { HomeViewModel(get()) }
+
+    viewModel { ProjectsViewModel(get()) }
 }
 
