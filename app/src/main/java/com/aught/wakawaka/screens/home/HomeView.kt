@@ -52,7 +52,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.offset
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
+import org.koin.androidx.compose.koinViewModel
 
 fun refreshWakaData(context: Context, setIsLoading: ((Boolean) -> Unit)) {
     Log.d("waka", "Refreshing Waka data...")
@@ -81,95 +84,34 @@ fun refreshWakaData(context: Context, setIsLoading: ((Boolean) -> Unit)) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeView(
-    ogProjectId: String?
+    ogProjectId: String?,
+    viewModel: HomeViewModel = koinViewModel()
 ) {
     val context = LocalContext.current
 
-    var selectedProject by remember { mutableStateOf(ogProjectId ?: WakaHelpers.ALL_PROJECTS_ID) }
-
-    val dataRequest by remember {
-        derivedStateOf {
-            if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) DataRequest.Aggregate else DataRequest.ProjectSpecific(
-                selectedProject
-            )
+    LaunchedEffect(ogProjectId) {
+        if (ogProjectId != null) {
+            viewModel.selectProject(ogProjectId)
+        } else {
+            viewModel.selectProject(WakaHelpers.ALL_PROJECTS_ID)
         }
     }
 
-    var aggregateData by remember {
-        mutableStateOf(WakaDataFetchWorker.loadAggregateData(context))
-    }
-    var projectSpecificData by remember {
-        mutableStateOf(WakaDataFetchWorker.loadProjectSpecificData(context))
-    }
-    var wakaStatistics by remember {
-        mutableStateOf(WakaDataFetchWorker.loadWakaStatistics(context))
-    }
+    val projects by viewModel.projects.collectAsState()
+    val aggregateData by viewModel.aggregateData.collectAsState()
 
-    val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
-    val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        Log.d("waka", "SharedPreferences changed: $key")
-        when (key) {
-            WakaHelpers.AGGREGATE_DATA_KEY -> {
-                aggregateData = WakaDataFetchWorker.loadAggregateData(context)
-            }
+    val uiState by viewModel.uiState.collectAsState()
 
-            WakaHelpers.PROJECT_SPECIFIC_DATA_KEY -> {
-                projectSpecificData = WakaDataFetchWorker.loadProjectSpecificData(context)
-            }
+//    val durationLabelValueMap by viewModel.durationLabelValueMap.collectAsState()
+//
+//    val selectedProject by viewModel.selectedProjectName.collectAsState()
+//
+//    val dateToDurationMap by viewModel.dateToDurationMap.collectAsState()
+//
+//    val dailyTargetStreakData by viewModel.dailyTargetStreakData.collectAsState()
+//
+//    val projectColor by viewModel.projectColor.collectAsState()
 
-            WakaHelpers.WAKA_STATISTICS_KEY -> {
-                wakaStatistics = WakaDataFetchWorker.loadWakaStatistics(context)
-            }
-        }
-    }
-
-    DisposableEffect(prefs) {
-        prefs.registerOnSharedPreferenceChangeListener(listener)
-        onDispose {
-            prefs.unregisterOnSharedPreferenceChangeListener(listener)
-        }
-    }
-
-    val wakaDataHandler by remember {
-        derivedStateOf { WakaDataHandler(aggregateData, projectSpecificData) }
-    }
-
-    val projects = remember {
-        mutableListOf(WakaHelpers.ALL_PROJECTS_ID).apply {
-            addAll(wakaDataHandler.sortedProjectList)
-        }
-    }
-
-
-    val durationLabelValueMap by remember {
-        derivedStateOf {
-            val durationStats: DurationStats = if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
-                wakaStatistics.aggregateStats
-            } else {
-                wakaStatistics.projectStats[selectedProject] ?: DurationStats(0, 0, 0, 0, 0)
-            }
-
-            mapOf(
-                "Today" to durationStats.today,
-                "This Week" to wakaDataHandler.getOffsetPeriodicDurationInSeconds(
-                    dataRequest,
-                    TimePeriod.WEEK,
-                    0
-                ),
-//        "Last 7 Days" to durationStats.last7Days,
-                "Past 30 Days" to durationStats.last30Days,
-                "Past Year" to durationStats.lastYear,
-                "All Time" to durationStats.allTime
-            )
-        }
-    }
-
-    val dateToDurationMap by remember {
-        derivedStateOf {
-            Log.d("waka", "Getting date to duration map for: $selectedProject")
-            wakaDataHandler.getDateToDurationData(dataRequest)
-        }
-    }
 
 
     var isRefreshingData by remember { mutableStateOf(false) }
@@ -188,7 +130,6 @@ fun HomeView(
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            Log.d("waka", "Header: $selectedProject")
             // region HEADER
             // ? ........................
 
@@ -203,13 +144,13 @@ fun HomeView(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     ProjectSelector(
-                        selectedProject, projects
+                        uiState.selectedProjectName, listOf(WakaHelpers.ALL_PROJECTS_ID) + projects.map { it.name }
                     ) {
-                        selectedProject = it
+                        viewModel.selectProject(it)
                     }
 
                     Text(
-                        text = WakaHelpers.durationInSecondsToDurationString(durationLabelValueMap["All Time"] ?: 0),
+                        text = WakaHelpers.durationInSecondsToDurationString(uiState.durationLabelValueMap["All Time"] ?: 0),
                         fontSize = 24.sp
                     )
                 }
@@ -218,7 +159,6 @@ fun HomeView(
                 ) {
                     ShareButton(
                         context,
-                        selectedProject, wakaDataHandler,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .offset(y = (-12).dp, x = 18.dp)
@@ -226,11 +166,12 @@ fun HomeView(
                     Box(
                         modifier = Modifier.offset(y = 12.dp, x = -8.dp)
                     ) {
-                        if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
-                            AggregateStreakDisplay(wakaDataHandler)
-                        } else {
-                            ProjectStreakDisplay(selectedProject, wakaDataHandler)
-                        }
+                        DailyStreakDisplay()
+//                        if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
+//                            AggregateStreakDisplay(wakaDataHandler)
+//                        } else {
+//                            ProjectStreakDisplay(selectedProject, wakaDataHandler)
+//                        }
                     }
                 }
             }
@@ -238,38 +179,38 @@ fun HomeView(
             // ? ........................
             // endregion ........................
 
-            val targetInHours by remember {
-                derivedStateOf {
-                    if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
-                        aggregateData?.dailyTargetHours
-                    } else {
-                        projectSpecificData[selectedProject]?.dailyTargetHours
-                    }
-                }
-            }
+//            val targetInHours by remember {
+//                derivedStateOf {
+//                    if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
+//                        aggregateData?.dailyTargetHours
+//                    } else {
+//                        projectSpecificData[selectedProject]?.dailyTargetHours
+//                    }
+//                }
+//            }
 
             val primaryColor = MaterialTheme.colorScheme.primary
 
-            val projectColor by remember {
-                derivedStateOf {
-                    if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
-                        primaryColor
-                    } else {
-                        if (projectSpecificData[selectedProject]?.color == null) {
-                            WakaHelpers.projectNameToColor(selectedProject)
-                        } else {
-                            runCatching { Color(projectSpecificData[selectedProject]!!.color.toColorInt()) }.getOrNull()
-                                ?: WakaHelpers.projectNameToColor(selectedProject)
-                        }
-                    }
-                }
-            }
+//            val projectColor by remember {
+//                derivedStateOf {
+//                    if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
+//                        primaryColor
+//                    } else {
+//                        if (projectSpecificData[selectedProject]?.color == null) {
+//                            WakaHelpers.projectNameToColor(selectedProject)
+//                        } else {
+//                            runCatching { Color(projectSpecificData[selectedProject]!!.color.toColorInt()) }.getOrNull()
+//                                ?: WakaHelpers.projectNameToColor(selectedProject)
+//                        }
+//                    }
+//                }
+//            }
 
             CalendarGraph(
-                projectName = selectedProject,
-                dateToDurationMap,
-                targetInHours = targetInHours,
-                projectColor = projectColor,
+                projectName = uiState.selectedProjectName,
+                uiState.dateToDurationMap,
+                targetInHours = uiState.dailyTargetStreakData.target,
+                projectColor = uiState.projectColor ?: primaryColor,
                 aggregateData
             )
             Column(
@@ -278,7 +219,7 @@ fun HomeView(
                     .padding(vertical = 8.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                durationLabelValueMap.forEach { (timeRange, durationInSeconds) ->
+                uiState.durationLabelValueMap.forEach { (timeRange, durationInSeconds) ->
                     // show all time at the top of the page, not here
                     if (timeRange != "All Time") {
                         DurationStatView(timeRange, durationInSeconds)

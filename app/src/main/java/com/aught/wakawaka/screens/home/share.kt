@@ -27,6 +27,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,6 +47,7 @@ import com.aught.wakawaka.data.TimePeriod
 import com.aught.wakawaka.data.WakaDataHandler
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.workers.WakaDataFetchWorker
+import org.koin.androidx.compose.koinViewModel
 import kotlin.math.roundToInt
 
 
@@ -145,27 +147,30 @@ enum class CaptureMode {
 @Composable
 fun ShareDialog(
     context: Context,
-    selectedProject: String,
-    wakaDataHandler: WakaDataHandler
+//    selectedProject: String,
+//    wakaDataHandler: WakaDataHandler,
+    viewModel: HomeViewModel = koinViewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsState()
+
     val isAggregate = remember {
-        selectedProject == WakaHelpers.ALL_PROJECTS_ID
+        uiState.selectedProjectName == WakaHelpers.ALL_PROJECTS_ID
     }
 
     val label = remember {
-        if (isAggregate) "aggregate" else selectedProject
+        if (isAggregate) "aggregate" else uiState.selectedProjectName
     }
 
-    val dateToDurationInSeconds: Map<String, Int> = remember {
-        if (isAggregate) {
-            wakaDataHandler.aggregateData?.dailyRecords?.mapValues {
-                it.value.totalSeconds
-            } ?: emptyMap()
-        } else {
-            wakaDataHandler.projectSpecificData[selectedProject]?.dailyDurationInSeconds
-                ?: emptyMap()
-        }
-    }
+//    val dateToDurationInSeconds: Map<String, Int> = remember {
+//        if (isAggregate) {
+//            viewModel.aggregateData.value.dailyRecords.mapValues {
+//                it.value.totalSeconds
+//            }
+//        } else {
+//            wakaDataHandler.projectSpecificData[selectedProject]?.dailyDurationInSeconds
+//                ?: emptyMap()
+//        }
+//    }
 
     var captureMode by remember {
         mutableStateOf(CaptureMode.NONE)
@@ -207,58 +212,63 @@ fun ShareDialog(
         )
     }
 
+
+//    val dateToDurationInSeconds = viewModel.dateToDurationMap.collectAsState().value
+//
+//    val dailyStreakData = viewModel.dailyTargetStreakData.collectAsState().value
+//    val weeklyStreakData = viewModel.weeklyTargetStreakData.collectAsState().value
+
     when (captureMode) {
 
         CaptureMode.SUMMARY -> {
-            val dataRequest = if (isAggregate) {
-                DataRequest.Aggregate
-            } else {
-                DataRequest.ProjectSpecific(selectedProject)
-            }
-            val dailyStreakData = ImageStreakData(
-                target = wakaDataHandler.getTarget(dataRequest, TimePeriod.DAY),
-                streak = wakaDataHandler.getStreak(dataRequest, TimePeriod.DAY).count,
-                completion = wakaDataHandler.getStreakCompletion(dataRequest, TimePeriod.DAY)
-            )
+//            val dataRequest = if (isAggregate) {
+//                DataRequest.Aggregate
+//            } else {
+//                DataRequest.ProjectSpecific(selectedProject)
+//            }
+//            val dailyStreakData = ImageStreakData(
+//                target = wakaDataHandler.getTarget(dataRequest, TimePeriod.DAY),
+//                streak = wakaDataHandler.getStreak(dataRequest, TimePeriod.DAY).count,
+//                completion = wakaDataHandler.getStreakCompletion(dataRequest, TimePeriod.DAY)
+//            )
+//
+//            val weeklyStreakData = ImageStreakData(
+//                target = wakaDataHandler.getTarget(dataRequest, TimePeriod.WEEK),
+//                streak = wakaDataHandler.getStreak(dataRequest, TimePeriod.WEEK).count,
+//                completion = wakaDataHandler.getStreakCompletion(dataRequest, TimePeriod.WEEK)
+//            )
 
-            val weeklyStreakData = ImageStreakData(
-                target = wakaDataHandler.getTarget(dataRequest, TimePeriod.WEEK),
-                streak = wakaDataHandler.getStreak(dataRequest, TimePeriod.WEEK).count,
-                completion = wakaDataHandler.getStreakCompletion(dataRequest, TimePeriod.WEEK)
-            )
+//            val stats = WakaDataFetchWorker.loadWakaStatistics(context)
 
-            val stats = WakaDataFetchWorker.loadWakaStatistics(context)
+//            val durationStats = if (isAggregate) {
+//                stats.aggregateStats
+//            } else {
+//                stats.projectStats[selectedProject] ?: DurationStats(0, 0, 0, 0, 0)
+//            }
 
-            val durationStats = if (isAggregate) {
-                stats.aggregateStats
-            } else {
-                stats.projectStats[selectedProject] ?: DurationStats(0, 0, 0, 0, 0)
-            }
-
-            val statToDurationInSeconds = listOf(
-                "Today" to durationStats.today,
-                "This Week" to wakaDataHandler.getOffsetPeriodicDurationInSeconds(
-                    dataRequest,
-                    TimePeriod.WEEK,
-                    0
-                ),
-                "Past 30 Days" to durationStats.last30Days,
-                "Past Year" to durationStats.lastYear,
-                "All Time" to durationStats.allTime
-            )
+//            val statToDurationInSeconds = listOf(
+//                "Today" to durationStats.today,
+//                "This Week" to wakaDataHandler.getOffsetPeriodicDurationInSeconds(
+//                    dataRequest,
+//                    TimePeriod.WEEK,
+//                    0
+//                ),
+//                "Past 30 Days" to durationStats.last30Days,
+//                "Past Year" to durationStats.lastYear,
+//                "All Time" to durationStats.allTime
+//            )
+            val statToDurationInSeconds = uiState.durationLabelValueMap.toList()
 
             val uri = generateSummaryCardImage(
-                context, if (isAggregate) "Aggregate" else selectedProject,
-                totalHours = (dateToDurationInSeconds.values.sum() / 3600f),
-                dailyStreakData = dailyStreakData,
-                weeklyStreakData = weeklyStreakData,
+                context, if (isAggregate) "Aggregate" else uiState.selectedProjectName,
+                totalHours = (uiState.dateToDurationMap.values.sum() / 3600f),
+                dailyStreakData = uiState.dailyTargetStreakData,
+                weeklyStreakData = uiState.weeklyTargetStreakData,
                 statToDurationInSeconds = statToDurationInSeconds,
                 ImageColors(
                     background = MaterialTheme.colorScheme.surfaceContainerLowest,
                     foreground = MaterialTheme.colorScheme.onSurface,
-                    primary = if (isAggregate) MaterialTheme.colorScheme.primary else wakaDataHandler.getProjectColor(
-                        selectedProject
-                    ),
+                    primary = uiState.projectColor ?: MaterialTheme.colorScheme.primary,
                     secondary = MaterialTheme.colorScheme.tertiary
                 )
             )
@@ -267,21 +277,20 @@ fun ShareDialog(
         }
 
         CaptureMode.CALENDAR -> {
-            val projectColor = if (isAggregate) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                wakaDataHandler.getProjectColor(selectedProject)
-            }
-            Log.d("ShareDialog", "Project color: $projectColor")
+//            val projectColor = if (isAggregate) {
+//                MaterialTheme.colorScheme.primary
+//            } else {
+//                wakaDataHandler.getProjectColor(selectedProject)
+//            }
+//            Log.d("ShareDialog", "Project color: $projectColor")
             val uri = generateCalendarShareImage(
-                context, if (isAggregate) null else selectedProject,
+                context, if (isAggregate) null else uiState.selectedProjectName,
                 ImageColors(
                     background = MaterialTheme.colorScheme.surfaceContainerLowest,
                     foreground = MaterialTheme.colorScheme.onSurface,
-                    primary = projectColor,
+                    primary = uiState.projectColor ?: MaterialTheme.colorScheme.primary,
                     secondary = MaterialTheme.colorScheme.tertiary
-                ),
-                dateToDurationInSeconds
+                ), uiState.dateToDurationMap
             )
             shareImage(context, uri)
             captureMode = CaptureMode.NONE
@@ -298,9 +307,7 @@ fun ShareDialog(
 @Composable
 fun ShareButton(
     context: Context,
-    selectedProject: String,
-    wakaDataHandler: WakaDataHandler,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
 
     var shareDialogOpen by remember {
@@ -325,7 +332,7 @@ fun ShareButton(
                 shareDialogOpen = false
             }
         ) {
-            ShareDialog(context, selectedProject, wakaDataHandler)
+            ShareDialog(context)
         }
     }
 }

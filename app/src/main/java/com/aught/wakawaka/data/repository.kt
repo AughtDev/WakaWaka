@@ -6,6 +6,7 @@ import android.util.Log
 import com.aught.wakawaka.workers.WakaDataFetchWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -15,17 +16,18 @@ import kotlinx.coroutines.launch
 
 interface WakaDataRepository {
     public val projects: ProjectsRepository
+    public val statistics: StatisticsRepository
 }
 
 
 interface ProjectsRepository {
-    fun getAggregate(): AggregateData
+    fun getAggregate(): Flow<AggregateData>
+    fun get(name: String): Flow<ProjectSpecificData?>
+    fun list(): Flow<List<ProjectSpecificData>>
+}
 
-    fun get(name: String): ProjectSpecificData?
-    fun getLive(name: String): StateFlow<ProjectSpecificData?>
-
-    fun list(): List<ProjectSpecificData>
-    fun listLive(): StateFlow<List<ProjectSpecificData>>
+interface StatisticsRepository {
+    fun get(): StateFlow<WakaStatistics>
 }
 
 class WakaDataRepositoryImpl(
@@ -43,6 +45,10 @@ class WakaDataRepositoryImpl(
         MutableStateFlow(WakaDataFetchWorker.loadProjectSpecificData(context))
     private val projectsDataFlow: StateFlow<Map<String, ProjectSpecificData>> = _projectsDataFlow
 
+    private val _statisticsFlow =
+        MutableStateFlow(WakaDataFetchWorker.loadWakaStatistics(context))
+    private val statisticsFlow: StateFlow<WakaStatistics> = _statisticsFlow
+
     private val sharedPrefsListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, changedKey ->
             Log.d("KaiDataRepositoryImpl", "sharedPrefsListener: $changedKey")
@@ -56,6 +62,11 @@ class WakaDataRepositoryImpl(
                     val newProjectData = WakaDataFetchWorker.loadProjectSpecificData(context)
                     _projectsDataFlow.value = newProjectData
                 }
+
+                WakaHelpers.WAKA_STATISTICS_KEY -> {
+                    val newStatisticsData = WakaDataFetchWorker.loadWakaStatistics(context)
+                    _statisticsFlow.value = newStatisticsData
+                }
             }
         }
 
@@ -64,31 +75,22 @@ class WakaDataRepositoryImpl(
     }
 
     public override val projects: ProjectsRepository = object : ProjectsRepository {
-        override fun getAggregate(): AggregateData {
-            return aggregateDataFlow.value
+        override fun getAggregate(): Flow<AggregateData> {
+            return aggregateDataFlow
         }
 
-        override fun get(name: String): ProjectSpecificData? {
-            return projectsDataFlow.value[name]
+        override fun get(name: String): Flow<ProjectSpecificData?> {
+            return projectsDataFlow.map { it[name] }
         }
 
-        override fun getLive(name: String): StateFlow<ProjectSpecificData?> {
-            return projectsDataFlow.map { it[name] }.stateIn(
-                CoroutineScope(Dispatchers.Main),
-                SharingStarted.Eagerly, null
-            )
-        }
-
-        override fun list(): List<ProjectSpecificData> {
-            return projectsDataFlow.value.values.toList()
-        }
-
-        override fun listLive(): StateFlow<List<ProjectSpecificData>> {
-            return projectsDataFlow.map { it.values.toList() }.stateIn(
-                CoroutineScope(Dispatchers.Main),
-                SharingStarted.Eagerly, listOf()
-            )
+        override fun list(): Flow<List<ProjectSpecificData>> {
+            return projectsDataFlow.map { it.values.toList() }
         }
     }
 
+    public override val statistics: StatisticsRepository = object : StatisticsRepository {
+        override fun get(): StateFlow<WakaStatistics> {
+            return statisticsFlow
+        }
+    }
 }

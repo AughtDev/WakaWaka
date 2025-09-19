@@ -182,11 +182,11 @@ data class ProjectSpecificData(
 // region STATS DATA CLASSES
 
 data class DurationStats(
-    val today: Int,
-    val last7Days: Int,
-    val last30Days: Int,
-    val lastYear: Int,
-    val allTime: Int
+    val today: Int = 0,
+    val last7Days: Int = 0,
+    val last30Days: Int = 0,
+    val lastYear: Int = 0,
+    val allTime: Int = 0
 )
 
 data class WakaStatistics(

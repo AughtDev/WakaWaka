@@ -18,6 +18,7 @@ import androidx.core.content.FileProvider
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.createBitmap
 import com.aught.wakawaka.R
+import com.aught.wakawaka.data.TargetStreakData
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.screens.badges.drawBadgeToCanvas
 import com.aught.wakawaka.screens.badges.getMilestoneIndex
@@ -659,11 +660,6 @@ fun generateDailyShareImage(context: Context, dateToDurationInSeconds: Map<Strin
     }
 }
 
-data class ImageStreakData(
-    val target: Float?,
-    val streak: Int,
-    val completion: Float,
-)
 
 enum class ProjectCardSection {
     HEADER, BADGE, TOTAL_HOURS, PROGRESS_BAR, STREAK_VALUES, STATS, FOOTER
@@ -672,8 +668,8 @@ enum class ProjectCardSection {
 fun generateSummaryCardImage(
     context: Context, projectName: String,
     totalHours: Float,
-    dailyStreakData: ImageStreakData,
-    weeklyStreakData: ImageStreakData,
+    dailyStreakData: TargetStreakData,
+    weeklyStreakData: TargetStreakData,
     statToDurationInSeconds: List<Pair<String, Int>>,
     imageColors: ImageColors
 ): Uri? {

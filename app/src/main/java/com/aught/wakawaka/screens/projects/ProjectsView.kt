@@ -52,6 +52,7 @@ import com.aught.wakawaka.data.WakaHelpers
 import androidx.core.content.edit
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.runtime.collectAsState
 import androidx.navigation.NavHostController
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -63,6 +64,7 @@ import com.aught.wakawaka.data.WakaDataHandler
 import com.aught.wakawaka.utils.ColorUtils
 import com.aught.wakawaka.widget.WakaWidgetHelpers
 import com.aught.wakawaka.workers.WakaProjectWidgetUpdateWorker
+import org.koin.androidx.compose.koinViewModel
 import scrollBlurEffects
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -82,7 +84,10 @@ fun setProjectAssignedToProjectWidget(context: Context, projectName: String?) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProjectsView(navController: NavHostController) {
+fun ProjectsView(
+    navController: NavHostController,
+    viewModel: ProjectsViewModel = koinViewModel()
+) {
     val context = LocalContext.current
     val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
     val wakaDataHandler = WakaDataHandler.fromContext(context)
@@ -108,7 +113,9 @@ fun ProjectsView(navController: NavHostController) {
         mutableStateOf(false)
     }
 
-    val noProjectsAvailable = wakaDataHandler.sortedProjectList.isEmpty()
+    val projects by viewModel.projects.collectAsState()
+
+    val noProjectsAvailable = projects.isEmpty()
 
     Column(
         modifier = Modifier
@@ -153,7 +160,8 @@ fun ProjectsView(navController: NavHostController) {
                             searchQuery = ""
                         }
                     },
-                    enabled = wakaDataHandler.sortedProjectList.isNotEmpty(),
+//                    enabled = wakaDataHandler.sortedProjectList.isNotEmpty(),
+                    enabled = !noProjectsAvailable,
                     modifier = Modifier
                         .padding(0.dp)
                         .size(32.dp)
@@ -214,8 +222,8 @@ fun ProjectsView(navController: NavHostController) {
         val lazyListState = rememberLazyListState()
 
         if (!noProjectsAvailable) {
-            val projects = wakaDataHandler.sortedProjectList.filter {
-                searchQuery.isEmpty() || it.contains(searchQuery, ignoreCase = true)
+            val projects = projects.filter {
+                searchQuery.isEmpty() || it.name.contains(searchQuery, ignoreCase = true)
             }
             Box(
                 contentAlignment = Alignment.Center,
@@ -232,7 +240,7 @@ fun ProjectsView(navController: NavHostController) {
                     state = lazyListState,
                 ) {
                     items(projects) {
-                        val projectName = it
+                        val projectName = it.name
                         val isProjectAssignedToProjectWidget = projectAssignedToProjectWidget == projectName
                         val isExpanded = expandedProjectName == projectName
 
@@ -242,9 +250,7 @@ fun ProjectsView(navController: NavHostController) {
                                 .padding(vertical = 8.dp)
                                 .animateContentSize()
                         ) {
-                            val totalHours: Int = (
-                                    wakaDataHandler.projectSpecificData[projectName]?.dailyDurationInSeconds
-                                        ?.values?.sum() ?: 0) / 3600
+                            val totalHours: Int = it.dailyDurationInSeconds.values.sum() / 3600
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -285,7 +291,9 @@ fun ProjectsView(navController: NavHostController) {
 
                                     IconButton(
 //                            modifier = Modifier.width(18.dp),
-                                        modifier = Modifier.padding(end=6.dp).size(20.dp),
+                                        modifier = Modifier
+                                            .padding(end = 6.dp)
+                                            .size(20.dp),
                                         onClick = {
                                             // navigate to project details
                                             navController.navigate(Screen.ProjectDetails.createRoute(projectName))
@@ -297,18 +305,6 @@ fun ProjectsView(navController: NavHostController) {
                                             tint = MaterialTheme.colorScheme.onSurface,
                                         )
                                     }
-//                                    IconButton(
-//                                        modifier = Modifier.size(25.dp),
-//                                        onClick = {
-//                                            expandedProjectName = if (isExpanded) null else projectName
-//                                        },
-//                                    ) {
-//                                        Icon(
-//                                            if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-//                                            contentDescription = "Expand/Collapse project graph",
-//                                            tint = MaterialTheme.colorScheme.onSurface,
-//                                        )
-//                                    }
                                 }
                             }
                             if (isExpanded) {
