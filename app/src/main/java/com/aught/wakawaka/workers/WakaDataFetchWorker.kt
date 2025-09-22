@@ -15,6 +15,7 @@ import com.aught.wakawaka.data.DurationStats
 import com.aught.wakawaka.data.NotificationData
 import com.aught.wakawaka.data.ProjectSpecificData
 import com.aught.wakawaka.data.ProjectStats
+import com.aught.wakawaka.data.SettingsData
 import com.aught.wakawaka.data.StreakData
 import com.aught.wakawaka.data.SummariesResponse
 import com.aught.wakawaka.data.TimePeriod
@@ -655,6 +656,20 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                 ?: WakaHelpers.Companion.INITIAL_WAKA_STATISTICS
         }
 
+        fun loadSettingsData(context: Context): SettingsData {
+            val prefs =
+                context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+
+            val aggregateData = loadAggregateData(context)
+
+            return SettingsData(
+                prefs.getString(WakaHelpers.WAKATIME_API, "") ?: "",
+                aggregateData.dailyTargetHours,
+                aggregateData.weeklyTargetHours,
+                aggregateData.excludedDaysFromDailyStreak
+            )
+        }
+
         fun loadNotificationData(context: Context): NotificationData {
             val prefs =
                 context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
@@ -769,6 +784,22 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                     WakaHelpers.Companion.PROJECT_SPECIFIC_DATA_KEY,
                     mapAdapter.toJson(projectDataStringMap)
                 )
+            }
+        }
+
+        fun saveSettingsData(context: Context,settingsData: SettingsData) {
+            val prefs =
+                context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+
+            val aggregateData = loadAggregateData(context)
+            val newAggregateData = aggregateData.copy(
+                dailyTargetHours = settingsData.dailyTargetHours,
+                weeklyTargetHours = settingsData.weeklyTargetHours,
+                excludedDaysFromDailyStreak = settingsData.dailyStreakExcludedDays
+            )
+            saveAggregateData(context, newAggregateData)
+            prefs.edit {
+                putString(WakaHelpers.WAKATIME_API, settingsData.wakatimeAPIKey)
             }
         }
 

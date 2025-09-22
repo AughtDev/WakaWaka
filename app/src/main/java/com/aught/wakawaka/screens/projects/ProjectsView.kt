@@ -370,13 +370,9 @@ fun ProjectsView(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectGraph(
-//    wakaDataHandler: WakaDataHandler,
     projectName: String,
     viewModel: ProjectsViewModel = koinViewModel()
 ) {
-
-    val dataRequest = DataRequest.ProjectSpecific(projectName)
-
     var graphMode by remember {
         mutableStateOf(GraphMode.Daily)
     }
@@ -388,24 +384,12 @@ fun ProjectGraph(
     // graph data
     val gd = viewModel.getProjectGraphData(projectName, timePeriod) ?: return
 
-//    val data = wakaDataHandler.getPeriodicDurationsInSeconds(dataRequest, timePeriod, 7)
-//    val dates = getPeriodicDates(timePeriod, 7)
-
-//    val targetInHours = wakaDataHandler.getTarget(dataRequest, timePeriod)
-
     val maxHours =
         when (graphMode) {
             GraphMode.Daily -> 24 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
             GraphMode.Weekly -> 24 * 7 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
         }
 
-//    val streak = wakaDataHandler.getStreak(dataRequest, timePeriod).count
-//
-//    val hitTargetToday = wakaDataHandler.targetHit(dataRequest, timePeriod)
-//
-//    val excludedDays = wakaDataHandler.getExcludedDays(dataRequest, timePeriod)
-//
-//    val projectColor = wakaDataHandler.getProjectColor(projectName)
     val textColor = ColorUtils.desaturate(gd.color, 0.3f)
 
     Box(

@@ -51,10 +51,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.StrokeCap
 import org.koin.androidx.compose.koinViewModel
 
 fun refreshWakaData(context: Context, setIsLoading: ((Boolean) -> Unit)) {
@@ -102,17 +106,32 @@ fun HomeView(
 
     val uiState by viewModel.uiState.collectAsState()
 
-//    val durationLabelValueMap by viewModel.durationLabelValueMap.collectAsState()
-//
-//    val selectedProject by viewModel.selectedProjectName.collectAsState()
-//
-//    val dateToDurationMap by viewModel.dateToDurationMap.collectAsState()
-//
-//    val dailyTargetStreakData by viewModel.dailyTargetStreakData.collectAsState()
-//
-//    val projectColor by viewModel.projectColor.collectAsState()
-
-
+    if (uiState.unloaded) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.7f),
+            contentAlignment = Alignment.Center
+        ) {
+//            CircularProgressIndicator(
+//                modifier = Modifier
+//                    .fillMaxWidth(0.4f),
+////                    .height(16.dp),
+//                strokeCap = StrokeCap.Round,
+////                gapSize = 12.dp
+//                strokeWidth = 12.dp
+//            )
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth(0.7f)
+                    .height(16.dp),
+                strokeCap = StrokeCap.Round,
+                gapSize = 12.dp
+//                strokeWidth = 12.dp
+            )
+        }
+        return
+    }
 
     var isRefreshingData by remember { mutableStateOf(false) }
 
@@ -144,13 +163,16 @@ fun HomeView(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     ProjectSelector(
-                        uiState.selectedProjectName, listOf(WakaHelpers.ALL_PROJECTS_ID) + projects.map { it.name }
+                        uiState.selectedProjectName,
+                        listOf(WakaHelpers.ALL_PROJECTS_ID) + projects.map { it.name }
                     ) {
                         viewModel.selectProject(it)
                     }
 
                     Text(
-                        text = WakaHelpers.durationInSecondsToDurationString(uiState.durationLabelValueMap["All Time"] ?: 0),
+                        text = WakaHelpers.durationInSecondsToDurationString(
+                            uiState.durationLabelValueMap["All Time"] ?: 0
+                        ),
                         fontSize = 24.sp
                     )
                 }
@@ -179,32 +201,7 @@ fun HomeView(
             // ? ........................
             // endregion ........................
 
-//            val targetInHours by remember {
-//                derivedStateOf {
-//                    if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
-//                        aggregateData?.dailyTargetHours
-//                    } else {
-//                        projectSpecificData[selectedProject]?.dailyTargetHours
-//                    }
-//                }
-//            }
-
             val primaryColor = MaterialTheme.colorScheme.primary
-
-//            val projectColor by remember {
-//                derivedStateOf {
-//                    if (selectedProject == WakaHelpers.ALL_PROJECTS_ID) {
-//                        primaryColor
-//                    } else {
-//                        if (projectSpecificData[selectedProject]?.color == null) {
-//                            WakaHelpers.projectNameToColor(selectedProject)
-//                        } else {
-//                            runCatching { Color(projectSpecificData[selectedProject]!!.color.toColorInt()) }.getOrNull()
-//                                ?: WakaHelpers.projectNameToColor(selectedProject)
-//                        }
-//                    }
-//                }
-//            }
 
             CalendarGraph(
                 projectName = uiState.selectedProjectName,

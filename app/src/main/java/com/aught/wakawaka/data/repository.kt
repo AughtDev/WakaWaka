@@ -14,9 +14,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+
 interface WakaDataRepository {
     public val projects: ProjectsRepository
     public val statistics: StatisticsRepository
+    public val settings: SettingsRepository
 }
 
 
@@ -28,6 +30,11 @@ interface ProjectsRepository {
 
 interface StatisticsRepository {
     fun get(): StateFlow<WakaStatistics>
+}
+
+interface SettingsRepository {
+    fun get(): StateFlow<SettingsData>
+    fun save(settingsData: SettingsData)
 }
 
 class WakaDataRepositoryImpl(
@@ -45,9 +52,16 @@ class WakaDataRepositoryImpl(
         MutableStateFlow(WakaDataFetchWorker.loadProjectSpecificData(context))
     private val projectsDataFlow: StateFlow<Map<String, ProjectSpecificData>> = _projectsDataFlow
 
+
     private val _statisticsFlow =
         MutableStateFlow(WakaDataFetchWorker.loadWakaStatistics(context))
     private val statisticsFlow: StateFlow<WakaStatistics> = _statisticsFlow
+
+
+    private val _settingsFlow =
+        MutableStateFlow(WakaDataFetchWorker.loadSettingsData(context))
+    private val settingsFlow: StateFlow<SettingsData> = _settingsFlow
+
 
     private val sharedPrefsListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, changedKey ->
@@ -56,6 +70,9 @@ class WakaDataRepositoryImpl(
                 WakaHelpers.AGGREGATE_DATA_KEY -> {
                     val newAggregateData = WakaDataFetchWorker.loadAggregateData(context)
                     _aggregateDataFlow.value = newAggregateData
+
+                    val newSettingsData = WakaDataFetchWorker.loadSettingsData(context)
+                    _settingsFlow.value = newSettingsData
                 }
 
                 WakaHelpers.PROJECT_SPECIFIC_DATA_KEY -> {
@@ -66,6 +83,11 @@ class WakaDataRepositoryImpl(
                 WakaHelpers.WAKA_STATISTICS_KEY -> {
                     val newStatisticsData = WakaDataFetchWorker.loadWakaStatistics(context)
                     _statisticsFlow.value = newStatisticsData
+                }
+
+                WakaHelpers.WAKATIME_API -> {
+                    val newSettingsData = WakaDataFetchWorker.loadSettingsData(context)
+                    _settingsFlow.value = newSettingsData
                 }
             }
         }
@@ -93,4 +115,16 @@ class WakaDataRepositoryImpl(
             return statisticsFlow
         }
     }
+
+    public override val settings: SettingsRepository = object : SettingsRepository {
+        override fun get(): StateFlow<SettingsData> {
+            return settingsFlow
+        }
+
+        override fun save(settingsData: SettingsData) {
+            WakaDataFetchWorker.saveSettingsData(context, settingsData)
+        }
+    }
+
+
 }

@@ -240,7 +240,7 @@ class WakaDataUseCase(wakaDataRepository: WakaDataRepository) {
     }
 
     fun getProjects(sorted: Boolean = false): Flow<List<ProjectSpecificData>> {
-        return if (sorted) {
+        return if (!sorted) {
             p.list()
         } else {
             p.list().map {

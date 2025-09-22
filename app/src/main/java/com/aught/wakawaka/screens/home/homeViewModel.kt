@@ -29,6 +29,7 @@ data class HomeUIState(
     val dailyTargetStreakData: TargetStreakData = TargetStreakData(null, 0, 0f, false),
     val weeklyTargetStreakData: TargetStreakData = TargetStreakData(null, 0, 0f, false),
     val isLoading: Boolean = false,
+    val unloaded: Boolean = true
 )
 
 class HomeViewModel(
@@ -38,7 +39,7 @@ class HomeViewModel(
     // region GLOBAL DATA
     // ? ........................
 
-    val projects: StateFlow<List<ProjectSpecificData>> = wakaDataUseCase.getProjects().stateIn(
+    val projects: StateFlow<List<ProjectSpecificData>> = wakaDataUseCase.getProjects(true).stateIn(
         viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList()
@@ -146,11 +147,11 @@ class HomeViewModel(
                         projectColor = colorState.data,
                         dailyTargetStreakData = dailyStreakState.data,
                         weeklyTargetStreakData = weeklyStreakState.data,
-                        isLoading = false
+                        isLoading = false, unloaded = false
                     )
                 } else {
                     // If any stream is still loading, reflect that in the state
-                    HomeUIState(selectedProjectName = projectName, isLoading = true)
+                    HomeUIState(selectedProjectName = projectName, unloaded = false, isLoading = true)
                 }
             }
         }
@@ -159,7 +160,7 @@ class HomeViewModel(
     val uiState: StateFlow<HomeUIState> = projectSpecificDataFlow
         .scan(HomeUIState(isLoading = true)) { previous, current ->
             // Only log when loading state changes
-            if (current.isLoading) {
+            if (current.isLoading ) {
                 previous.copy(
                     isLoading = true
                 )
@@ -170,7 +171,7 @@ class HomeViewModel(
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = HomeUIState(isLoading = true)
+            initialValue = HomeUIState(isLoading = true, unloaded = true)
         )
 
     fun selectProject(projectName: String) {

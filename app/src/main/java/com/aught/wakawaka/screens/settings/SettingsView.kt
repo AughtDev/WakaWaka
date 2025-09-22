@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -34,6 +35,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,80 +47,79 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Observer
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import com.aught.wakawaka.data.AggregateData
-import com.aught.wakawaka.data.DayOfWeek
-import com.aught.wakawaka.data.StreakData
 import com.aught.wakawaka.workers.WakaDataFetchWorker
-import com.aught.wakawaka.data.WakaHelpers
-import com.aught.wakawaka.data.WakaURL
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.koin.androidx.compose.koinViewModel
 import java.time.Duration
+
+const val DEFAULT_DAILY_TARGET = 2f
+const val DEFAULT_WEEKLY_TARGET = 10f
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsView(modifier: Modifier = Modifier) {
+fun SettingsView(
+    modifier: Modifier = Modifier,
+    viewModel: SettingsViewModel = koinViewModel()
+) {
     val context = LocalContext.current
-    val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
+    val settings by viewModel.settings.collectAsState()
+
+    var currSettings by remember {
+        mutableStateOf(settings)
+    }
+
+    LaunchedEffect(settings) {
+        // when settings changes, change currSettings
+        currSettings = settings
+    }
+
+//    val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
 
 //    val aggregateData = WakaDataWorker.loadAggregateData(context)
-    val aggregateData =
-        WakaDataFetchWorker.loadAggregateData(context) ?: WakaHelpers.INITIAL_AGGREGATE_DATA
+//    val aggregateData =
+//        WakaDataFetchWorker.loadAggregateData(context) ?: WakaHelpers.INITIAL_AGGREGATE_DATA
 
 
     // State variables for form fields
-    var wakatimeAPIKey by remember {
-        mutableStateOf(prefs.getString(WakaHelpers.WAKATIME_API, "") ?: "")
-    }
+//    var wakatimeAPIKey by remember {
+//        mutableStateOf(prefs.getString(WakaHelpers.WAKATIME_API, "") ?: "")
+//    }
 
-    var wakapiAPIKey by remember {
-        mutableStateOf(prefs.getString(WakaHelpers.WAKAPI_API, "") ?: "")
-    }
-
-    var withDailyTarget by remember {
-        mutableStateOf(
-            aggregateData.dailyTargetHours != null
-        )
-    }
-    var dailyTarget by remember {
-        mutableStateOf(aggregateData?.dailyTargetHours ?: 2f)
-    }
-
-    var withWeeklyTarget by remember {
-        mutableStateOf(
-            aggregateData?.weeklyTargetHours != null
-        )
-    }
-    var weeklyTarget by remember {
-        mutableStateOf(aggregateData?.weeklyTargetHours ?: 10f)
-    }
-
-//    val apiOptions = listOf(WakaURL.WAKATIME.url, WakaURL.WAKAPI.url)
-//    var selectedApiOption by remember {
+//    var withDailyTarget by remember {
 //        mutableStateOf(
-//            prefs.getString(WakaHelpers.WAKA_URL, WakaURL.WAKATIME.url) ?: WakaHelpers.WAKA_URL
+//            aggregateData.dailyTargetHours != null
 //        )
 //    }
-    val selectedApiOption = WakaURL.WAKATIME.url
+//    var dailyTarget by remember {
+//        mutableStateOf(aggregateData?.dailyTargetHours ?: 2f)
+//    }
 
-    var selectedThemeOption by remember {
-//        mutableStateOf(prefs.getInt(WakaHelpers.THEME, 0))
-        // enforce dark mode
-        mutableStateOf(1)
-    }
-
-    var dailyStreakExcludedDays by remember {
-        mutableStateOf(
-            aggregateData?.excludedDaysFromDailyStreak ?: listOf(DayOfWeek.SUNDAY.index)
-        )
-    }
+//    var withWeeklyTarget by remember {
+//        mutableStateOf(
+//            aggregateData?.weeklyTargetHours != null
+//        )
+//    }
+//    var weeklyTarget by remember {
+//        mutableStateOf(aggregateData?.weeklyTargetHours ?: 10f)
+//    }
+//
+//    val selectedApiOption = WakaURL.WAKATIME.url
+//
+//
+//    var dailyStreakExcludedDays by remember {
+//        mutableStateOf(
+//            aggregateData?.excludedDaysFromDailyStreak ?: listOf(DayOfWeek.SUNDAY.index)
+//        )
+//    }
 
 
     var alertData by remember { mutableStateOf<AlertData?>(null) }
@@ -137,56 +139,64 @@ fun SettingsView(modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxWidth()
         )
 
-        val apiKey =
-            if (selectedApiOption == WakaURL.WAKATIME.url) wakatimeAPIKey else wakapiAPIKey
 
         // API Key Input
         APIKeyCard(
-            apiKey = apiKey,
+            apiKey = currSettings.wakatimeAPIKey,
             onApiKeyChange = {
-                if (selectedApiOption == WakaURL.WAKATIME.url) {
+//                wakatimeAPIKey = it
+                currSettings = currSettings.copy(
                     wakatimeAPIKey = it
-                } else {
-                    wakapiAPIKey = it
-                }
+                )
             },
-            isWakatime = selectedApiOption == WakaURL.WAKATIME.url
+            isWakatime = true
         )
 
 
         Spacer(modifier = Modifier.height(8.dp))
 
         DailyTargetCard(
-            dailyTarget = dailyTarget,
-            withDailyTarget = withDailyTarget,
-            dailyStreakExcludedDays = dailyStreakExcludedDays,
-            onDailyTargetChange = { dailyTarget = it },
-            onWithDailyTargetChange = { withDailyTarget = it },
-            onExcludedDaysChange = { dailyStreakExcludedDays = it }
+            dailyTarget = currSettings.dailyTargetHours ?: DEFAULT_DAILY_TARGET,
+            withDailyTarget = currSettings.dailyTargetHours != null,
+            dailyStreakExcludedDays = currSettings.dailyStreakExcludedDays,
+            onDailyTargetChange = {
+                currSettings = currSettings.copy(
+                    dailyTargetHours = it
+                )
+            },
+            onWithDailyTargetChange = {
+                currSettings = currSettings.copy(
+                    dailyTargetHours = if (it) DEFAULT_DAILY_TARGET else null
+                )
+            },
+            onExcludedDaysChange = {
+                currSettings = currSettings.copy(
+                    dailyStreakExcludedDays = it
+                )
+            }
         )
 
         // Weekly Target Section
 
         WeeklyTargetCard(
-            weeklyTarget = weeklyTarget,
-            withWeeklyTarget = withWeeklyTarget,
-            onWeeklyTargetChange = { weeklyTarget = it },
-            onWithWeeklyTargetChange = { withWeeklyTarget = it }
+            weeklyTarget = currSettings.weeklyTargetHours ?: DEFAULT_WEEKLY_TARGET,
+            withWeeklyTarget = currSettings.weeklyTargetHours != null,
+            onWeeklyTargetChange = {
+                currSettings = currSettings.copy(
+                    weeklyTargetHours = it
+                )
+            },
+            onWithWeeklyTargetChange = {
+                currSettings = currSettings.copy(
+                    weeklyTargetHours = if (it) DEFAULT_WEEKLY_TARGET else null
+                )
+            }
         )
 
-        // Theme Selection Section
-//        ThemeSelectionCard(
-//            selectedThemeOption = selectedThemeOption,
-//            onThemeOptionChange = { selectedThemeOption = it }
-//        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        val apiKeyFilled = if (selectedApiOption == WakaURL.WAKATIME.url) {
-            wakatimeAPIKey.isNotEmpty()
-        } else {
-            wakapiAPIKey.isNotEmpty()
-        }
+        val apiKeyFilled = currSettings.wakatimeAPIKey.isNotEmpty()
 
         // Info card
         if (!apiKeyFilled) {
@@ -226,7 +236,7 @@ fun SettingsView(modifier: Modifier = Modifier) {
         }
 
         // Success message
-        AlertPane(alertData, alertData != null)
+//        AlertPane(alertData, alertData != null)
 
         val crtScope = rememberCoroutineScope()
 
@@ -234,43 +244,41 @@ fun SettingsView(modifier: Modifier = Modifier) {
         // Save Button
         Button(
             onClick = {
-                val updatedAggregateData = AggregateData(
-                    aggregateData.dailyRecords,
-                    if (withDailyTarget) dailyTarget else null,
-                    if (withWeeklyTarget) weeklyTarget else null,
-                    // if the daily target hours or weekly target hours have been changed, reset the streaks so that they can be recalculated
-                    if (
-                        aggregateData.dailyTargetHours != dailyTarget ||
-                        // or if excluded days have been changed
-                        aggregateData.excludedDaysFromDailyStreak != dailyStreakExcludedDays
-                    ) StreakData(
-                        0,
-                        WakaHelpers.ZERO_DAY
-                    ) else aggregateData.dailyStreak,
-                    if (aggregateData.weeklyTargetHours != weeklyTarget) StreakData(
-                        0,
-                        WakaHelpers.ZERO_DAY
-                    ) else aggregateData.weeklyStreak,
-                    dailyStreakExcludedDays
-                )
-
-                WakaDataFetchWorker.saveAggregateData(context, updatedAggregateData)
-
-                // Save settings to preferences
-                prefs.edit().apply {
-                    putString(WakaHelpers.WAKA_URL, selectedApiOption)
-                    if (selectedApiOption == WakaURL.WAKATIME.url) {
-                        putString(WakaHelpers.WAKATIME_API, wakatimeAPIKey)
-                    } else {
-                        putString(WakaHelpers.WAKAPI_API, wakapiAPIKey)
-                    }
-                    putInt(WakaHelpers.THEME, selectedThemeOption)
-                    apply()
-                }
-
+//                // Save aggregate data to preferences
+//                val updatedAggregateData = AggregateData(
+//                    aggregateData.dailyRecords,
+//                    if (withDailyTarget) dailyTarget else null,
+//                    if (withWeeklyTarget) weeklyTarget else null,
+//                    // if the daily target hours or weekly target hours have been changed, reset the streaks so that they can be recalculated
+//                    if (
+//                        aggregateData.dailyTargetHours != dailyTarget ||
+//                        // or if excluded days have been changed
+//                        aggregateData.excludedDaysFromDailyStreak != dailyStreakExcludedDays
+//                    ) StreakData(
+//                        0,
+//                        WakaHelpers.ZERO_DAY
+//                    ) else aggregateData.dailyStreak,
+//                    if (aggregateData.weeklyTargetHours != weeklyTarget) StreakData(
+//                        0,
+//                        WakaHelpers.ZERO_DAY
+//                    ) else aggregateData.weeklyStreak,
+//                    dailyStreakExcludedDays
+//                )
+//
+//                WakaDataFetchWorker.saveAggregateData(context, updatedAggregateData)
+//
+//                // Save settings to preferences
+//                prefs.edit().apply {
+//                    putString(WakaHelpers.WAKA_URL, selectedApiOption)
+//                    putString(WakaHelpers.WAKATIME_API, wakatimeAPIKey)
+//                    apply()
+//                }
+//
+                viewModel.saveSettings(currSettings)
                 crtScope.launch {
                     // Schedule the one time immediate worker
-                    val immediateWorkRequest = OneTimeWorkRequestBuilder<WakaDataFetchWorker>().build()
+                    val immediateWorkRequest =
+                        OneTimeWorkRequestBuilder<WakaDataFetchWorker>().build()
                     WorkManager.getInstance(context).enqueue(immediateWorkRequest)
 
                     // Schedule the periodic
@@ -307,6 +315,42 @@ fun SettingsView(modifier: Modifier = Modifier) {
         )
 
         DataSection(context)
+
+
+        // alert dialog instead of pane
+        if (alertData != null) {
+            AlertDialog(
+                onDismissRequest = {
+                    alertData = null
+                },
+                title = {
+                    Text(
+                        when (alertData?.type) {
+                            AlertType.Success -> "Success"
+                            AlertType.Failure -> "Error"
+//                        AlertType.Warning -> "Warning"
+                            else -> ""
+                        },
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            textAlign = TextAlign.Center
+                        ),
+                    )
+                },
+                text = {
+                    Text(alertData?.message ?: "")
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            alertData = null
+                        }
+                    ) {
+                        Text("OK")
+                    }
+                }
+            )
+        }
+
     }
 }
 

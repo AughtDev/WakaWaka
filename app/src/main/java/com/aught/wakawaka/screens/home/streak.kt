@@ -58,6 +58,7 @@ import androidx.core.graphics.toColorInt
 import com.aught.wakawaka.data.ProjectSpecificData
 import com.aught.wakawaka.data.TargetStreakData
 import com.aught.wakawaka.data.TimePeriod
+import com.aught.wakawaka.data.WakaDataTransformers
 import com.aught.wakawaka.data.WakaDataUseCase
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.screens.badges.getMilestoneIndex
@@ -172,7 +173,7 @@ fun getProjectTargetStreak(project: ProjectSpecificData, period: TimePeriod): Ta
         else -> 0
     }
 
-    val duration = WakaDataUseCase.calcOffsetPeriodicDurationInSeconds(project.dailyDurationInSeconds, TimePeriod.DAY, 0)
+    val duration = WakaDataTransformers.calcOffsetPeriodicDurationInSeconds(project.dailyDurationInSeconds, TimePeriod.DAY, 0)
     val completion = if (target == null) {
         if (duration > 0) 1f else 0f
     } else (duration.toFloat() / (target * 3600)).coerceIn(0f, 1f)

@@ -159,6 +159,8 @@ data class AggregateData(
     val excludedDaysFromDailyStreak: List<Int>, // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
 )
 
+
+
 // endregion
 
 // region DATA CLASSES FOR SPECIFIC PROJECT DATA
@@ -208,6 +210,20 @@ data class NotificationData(
 
 // endregion
 
+
+// region DATA CLASSES FOR SETTINGS DATA
+// ? ........................
+
+data class SettingsData (
+    val wakatimeAPIKey: String = "",
+    val dailyTargetHours: Float? = null,
+    val weeklyTargetHours: Float? = null,
+
+    val dailyStreakExcludedDays: List<Int> = listOf()
+)
+
+// ? ........................
+// endregion ........................
 
 
 // region DATA CLASSES FOR CHEAT DAY DATA
