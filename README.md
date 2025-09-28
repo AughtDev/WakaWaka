@@ -1,10 +1,12 @@
+ 
+
 # **WakaWaka 📊**
+
+![](assets\icons\wakawaka_logo.png)
 
 **Your WakaTime stats, on your phone, for free. Forever.**
 
 WakaWaka is a free and open-source Android client for WakaTime. It fetches your coding data and presents it beautifully on your device. Say goodbye to paywalled historical data—WakaWaka keeps all your stats stored locally on your phone, giving you full access to your entire coding history.
-
-\`\`
 
 ## **✨ Features**
 
@@ -20,11 +22,11 @@ WakaWaka is packed with features to help you track and visualize your coding pro
 
 ## **📸 Screenshots**
 
-| Home Screen | Project Details |
-| :---- | :---- |
-| \` | \` |
-| **Shareable Metrics** | **Home Screen Widgets** |
-| \` | \` |
+| Projects Tab                                                                                              | Home Tab                                                                                                         | Settings Tab                                                                                          |
+|:----------------------------------------------------------------------------------------------------------|:---------------------------------------------------------------------------------------------------------------- |-------------------------------------------------------------------------------------------------------|
+| ![home](assets\app\projects-tab-screenshot.jpg)         | ![Single Project](assets\app\home-tab-screenshot.jpg)          | ![Settings](assets\app\settings-tab-screenshot.jpg) |
+| **Aggregate Details**                                                                                     | **Project Details**                                                                                              | **Home Screen Widgets**                                                                               |
+| ![Details](assets\app\aggregate-details-screenshot.jpg) | ![Widgets](assets\app\wakawaka-project-details-screenshot.jpg) | ![Widgets](assets\app\widgets-screenshot.jpg)       |
 
 ## **🚀 Getting Started**
 
@@ -34,21 +36,29 @@ Setting up WakaWaka is quick and easy.
    * Head over to the [**Releases**](https://www.google.com/search?q=https://github.com/your-username/your-repo/releases) page.  
    * Download the latest .apk file and install it on your Android device.  
 2. **Get Your WakaTime API Key**  
-   * Log in to your account on the [WakaTime Website](https://wakatime.com/).  
+   * Log in to your account on the https://wakatime.com/.  
    * Navigate to your [**Settings**](https://wakatime.com/settings/account) page.  
    * Find your **Secret API Key** and copy it. It will be a long string of characters.
 
-\`\`
+![](assets\wakatime\wakatime-api-screenshot-with-arrow.png)
 
 3. **Set Up the App**  
    * Open WakaWaka and go to the **Settings** tab (the rightmost icon on the bottom bar).  
    * Paste your Secret API Key into the designated field and save it. The app will begin fetching your recent data.
 
-\`\`
+![](assets\wakatime\settings-tab-screenshot-with-arrows.jpg)
 
 4. **(Optional) Import Your Full History**  
-   * To get all your historical data, request a [data dump](https://www.google.com/search?q=https://wakatime.com/settings/export) from WakaTime.  
-   * Once you receive the .zip file, use the **"Import Data Dump"** option in the WakaWaka settings to populate the app with your entire coding history.
+   * To get all your historical data, request a data dump from WakaTime.  
+   * You do this by going to the [account tab](https://wakatime.com/settings/account) in your settings page, scrolling down to export, then in the modal that pops up, click on "Daily Totals"
+   * The data dump will proceed and when it's done, you will receive an email with a link to a json file
+   * Once you receive the json file and unzip it, use the **"Import Data Dump"** option in the WakaWaka settings to populate the app with your entire coding history.
+   
+   
+   
+   ![](assets\wakatime\wakatime-export-data-dump-screenshot-with-arrow.png)
+   
+   ![](assets\wakatime\wakatime-export-daily-totals-screenshot-with-arrow.png)
 
 ## **🤝 Contributing**
 
@@ -56,4 +66,11 @@ This project is open-source and contributions are welcome\! Feel free to open an
 
 ## **📜 License**
 
-This project is licensed under the [MIT License](https://www.google.com/search?q=LICENSE).
+This project is licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](LICENSE).
+
+In short, this means:
+
+* **You are free to share and adapt** this project for any non-commercial purpose.
+* **You must give appropriate credit** and provide a link to the license.
+* If you remix, transform, or build upon the material, you must distribute your contributions under the **same license** as the original.
+* **You may not use the material for commercial purposes.**
