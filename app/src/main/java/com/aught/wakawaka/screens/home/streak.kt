@@ -140,9 +140,10 @@ fun DailyStreakDisplay(
                 }
             ) {
                 ProjectStreakDialog(
-                    projectName, if (uiState.selectedProjectName != WakaHelpers.ALL_PROJECTS_ID) null else {
-                    { activeDialog = ActiveStreakDialog.Aggregate }
-                })
+                    projectName,
+                    if (uiState.selectedProjectName != WakaHelpers.ALL_PROJECTS_ID) null else {
+                        { activeDialog = ActiveStreakDialog.Aggregate }
+                    })
             }
         }
     }
@@ -173,7 +174,11 @@ fun getProjectTargetStreak(project: ProjectSpecificData, period: TimePeriod): Ta
         else -> 0
     }
 
-    val duration = WakaDataTransformers.calcOffsetPeriodicDurationInSeconds(project.dailyDurationInSeconds, TimePeriod.DAY, 0)
+    val duration = WakaDataTransformers.calcOffsetPeriodicDurationInSeconds(
+        project.dailyDurationInSeconds,
+        TimePeriod.DAY,
+        0
+    )
     val completion = if (target == null) {
         if (duration > 0) 1f else 0f
     } else (duration.toFloat() / (target * 3600)).coerceIn(0f, 1f)
@@ -190,11 +195,13 @@ fun getProjectTargetStreak(project: ProjectSpecificData, period: TimePeriod): Ta
 fun targetToText(target: Float?): String {
     if (target == null) return "?? hrs"
     val hours = target.toInt()
+    val hoursSuffix = if (hours == 1) "hr" else "hrs"
     val minutes = ((target - hours) * 60).roundToInt()
+    val minutesSuffix = if (minutes == 1) "min" else "mins"
     return when {
-        hours > 0 && minutes > 0 -> "$hours hrs $minutes mins"
-        hours > 0 -> "$hours hrs"
-        minutes > 0 -> "$minutes mins"
+        hours > 0 && minutes > 0 -> "$hours $hoursSuffix $minutes $minutesSuffix"
+        hours > 0 -> "$hours $hoursSuffix"
+        minutes > 0 -> "$minutes $minutesSuffix"
         else -> "0 hrs"
     }
 }
@@ -670,7 +677,8 @@ fun AggregateStreakDialog(
 //                                        DataRequest.ProjectSpecific(it.name),
 //                                        TimePeriod.WEEK
 //                                    )
-                                    val weeklyStreakData = getProjectTargetStreak(it, TimePeriod.WEEK)
+                                    val weeklyStreakData =
+                                        getProjectTargetStreak(it, TimePeriod.WEEK)
                                     StreakValueDisplay(
                                         streak = weeklyStreakData.streak,
                                         completion = weeklyStreakData.completion,

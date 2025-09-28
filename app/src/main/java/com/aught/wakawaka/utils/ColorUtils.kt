@@ -12,17 +12,12 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
@@ -37,8 +32,6 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.toColor
-import androidx.core.graphics.toRect
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.floor
@@ -49,6 +42,19 @@ import kotlin.math.pow
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.RoundedBitmapDrawable
 import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory
+import com.aught.wakawaka.utils.ColorUtils.Companion.hexToColor
+
+data class StreakColors(
+    val colors: List<Color>,
+    val inactiveColors: List<Color>,
+    val bgColors: List<Color>
+)
+
+// region APP SPECIFIC COLOR FUNCTIONS
+const val DEFAULT_BG_ALPHA = 0.4f
+const val ACTIVE_DESATURATION = 0.4f
+const val INACTIVE_DESATURATION = 0.7f
+
 
 class ColorUtils {
     companion object {
@@ -250,34 +256,103 @@ class ColorUtils {
 
         // endregion
 
-        // region APP SPECIFIC COLOR FUNCTIONS
+        val DEFAULT_BG_RED = hexToColor("#ff7777").copy(0.8f)
+        val DEFAULT_BG_BLACK = hexToColor("#000000").copy(DEFAULT_BG_ALPHA)
+        
+        // region CODEFORCES DEFAULT COLORS
+        // ? ........................
 
-        private val streakColors: List<List<Color>> = listOf(
+        private val NEWBIE = Color.Gray 
+        private val PUPIL = Color.Green
+        private val SPECIALIST = Color.Cyan
+        private val EXPERT = Color.Blue
+        private val CANDIDATE_MASTER = hexToColor("#AA00AA") // Violet
+        private val MASTER = hexToColor("#FFAA00") // Orange
+        private val GRANDMASTER = Color.Red
+        private val LEGENDARY_GRANDMASTER = hexToColor("#000000") // Black
+
+        // ? ........................
+        // endregion ........................
+
+
+        private val streakColors: List<StreakColors> = listOf(
             // Newbie - Gray
-            listOf(Color.Gray),
+            StreakColors(
+                colors = listOf(desaturate(NEWBIE, ACTIVE_DESATURATION)),
+                inactiveColors = listOf(desaturate(NEWBIE, INACTIVE_DESATURATION)),
+                bgColors = listOf(DEFAULT_BG_BLACK)
+            ),
             // Pupil - Green
-            listOf(Color.Green),
+            StreakColors(
+                colors = listOf(desaturate(PUPIL, ACTIVE_DESATURATION)),
+                inactiveColors = listOf(desaturate(PUPIL, INACTIVE_DESATURATION)),
+                bgColors = listOf(DEFAULT_BG_BLACK)
+            ),
             // Specialist - Cyan
-            listOf(Color.Cyan),
+            StreakColors(
+                colors = listOf(desaturate(SPECIALIST, ACTIVE_DESATURATION)),
+                inactiveColors = listOf(desaturate(SPECIALIST, INACTIVE_DESATURATION)),
+                bgColors = listOf(DEFAULT_BG_BLACK)
+            ),
             // Expert - Blue
-            listOf(Color.Blue),
+            StreakColors(
+                colors = listOf(desaturate(EXPERT, ACTIVE_DESATURATION)),
+                inactiveColors = listOf(desaturate(EXPERT, INACTIVE_DESATURATION)),
+                bgColors = listOf(DEFAULT_BG_BLACK)
+            ),
             // Candidate Master - Violet
-            listOf(Color(0xFFAA00AA)),
+            StreakColors(
+                colors = listOf(desaturate(CANDIDATE_MASTER, ACTIVE_DESATURATION)),
+                inactiveColors = listOf(desaturate(CANDIDATE_MASTER, INACTIVE_DESATURATION)),
+                bgColors = listOf(DEFAULT_BG_BLACK)
+            ),
             // Master - Orange
-            listOf(Color(0xFFFFAA00)),
+            StreakColors(
+                colors = listOf(desaturate(MASTER, ACTIVE_DESATURATION)),
+                inactiveColors = listOf(desaturate(MASTER, INACTIVE_DESATURATION)),
+                bgColors = listOf(DEFAULT_BG_BLACK)
+            ),
             // Grandmaster - Red
-            listOf(Color.Red),
+            StreakColors(
+                colors = listOf(desaturate(GRANDMASTER, ACTIVE_DESATURATION)),
+                inactiveColors = listOf(desaturate(GRANDMASTER, INACTIVE_DESATURATION)),
+                bgColors = listOf(DEFAULT_BG_BLACK)
+            ),
             // Legendary Grandmaster - Black Red
-            listOf(Color.Black, Color.Red),
+            StreakColors(
+                colors = listOf(
+                    desaturate(LEGENDARY_GRANDMASTER, ACTIVE_DESATURATION),
+                    desaturate(GRANDMASTER, ACTIVE_DESATURATION)
+                ),
+                inactiveColors = listOf(
+                    desaturate(LEGENDARY_GRANDMASTER, INACTIVE_DESATURATION),
+                    desaturate(GRANDMASTER, INACTIVE_DESATURATION)
+                ),
+                bgColors = listOf(DEFAULT_BG_RED, DEFAULT_BG_BLACK)
+            ),
             // tourist - Red Black
-            listOf(Color.Red, Color.Black)
+            StreakColors(
+                colors = listOf(
+                    desaturate(GRANDMASTER, ACTIVE_DESATURATION),
+                    desaturate(LEGENDARY_GRANDMASTER, ACTIVE_DESATURATION)
+                ),
+                inactiveColors = listOf(
+                    desaturate(GRANDMASTER, INACTIVE_DESATURATION),
+                    desaturate(LEGENDARY_GRANDMASTER, INACTIVE_DESATURATION)
+                ),
+                bgColors = listOf(DEFAULT_BG_BLACK, DEFAULT_BG_RED)
+            ),
         )
 
-        fun getStreakColors(streak: Int, desaturation: Float = 0.6f): List<Color> {
+
+        fun getStreakColors(streak: Int): StreakColors {
             // the streak colors are based on the codeforces color progression, iterated over the powers of 2
             // get the power of 2 at or below the streak
-            val pow = min(if (streak > 0) floor(ln(streak.toDouble()) / ln(2.0)).toInt() else 0, streakColors.size - 1)
-            return streakColors[pow].map { desaturate(it, desaturation) }
+            val pow = min(
+                if (streak > 0) floor(ln(streak.toDouble()) / ln(2.0)).toInt() else 0,
+                streakColors.size - 1
+            )
+            return streakColors[pow]
         }
 
         // endregion
@@ -318,7 +393,12 @@ fun HuePicker(
         val drawScopeSize = size
         val bitmap = createBitmap(size.width.toInt(), bitmapHeight.toInt())
         val hueCanvas = Canvas(bitmap.asImageBitmap())
-        val huePanel = RectF(0f, (size.height / 2f - bitmapHeight / 2f), bitmap.width.toFloat(), size.height / 2f + bitmapHeight / 2f)
+        val huePanel = RectF(
+            0f,
+            (size.height / 2f - bitmapHeight / 2f),
+            bitmap.width.toFloat(),
+            size.height / 2f + bitmapHeight / 2f
+        )
         val hueColors = IntArray((huePanel.width()).toInt())
         var hue = 0f
         for (i in hueColors.indices) {
@@ -329,7 +409,11 @@ fun HuePicker(
         linePaint.strokeWidth = 0F
         for (i in hueColors.indices) {
             linePaint.color = Color(hueColors[i])
-            hueCanvas.drawLine(Offset(i.toFloat(), 0F), Offset(i.toFloat(), huePanel.bottom), linePaint)
+            hueCanvas.drawLine(
+                Offset(i.toFloat(), 0F),
+                Offset(i.toFloat(), huePanel.bottom),
+                linePaint
+            )
         }
         drawBitmap(
             bitmap = bitmap,
@@ -422,3 +506,4 @@ private fun DrawScope.drawBitmap(
 
 // ? ........................
 // endregion ........................
+

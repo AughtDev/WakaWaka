@@ -31,6 +31,7 @@ import androidx.glance.layout.width
 import androidx.glance.layout.wrapContentHeight
 import androidx.glance.text.FontWeight
 import androidx.glance.text.TextAlign
+import androidx.glance.text.TextDecoration
 import androidx.glance.text.TextStyle
 import com.aught.wakawaka.MainActivity
 import com.aught.wakawaka.data.DataRequest
@@ -122,7 +123,10 @@ class WakaProjectWidget : GlanceAppWidget() {
             {
                 WakaWidgetComponents.DurationScale(5, maxHours, textColor)
                 Box(
-                    modifier = GlanceModifier.height(100.dp).padding(start = 10.dp, top = 20.dp)
+                    modifier = GlanceModifier
+//                        .height(110.dp)
+                        .padding(start = 8.dp,top = 8.dp)
+//                        .padding(start = 10.dp)
                 ) {
                     WakaWidgetComponents.StreakDisplay(streak, hitTargetToday)
                 }
@@ -137,66 +141,74 @@ class WakaProjectWidget : GlanceAppWidget() {
                         modifier = GlanceModifier.fillMaxWidth()
                             .padding(horizontal = 15.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                        horizontalAlignment = Alignment.End,
                     ) {
-                        Text(
-                            text = WakaHelpers.truncateLabel(widgetProject).uppercase(),
-                            style = TextStyle(
-                                color = primaryColor,
-                                fontSize = 16.sp,
-                            ),
-                        )
-                        Box(modifier = GlanceModifier.defaultWeight()) {}
-                        Row {
+//                        Box(modifier = GlanceModifier.defaultWeight()) {}
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalAlignment = Alignment.CenterVertically,
+//                            modifier = GlanceModifier.defaultWeight()
+                        ) {
                             Text(
-                                text = "DAILY",
+                                text = WakaHelpers.truncateLabel(widgetProject).uppercase(),
                                 style = TextStyle(
-                                    color = when (graphMode.value) {
-                                        GraphMode.Daily -> primaryColor
-
-                                        GraphMode.Weekly -> ColorProvider(
-                                            day = Color.Gray,
-                                            night = Color.Gray
-                                        )
-                                    },
-                                    fontSize = 16.sp,
-                                    fontWeight =
-                                        when (graphMode.value) {
-                                            GraphMode.Daily -> FontWeight.Bold
-                                            GraphMode.Weekly -> FontWeight.Normal
-                                        }
-
+                                    color = primaryColor,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textDecoration = TextDecoration.Underline
                                 ),
-                                modifier = GlanceModifier
-                                    .clickable {
-                                        graphMode.value = GraphMode.Daily
-                                    }
                             )
-                            Box(modifier = GlanceModifier.width(10.dp)) {}
-                            Text(
-                                text = "WEEKLY",
-                                style = TextStyle(
-                                    color = when (graphMode.value) {
-                                        GraphMode.Daily -> ColorProvider(
-                                            day = Color.Gray,
-                                            night = Color.Gray
-                                        )
+                            Row {
+                                Text(
+                                    text = "DAILY",
+                                    style = TextStyle(
+                                        color = when (graphMode.value) {
+                                            GraphMode.Daily -> primaryColor
 
-                                        GraphMode.Weekly -> primaryColor
-                                    },
-                                    fontSize = 16.sp,
-                                    fontWeight =
-                                        when (graphMode.value) {
-                                            GraphMode.Daily -> FontWeight.Normal
-                                            GraphMode.Weekly -> FontWeight.Bold
+                                            GraphMode.Weekly -> ColorProvider(
+                                                day = Color.Gray,
+                                                night = Color.Gray
+                                            )
+                                        },
+                                        fontSize = 16.sp,
+                                        fontWeight =
+                                            when (graphMode.value) {
+                                                GraphMode.Daily -> FontWeight.Bold
+                                                GraphMode.Weekly -> FontWeight.Normal
+                                            }
+
+                                    ),
+                                    modifier = GlanceModifier
+                                        .clickable {
+                                            graphMode.value = GraphMode.Daily
                                         }
-                                ),
-                                modifier = GlanceModifier
-                                    .clickable {
-                                        graphMode.value = GraphMode.Weekly
-                                    }
-                            )
+                                )
+                                Box(modifier = GlanceModifier.width(10.dp)) {}
+                                Text(
+                                    text = "WEEKLY",
+                                    style = TextStyle(
+                                        color = when (graphMode.value) {
+                                            GraphMode.Daily -> ColorProvider(
+                                                day = Color.Gray,
+                                                night = Color.Gray
+                                            )
 
+                                            GraphMode.Weekly -> primaryColor
+                                        },
+                                        fontSize = 16.sp,
+                                        fontWeight =
+                                            when (graphMode.value) {
+                                                GraphMode.Daily -> FontWeight.Normal
+                                                GraphMode.Weekly -> FontWeight.Bold
+                                            }
+                                    ),
+                                    modifier = GlanceModifier
+                                        .clickable {
+                                            graphMode.value = GraphMode.Weekly
+                                        }
+                                )
+
+                            }
                         }
                     }
                     // graph container

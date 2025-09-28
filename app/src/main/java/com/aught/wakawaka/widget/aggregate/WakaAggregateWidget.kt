@@ -119,7 +119,9 @@ class WakaAggregateWidget : GlanceAppWidget() {
             }
             WakaWidgetComponents.DurationScale(5, maxHours, Color.White)
             Box(
-                modifier = GlanceModifier.height(100.dp).padding(start = 10.dp)
+                modifier = GlanceModifier
+//                    .height(110.dp)
+                    .padding(start = 8.dp,top = 8.dp)
             ) {
                 WakaWidgetComponents.StreakDisplay(streak, hitTargetToday)
             }
