@@ -32,6 +32,7 @@ jobs:
           versionCode: ${{ github.run_number }}
           # You may choose to manually manage versionName with an action like 'version-increment' for semantic versioning
           gradlePath: app/build.gradle
+          versionName: 1.0.0
 
       # 3. Commit the Version Changes (Crucial for next build)
       - name: Commit version updates
