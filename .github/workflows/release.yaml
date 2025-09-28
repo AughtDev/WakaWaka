@@ -168,9 +168,9 @@ jobs:
       # 5. Build Release APK
       - name: Build Release APK
         run: ./gradlew assembleRelease
-      
-      # 6. Alternative: Manual APK signing with jarsigner
-      - name: Sign Android Release APK (Manual)
+          
+      # 6. Alternative: Use apksigner instead of jarsigner
+      - name: Sign Android Release APK (apksigner)
         run: |
           # Create keystore from base64
           echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 -d > release-key.keystore
@@ -179,27 +179,19 @@ jobs:
           APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
           echo "Found APK: $APK_PATH"
           
-          if [ -z "$APK_PATH" ]; then
-            echo "Error: No APK found!"
-            exit 1
-          fi
+          # Use apksigner (more modern Android signing tool)
+          $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
+            --ks release-key.keystore \
+            --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
+            --ks-pass pass:"${{ secrets.KEYSTORE_PASSWORD }}" \
+            --key-pass pass:"${{ secrets.KEY_PASSWORD }}" \
+            --out app/build/outputs/apk/release/app-release-signed.apk \
+            "$APK_PATH"
           
-          # Sign the APK
-          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
-            -keystore release-key.keystore \
-            -storepass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            -keypass "${{ secrets.KEY_PASSWORD }}" \
-            "$APK_PATH" \
-            "${{ secrets.KEY_ALIAS }}"
+          # Verify the signature
+          $ANDROID_HOME/build-tools/34.0.0/apksigner verify app/build/outputs/apk/release/app-release-signed.apk
           
-          # Verify signing
-          jarsigner -verify -verbose -certs "$APK_PATH"
-          
-          # Rename signed APK
-          SIGNED_APK_PATH="${APK_PATH%.*}-signed.apk"
-          cp "$APK_PATH" "$SIGNED_APK_PATH"
-          
-          echo "APK signed successfully: $SIGNED_APK_PATH"
+          echo "✓ APK signed and verified successfully"
           
           # Cleanup keystore
           rm -f release-key.keystore
