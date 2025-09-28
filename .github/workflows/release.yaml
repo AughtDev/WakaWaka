@@ -1,20 +1,17 @@
 name: Android CI/CD Release
-
 on:
   push:
     branches:
       - main # Or your default branch
-
 jobs:
   build_and_release:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
         with:
           # Important: Need a token that allows pushing back to the repo for version bump
           token: ${{ secrets.GITHUB_TOKEN }}
-
+      
       # 1. Setup Java/JDK
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -22,60 +19,175 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
           cache: gradle
-
-      # 2. Increment Version
-      - name: Bump Version Code and Name
-        uses: chkfung/android-version-actions@v1.2.2
-        id: bump
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          # Auto-increment versionCode by using the run number
-          versionCode: ${{ github.run_number }}
-          # You may choose to manually manage versionName with an action like 'version-increment' for semantic versioning
-          gradlePath: app/build.gradle
-          versionName: 1.0.0
+          node-version: '20'
+      
+      # 2. Debug and Custom Version Bump Script for Kotlin DSL
+      - name: Debug Gradle File
+        run: |
+          echo "Checking if gradle.kts file exists..."
+          ls -la app/
+          if [ -f "app/build.gradle.kts" ]; then
+            echo "✓ app/build.gradle.kts found"
+            echo "Content preview:"
+            head -50 app/build.gradle.kts
+          else
+            echo "✗ app/build.gradle.kts not found"
+            find . -name "build.gradle*" -type f
+          fi
+      
+      - name: Bump Version Code and Name (Kotlin DSL)
+        id: bump
+        run: |
+          # Set gradle file path for Kotlin DSL
+          GRADLE_FILE="app/build.gradle.kts"
+          
+          # Check if file exists
+          if [ ! -f "$GRADLE_FILE" ]; then
+            echo "Error: $GRADLE_FILE not found!"
+            exit 1
+          fi
+          
+          echo "Processing Kotlin DSL file: $GRADLE_FILE..."
+          
+          # Show current content around version declarations
+          echo "Current version-related lines:"
+          grep -n -E "(versionCode|versionName)" "$GRADLE_FILE" || echo "No version lines found with standard grep"
+          
+          # Kotlin DSL uses = assignment, so we need different regex patterns
+          CURRENT_VERSION_CODE=$(grep -oE 'versionCode[[:space:]]*=[[:space:]]*[0-9]+' "$GRADLE_FILE" | grep -oE '[0-9]+' | head -1)
+          CURRENT_VERSION_NAME=$(grep -oE 'versionName[[:space:]]*=[[:space:]]*"[^"]*"' "$GRADLE_FILE" | grep -oE '"[^"]*"' | sed 's/"//g' | head -1)
+          
+          # Fallback if not found
+          if [ -z "$CURRENT_VERSION_CODE" ]; then
+            echo "Warning: Could not find versionCode, using default 1"
+            CURRENT_VERSION_CODE="1"
+          fi
+          
+          if [ -z "$CURRENT_VERSION_NAME" ]; then
+            echo "Warning: Could not find versionName, using default 1.0.0"
+            CURRENT_VERSION_NAME="1.0.0"
+          fi
+          
+          echo "Current versionCode: $CURRENT_VERSION_CODE"
+          echo "Current versionName: $CURRENT_VERSION_NAME"
+          
+          # Set new version code
+          NEW_VERSION_CODE=${{ github.run_number }}
+          
+          # Determine version increment based on commit message or manual triggers
+          COMMIT_MESSAGE="${{ github.event.head_commit.message }}"
+          echo "Commit message: $COMMIT_MESSAGE"
+          
+          # Parse current version
+          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION_NAME"
+          MAJOR=${VERSION_PARTS[0]:-1}
+          MINOR=${VERSION_PARTS[1]:-0}
+          PATCH=${VERSION_PARTS[2]:-0}
+          
+          echo "Current version parts - Major: $MAJOR, Minor: $MINOR, Patch: $PATCH"
+          
+          # Check for version bump keywords in commit message
+          if [[ "$COMMIT_MESSAGE" =~ \[major\]|\[MAJOR\]|BREAKING[[:space:]]CHANGE ]]; then
+            echo "🚀 Major version bump detected"
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif [[ "$COMMIT_MESSAGE" =~ \[minor\]|\[MINOR\]|\[feature\]|\[FEATURE\] ]]; then
+            echo "✨ Minor version bump detected"
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          elif [[ "$COMMIT_MESSAGE" =~ \[patch\]|\[PATCH\]|\[fix\]|\[FIX\] ]]; then
+            echo "🐛 Patch version bump detected"
+            PATCH=$((PATCH + 1))
+          else
+            echo "📦 Auto patch increment (default)"
+            PATCH=$((PATCH + 1))
+          fi
+          
+          NEW_VERSION_NAME="${MAJOR}.${MINOR}.${PATCH}"
+          
+          echo "New versionCode: $NEW_VERSION_CODE"
+          echo "New versionName: $NEW_VERSION_NAME"
+          
+          # Create backup
+          cp "$GRADLE_FILE" "${GRADLE_FILE}.backup"
+          
+          # Update versionCode for Kotlin DSL (with = assignment)
+          sed -i "s/versionCode[[:space:]]*=[[:space:]]*[0-9]\+/versionCode = $NEW_VERSION_CODE/g" "$GRADLE_FILE"
+          
+          # Update versionName for Kotlin DSL (with = assignment)
+          sed -i "s/versionName[[:space:]]*=[[:space:]]*\"[^\"]*\"/versionName = \"$NEW_VERSION_NAME\"/g" "$GRADLE_FILE"
+          
+          # Verify changes were made
+          echo "Checking if updates were successful..."
+          NEW_CODE_CHECK=$(grep -oE 'versionCode[[:space:]]*=[[:space:]]*[0-9]+' "$GRADLE_FILE" | grep -oE '[0-9]+' | head -1)
+          NEW_NAME_CHECK=$(grep -oE 'versionName[[:space:]]*=[[:space:]]*"[^"]*"' "$GRADLE_FILE" | grep -oE '"[^"]*"' | sed 's/"//g' | head -1)
+          
+          if [ "$NEW_CODE_CHECK" = "$NEW_VERSION_CODE" ]; then
+            echo "✓ versionCode updated successfully"
+          else
+            echo "✗ versionCode update failed"
+            echo "Expected: $NEW_VERSION_CODE, Got: $NEW_CODE_CHECK"
+          fi
+          
+          if [ "$NEW_NAME_CHECK" = "$NEW_VERSION_NAME" ]; then
+            echo "✓ versionName updated successfully"
+          else
+            echo "✗ versionName update failed"
+            echo "Expected: $NEW_VERSION_NAME, Got: $NEW_NAME_CHECK"
+          fi
+          
+          # Show the changes
+          echo "Changes made to gradle file:"
+          diff "${GRADLE_FILE}.backup" "$GRADLE_FILE" || true
+          
+          # Set outputs for later steps
+          echo "versionCode=$NEW_VERSION_CODE" >> $GITHUB_OUTPUT
+          echo "versionName=$NEW_VERSION_NAME" >> $GITHUB_OUTPUT
+          
+          echo "Version update completed!"
+      
+      # 3. Commit the Version Changes
 
-      # 3. Commit the Version Changes (Crucial for next build)
       - name: Commit version updates
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add app/build.gradle
-          # Create a new branch for the version commit to avoid constantly rewriting 'main'
-          git commit -m "chore(release): version update to ${{ github.run_number }}"
-          git push origin HEAD:${{ github.ref_name }} # Push to the same branch
-
+          git add app/build.gradle.kts
+          git commit -m "chore(release): version update to ${{ steps.bump.outputs.versionName }}"
+          git push origin HEAD:${{ github.ref_name }}
+      
       # 4. Grant execute permission for gradlew
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
-
-      # 5. Build Unsigned Release APK
-      # We build the unsigned APK first, then sign it in the next step.
+      
+      # 5. Build Release APK
       - name: Build Release APK
         run: ./gradlew assembleRelease
-
-      # 6. Securely Sign the APK using GitHub Secrets
+      
+      # 6. Sign the APK
       - name: Sign Android Release APK
-        # This action decodes the Base64 key, signs the APK, and deletes the key file.
         uses: r0adkll/sign-android-release@v1
         id: sign_app
         with:
-          # The directory where the unsigned APK is located
           releaseDirectory: app/build/outputs/apk/release
-          # The Base64 content of your JKS file (stored in GitHub Secret)
           signingKeyBase64: ${{ secrets.SIGNING_KEY_BASE64 }}
           alias: ${{ secrets.KEY_ALIAS }}
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
-          # Specify the file extension you want to sign
-          buildToolsVersion: "34.0.0" # Use a recent version
-
-      # 7. Create Tag & Release
+          buildToolsVersion: "34.0.0"
+      
+      # 7. Create GitHub Release
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.bump.outputs.versionName }}
-          # Upload the *signed* APK. The 'sign-android-release' action renames the signed file
           files: app/build/outputs/apk/release/app-release-signed.apk
           body: |
             Automated release v${{ steps.bump.outputs.versionName }}
             Build: ${{ github.run_number }}
+            Version Code: ${{ steps.bump.outputs.versionCode }}
