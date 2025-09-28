@@ -1,9 +1,11 @@
  
-
-# **WakaWaka 📊**
-
-![](assets/icons/wakawaka-logo.png)
-
+ <p align="center">
+ <img src="assets/icons/wakawaka-logo.png"/>
+ </p>
+ <h1 align="center">
+WakaWaka 📊
+ </h1>
+ 
 **Your WakaTime stats, on your phone, for free. Forever.**
 
 WakaWaka is a free and open-source Android client for WakaTime. It fetches your coding data and presents it beautifully on your device. Say goodbye to paywalled historical data—WakaWaka keeps all your stats stored locally on your phone, giving you full access to your entire coding history.
