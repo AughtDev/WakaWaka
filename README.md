@@ -2,7 +2,7 @@
 
 # **WakaWaka 📊**
 
-![](assets\icons\wakawaka_logo.png)
+![](assets/icons/wakawaka-logo.png)
 
 **Your WakaTime stats, on your phone, for free. Forever.**
 
