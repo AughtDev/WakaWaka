@@ -23,14 +23,9 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4 # Use a modern version of setup-node
-        with:
-          node-version: '20' # Or '18'. This ensures a modern environment.
-
       # 2. Increment Version
       - name: Bump Version Code and Name
-        uses: DoubleSymmetry/android-version-actions@v1.3 # Example action
+        uses: chkfung/android-version-actions@v1.2.2
         id: bump
         with:
           # Auto-increment versionCode by using the run number
