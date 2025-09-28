@@ -24,9 +24,9 @@ WakaWaka is packed with features to help you track and visualize your coding pro
 
 | Projects Tab                                                                                              | Home Tab                                                                                                         | Settings Tab                                                                                          |
 |:----------------------------------------------------------------------------------------------------------|:---------------------------------------------------------------------------------------------------------------- |-------------------------------------------------------------------------------------------------------|
-| ![home](assets\app\projects-tab-screenshot.jpg)         | ![Single Project](assets\app\home-tab-screenshot.jpg)          | ![Settings](assets\app\settings-tab-screenshot.jpg) |
+| ![home](assets/app/projects-tab-screenshot.jpg)         | ![Single Project](assets/app/home-tab-screenshot.jpg)          | ![Settings](assets/app/settings-tab-screenshot.jpg) |
 | **Aggregate Details**                                                                                     | **Project Details**                                                                                              | **Home Screen Widgets**                                                                               |
-| ![Details](assets\app\aggregate-details-screenshot.jpg) | ![Widgets](assets\app\wakawaka-project-details-screenshot.jpg) | ![Widgets](assets\app\widgets-screenshot.jpg)       |
+| ![Details](assets/app/aggregate-details-screenshot.jpg) | ![Widgets](assets/app/wakawaka-project-details-screenshot.jpg) | ![Widgets](assets/app/widgets-screenshot.jpg)       |
 
 ## **🚀 Getting Started**
 
@@ -40,13 +40,13 @@ Setting up WakaWaka is quick and easy.
    * Navigate to your [**Settings**](https://wakatime.com/settings/account) page.  
    * Find your **Secret API Key** and copy it. It will be a long string of characters.
 
-![](assets\wakatime\wakatime-api-screenshot-with-arrow.png)
+![](assets/wakatime/wakatime-api-screenshot-with-arrow.png)
 
 3. **Set Up the App**  
    * Open WakaWaka and go to the **Settings** tab (the rightmost icon on the bottom bar).  
    * Paste your Secret API Key into the designated field and save it. The app will begin fetching your recent data.
 
-![](assets\wakatime\settings-tab-screenshot-with-arrows.jpg)
+![](assets/wakatime/settings-tab-screenshot-with-arrows.jpg)
 
 4. **(Optional) Import Your Full History**  
    * To get all your historical data, request a data dump from WakaTime.  
@@ -56,9 +56,9 @@ Setting up WakaWaka is quick and easy.
    
    
    
-   ![](assets\wakatime\wakatime-export-data-dump-screenshot-with-arrow.png)
+   ![](assets/wakatime/wakatime-export-data-dump-screenshot-with-arrow.png)
    
-   ![](assets\wakatime\wakatime-export-daily-totals-screenshot-with-arrow.png)
+   ![](assets/wakatime/wakatime-export-daily-totals-screenshot-with-arrow.png)
 
 ## **🤝 Contributing**
 
