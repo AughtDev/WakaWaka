@@ -168,18 +168,7 @@ jobs:
       # 5. Build Release APK
       - name: Build Release APK
         run: ./gradlew assembleRelease
-      
-      # 6. Sign the APK with r0adkll
-#      - name: Sign Android Release APK
-#        uses: r0adkll/sign-android-release@v1
-#        id: sign_app
-#        with:
-#          releaseDirectory: app/build/outputs/apk/release
-#          signingKeyBase64: ${{ secrets.SIGNING_KEY_BASE64 }}
-#          alias: ${{ secrets.KEY_ALIAS }}
-#          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
-#          keyPassword: ${{ secrets.KEY_PASSWORD }}
-#          buildToolsVersion: "34.0.0"
+
       # 6. Alternative: Use apksigner instead of jarsigner
       - name: Sign Android Release APK (apksigner)
         run: |
@@ -191,18 +180,16 @@ jobs:
           echo "Found APK: $APK_PATH"
           
           # Use apksigner (more modern Android signing tool)
+
           VERSION_NAME="${{ steps.bump.outputs.versionName }}"
           OUTPUT_APK="app/build/outputs/apk/release/wakawaka-v${VERSION_NAME//./_}.apk"
-          $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
-            --ks release-key.keystore \
-            --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
-            --ks-pass pass:"${{ secrets.KEYSTORE_PASSWORD }}" \
-            --key-pass pass:"${{ secrets.KEY_PASSWORD }}" \
+
             --out "$OUTPUT_APK" \
             "$APK_PATH"
           
           # Verify the signature
           $ANDROID_HOME/build-tools/34.0.0/apksigner verify "$OUTPUT_APK"
+
           
           echo "✓ APK signed and verified successfully"
           
