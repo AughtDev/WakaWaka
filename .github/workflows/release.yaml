@@ -174,25 +174,47 @@ jobs:
       - name: Sign Android Release APK (apksigner)
         id: sign
         run: |
-          # Find the unsigned APK
+          # 1. CREATE KEYSTORE FILE FROM SECRET (CRITICAL: WAS MISSING IN YOUR EXCERPT)
+          echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 -d > release-key.keystore
+
+          # 2. Find the unsigned APK
+          # This should find app/build/outputs/apk/release/app-release-unsigned.apk
           APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
+          if [ -z "$APK_PATH" ]; then
+              echo "Error: Unsigned APK not found!"
+              exit 1
+          fi
           echo "Found APK: $APK_PATH"
-          
-          # Use apksigner (more modern Android signing tool)
+
+          # 3. Use apksigner to SIGN the APK
           VERSION_NAME="${{ steps.bump.outputs.versionName }}"
+          # Create output name using underscores for compatibility (e.g., v1_0_2)
           OUTPUT_APK="app/build/outputs/apk/release/wakawaka-v${VERSION_NAME//./_}.apk"
-          # ... rest of signing command
-          
-          # Verify the signature
+
+          # Execute signing command
+          $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
+            --ks release-key.keystore \
+            --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
+            --ks-pass pass:"${{ secrets.KEYSTORE_PASSWORD }}" \
+            --key-pass pass:"${{ secrets.KEY_PASSWORD }}" \
+            --out "$OUTPUT_APK" \
+            "$APK_PATH"
+
+          # 4. CHECK FOR SIGNING ERROR (CRITICAL: PREVENTS verify FILE NOT FOUND ERROR)
+          if [ $? -ne 0 ]; then
+              echo "Error: apksigner sign failed. Check environment/credentials."
+              exit 1
+          fi
+
+          # 5. Verify the signature (now safe to run)
           $ANDROID_HOME/build-tools/34.0.0/apksigner verify "$OUTPUT_APK"
-          
-          
+
           echo "✓ APK signed and verified successfully"
-          
-          # Export the final APK path for the next step
+
+          # 6. Export the final APK path for the next step (e.g., softprops/action-gh-release)
           echo "signed_apk_path=$OUTPUT_APK" >> $GITHUB_OUTPUT
-          
-          # Cleanup keystore
+
+          # 7. Cleanup keystore
           rm -f release-key.keystore
 
       # 7. Create GitHub Release
