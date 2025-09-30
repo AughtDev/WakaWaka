@@ -26,6 +26,7 @@ import com.aught.wakawaka.data.WakaURL
 import com.aught.wakawaka.extras.WakaNotifications
 import com.aught.wakawaka.utils.ColorUtils
 import com.aught.wakawaka.utils.JSONDateAdapter
+import com.aught.wakawaka.utils.getMoshi
 import com.aught.wakawaka.widget.aggregate.WakaAggregateWidget
 import com.aught.wakawaka.widget.project.WakaProjectWidget
 import com.squareup.moshi.Moshi
@@ -94,9 +95,7 @@ fun getMapType(): Type {
 class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
     CoroutineWorker(appContext, workerParams) {
 
-    private val moshi = Moshi.Builder()
-        .add(JSONDateAdapter())
-        .addLast(KotlinJsonAdapterFactory()).build()
+    private val moshi = getMoshi()
 
     private val wakaNotificationManager = WakaNotifications(appContext)
 
@@ -598,9 +597,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                     ?: return emptyAggregateData
 
             // build the adapters to convert between json strings and the data
-            val moshi = Moshi.Builder()
-                .add(JSONDateAdapter())
-                .addLast(KotlinJsonAdapterFactory()).build()
+            val moshi = getMoshi()
 
             val aggregateDataAdapter = moshi.adapter(AggregateData::class.java)
 
@@ -621,9 +618,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             if (json == null) return mapOf()
 
             // build the adapters to convert between json strings and the data
-            val moshi = Moshi.Builder()
-                .add(JSONDateAdapter())
-                .addLast(KotlinJsonAdapterFactory()).build()
+            val moshi = getMoshi()
 
             val projectSpecificDataAdapter = moshi.adapter(ProjectSpecificData::class.java)
             val mapAdapter = moshi.adapter<Map<String, String>>(getMapType())
@@ -646,9 +641,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             if (json == null) return WakaHelpers.Companion.INITIAL_WAKA_STATISTICS
 
             // build the adapters to convert between json strings and the data
-            val moshi = Moshi.Builder()
-                .add(JSONDateAdapter())
-                .addLast(KotlinJsonAdapterFactory()).build()
+            val moshi = getMoshi()
 
             val wakaStatisticsAdapter = moshi.adapter(WakaStatistics::class.java)
 
@@ -673,9 +666,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         fun loadNotificationData(context: Context): NotificationData {
             val prefs =
                 context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
-            val moshi = Moshi.Builder()
-                .add(JSONDateAdapter())
-                .addLast(KotlinJsonAdapterFactory()).build()
+            val moshi = getMoshi()
 
             val notificationDataAdapter = moshi.adapter(NotificationData::class.java)
             val notificationDataString =
@@ -706,9 +697,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         //region SAVE DATA
 
         fun saveAggregateData(context: Context, aggregateData: AggregateData) {
-            val moshi = Moshi.Builder()
-                .add(JSONDateAdapter())
-                .addLast(KotlinJsonAdapterFactory()).build()
+            val moshi = getMoshi()
             val aggregateDataAdapter = moshi.adapter(AggregateData::class.java)
             val prefs =
                 context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
@@ -721,9 +710,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         }
 
         fun saveProjectDataMap(context: Context, projectDataMap: Map<String, ProjectSpecificData>) {
-            val moshi = Moshi.Builder()
-                .add(JSONDateAdapter())
-                .addLast(KotlinJsonAdapterFactory()).build()
+            val moshi = getMoshi()
             val projectSpecificDataAdapter = moshi.adapter(ProjectSpecificData::class.java)
             val mapAdapter = moshi.adapter<Map<String, String>>(getMapType())
 
@@ -747,9 +734,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             projectName: String,
             projectData: ProjectSpecificData
         ) {
-            val moshi = Moshi.Builder()
-                .add(JSONDateAdapter())
-                .addLast(KotlinJsonAdapterFactory()).build()
+            val moshi = getMoshi()
             val projectSpecificDataAdapter = moshi.adapter(ProjectSpecificData::class.java)
             val mapAdapter = moshi.adapter<Map<String, String>>(getMapType())
 

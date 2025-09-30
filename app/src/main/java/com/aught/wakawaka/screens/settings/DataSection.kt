@@ -56,6 +56,7 @@ import java.io.InputStream
 import java.io.InputStreamReader
 import androidx.core.content.edit
 import com.aught.wakawaka.utils.ColorUtils
+import com.aught.wakawaka.utils.getMoshi
 
 
 // region HELPER FUNCTIONS
@@ -75,9 +76,7 @@ fun readTextFromUri(context: Context, uri: Uri): String? {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DataSection(context: Context) {
-    val moshi = Moshi.Builder()
-        .add(JSONDateAdapter())
-        .addLast(KotlinJsonAdapterFactory()).build()
+    val moshi = getMoshi()
 
 
     // Header
@@ -261,9 +260,7 @@ fun BackupAndRestoreDataCard(context: Context) {
             ) {
                 Text("Create Backup")
             }
-            val moshi = Moshi.Builder()
-                .add(JSONDateAdapter())
-                .addLast(KotlinJsonAdapterFactory()).build()
+            val moshi = getMoshi()
             val launcher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.GetContent(),
             ) { uri: Uri? ->

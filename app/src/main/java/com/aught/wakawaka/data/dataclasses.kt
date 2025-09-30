@@ -183,6 +183,7 @@ data class ProjectSpecificData(
 
 // region STATS DATA CLASSES
 
+@JsonClass(generateAdapter = true)
 data class DurationStats(
     val today: Int = 0,
     val last7Days: Int = 0,
@@ -191,6 +192,7 @@ data class DurationStats(
     val allTime: Int = 0
 )
 
+@JsonClass(generateAdapter = true)
 data class WakaStatistics(
     val aggregateStats: DurationStats,
     val projectStats: Map<String, DurationStats>
@@ -214,6 +216,7 @@ data class NotificationData(
 // region DATA CLASSES FOR SETTINGS DATA
 // ? ........................
 
+@JsonClass(generateAdapter = true)
 data class SettingsData (
     val wakatimeAPIKey: String = "",
     val dailyTargetHours: Float? = null,
