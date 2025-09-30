@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.devtools.ksp") // Make sure KSP plugin is applied
 }
 
 android {
@@ -85,7 +86,8 @@ dependencies {
 
     // Moshi for JSON parsing (If using converter-moshi)
     implementation(libs.moshi.kotlin) // Use latest
-    implementation(libs.moshi.kotlin.codegen) // Use latest (kapt or ksp)
+    ksp(libs.moshi.kotlin.codegen) // Use latest (kapt or ksp)
+//    ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.1")
 
     // WorkManager for background tasks (Check for latest version)
     implementation(libs.androidx.work.runtime.ktx) // Use latest ktx version

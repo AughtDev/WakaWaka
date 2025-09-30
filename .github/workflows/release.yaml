@@ -168,7 +168,7 @@ jobs:
       # 5. Build Release APK
       - name: Build Release APK
         run: ./gradlew assembleRelease
-          
+
       # 6. Alternative: Use apksigner instead of jarsigner
       - name: Sign Android Release APK (apksigner)
         run: |
@@ -180,28 +180,28 @@ jobs:
           echo "Found APK: $APK_PATH"
           
           # Use apksigner (more modern Android signing tool)
-          $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
-            --ks release-key.keystore \
-            --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
-            --ks-pass pass:"${{ secrets.KEYSTORE_PASSWORD }}" \
-            --key-pass pass:"${{ secrets.KEY_PASSWORD }}" \
-            --out app/build/outputs/apk/release/app-release-signed.apk \
+
+          VERSION_NAME="${{ steps.bump.outputs.versionName }}"
+          OUTPUT_APK="app/build/outputs/apk/release/wakawaka-v${VERSION_NAME//./_}.apk"
+
+            --out "$OUTPUT_APK" \
             "$APK_PATH"
           
           # Verify the signature
-          $ANDROID_HOME/build-tools/34.0.0/apksigner verify app/build/outputs/apk/release/app-release-signed.apk
+          $ANDROID_HOME/build-tools/34.0.0/apksigner verify "$OUTPUT_APK"
+
           
           echo "✓ APK signed and verified successfully"
           
           # Cleanup keystore
           rm -f release-key.keystore
-      
+
       # 7. Create GitHub Release
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.bump.outputs.versionName }}
-          files: app/build/outputs/apk/release/app-release-signed.apk
+          files: app/build/outputs/apk/release/wakawaka-v${{ steps.bump.outputs.versionName }}.apk
           body: |
             Automated release v${{ steps.bump.outputs.versionName }}
             Build: ${{ github.run_number }}

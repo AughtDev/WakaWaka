@@ -12,6 +12,7 @@ import com.aught.wakawaka.data.ProjectSpecificData
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaStatistics
 import com.aught.wakawaka.utils.JSONDateAdapter
+import com.aught.wakawaka.utils.getMoshi
 import com.aught.wakawaka.workers.WakaDataFetchWorker
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
@@ -49,9 +50,7 @@ object BackupManager {
         )
 
         // convert to json
-        val moshi = Moshi.Builder()
-            .add(JSONDateAdapter())
-            .addLast(KotlinJsonAdapterFactory()).build()
+        val moshi = getMoshi()
         val adapter = moshi.adapter(BackupData::class.java)
         val jsonString = adapter.toJson(backupData)
 
@@ -84,9 +83,7 @@ object BackupManager {
     }
 
     fun restoreBackup(context: Context, backupData: BackupData) {
-        val moshi = Moshi.Builder()
-            .add(JSONDateAdapter())
-            .addLast(KotlinJsonAdapterFactory()).build()
+        val moshi = getMoshi()
         val prefs =
             context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
 

@@ -14,6 +14,7 @@ import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaService
 import com.aught.wakawaka.data.WakaURL
 import com.aught.wakawaka.utils.JSONDateAdapter
+import com.aught.wakawaka.utils.getMoshi
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
@@ -31,9 +32,7 @@ import java.util.Date
 class WakaDataDumpWorker(appContext: Context, workerParams: WorkerParameters) :
     CoroutineWorker(appContext, workerParams) {
 
-    private val moshi = Moshi.Builder()
-        .add(JSONDateAdapter())
-        .addLast(KotlinJsonAdapterFactory()).build()
+    private val moshi = getMoshi()
 
     private fun downloadDataDump(url: String): DataDump? {
         val okHttpClient = OkHttpClient.Builder().build()
