@@ -2,7 +2,7 @@ name: Android CI/CD Release
 on:
   push:
     branches:
-      - main # Or your default branch
+      - release
 jobs:
   build_and_release:
     runs-on: ubuntu-latest
