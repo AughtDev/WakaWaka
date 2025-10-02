@@ -170,7 +170,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                 .client(okHttpClient)
                 .build()
 
-        // the wakapi service created from the retrofit instance
+        // the wakatime service created from the retrofit instance
         val service = retrofit.create(WakaService::class.java)
 
         return withContext(Dispatchers.IO) {
