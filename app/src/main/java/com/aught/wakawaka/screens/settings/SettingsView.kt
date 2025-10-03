@@ -314,7 +314,9 @@ fun SettingsView(
             color = MaterialTheme.colorScheme.primary
         )
 
-        DataSection(context)
+        DataSection(context) {
+            alertData = it
+        }
 
 
         // alert dialog instead of pane

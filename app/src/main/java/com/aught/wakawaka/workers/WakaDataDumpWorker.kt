@@ -64,10 +64,14 @@ class WakaDataDumpWorker(appContext: Context, workerParams: WorkerParameters) :
 
 
     override suspend fun doWork(): Result {
-        val prefs = applicationContext.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+        val prefs = applicationContext.getSharedPreferences(
+            WakaHelpers.Companion.PREFS,
+            Context.MODE_PRIVATE
+        )
 
         val url: String =
-            prefs.getString(WakaHelpers.Companion.WAKA_URL, WakaURL.WAKATIME.url) ?: WakaURL.WAKATIME.url
+            prefs.getString(WakaHelpers.Companion.WAKA_URL, WakaURL.WAKATIME.url)
+                ?: WakaURL.WAKATIME.url
 
         // if the url is wakapi, the authToken needs to be base 64 encoded
         var authToken: String;
@@ -78,15 +82,15 @@ class WakaDataDumpWorker(appContext: Context, workerParams: WorkerParameters) :
             authToken = prefs.getString(WakaHelpers.Companion.WAKATIME_API, "") ?: "auth_token"
         }
 
-        // a logging interceptor to attach to the http client
-        val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        }
+//        // a logging interceptor to attach to the http client
+//        val logging = HttpLoggingInterceptor().apply {
+//            level = HttpLoggingInterceptor.Level.BODY
+//        }
 
         // the http client with an auth interceptor and logging interceptor
         val okHttpClient = OkHttpClient.Builder()
             .addInterceptor(AuthInterceptor(authToken))
-            .addInterceptor(logging)
+//            .addInterceptor(logging)
             .build()
 
 
@@ -97,7 +101,7 @@ class WakaDataDumpWorker(appContext: Context, workerParams: WorkerParameters) :
                 .client(okHttpClient)
                 .build()
 
-        // the wakapi service created from the retrofit instance
+        // the wakatime service created from the retrofit instance
         val service = retrofit.create(WakaService::class.java)
 
         return withContext(Dispatchers.IO) {
@@ -130,17 +134,21 @@ class WakaDataDumpWorker(appContext: Context, workerParams: WorkerParameters) :
     companion object {
         fun saveDataDumpToLocalStorage(context: Context, dataDump: DataDump) {
             val projectSpecificDataMap = WakaDataFetchWorker.loadProjectSpecificData(context)
-            val aggregateData = WakaDataFetchWorker.loadAggregateData(context) ?: WakaHelpers.INITIAL_AGGREGATE_DATA
+            val aggregateData =
+                WakaDataFetchWorker.loadAggregateData(context) ?: WakaHelpers.INITIAL_AGGREGATE_DATA
 
             val updatedAggregateDailyRecords = aggregateData.dailyRecords.toMutableMap()
             val updatedProjectSpecificDurationMaps = mutableMapOf<String, MutableMap<String, Int>>()
 
             projectSpecificDataMap.forEach { (projectName, projectStats) ->
-                updatedProjectSpecificDurationMaps[projectName] = projectStats.dailyDurationInSeconds.toMutableMap()
+                updatedProjectSpecificDurationMaps[projectName] =
+                    projectStats.dailyDurationInSeconds.toMutableMap()
             }
 
             val existingProjects = updatedProjectSpecificDurationMaps.keys.toMutableSet()
-            val lastDateString = WakaHelpers.dateToYYYYMMDD(Date(dataDump.range.end * 1000).toInstant().atZone(ZoneOffset.UTC).toLocalDate())
+            val lastDateString = WakaHelpers.dateToYYYYMMDD(
+                Date(dataDump.range.end * 1000).toInstant().atZone(ZoneOffset.UTC).toLocalDate()
+            )
 
 
             dataDump.days.forEach {
@@ -164,7 +172,10 @@ class WakaDataDumpWorker(appContext: Context, workerParams: WorkerParameters) :
                             existingProjects.add(projectName)
                         }
 
-                        updatedProjectSpecificDurationMaps[projectName]?.set(dateString, project.grandTotal.totalSeconds.toInt())
+                        updatedProjectSpecificDurationMaps[projectName]?.set(
+                            dateString,
+                            project.grandTotal.totalSeconds.toInt()
+                        )
                     }
                     val dailyAggregateData = DailyAggregateData(
                         dateString,
@@ -225,7 +236,11 @@ class WakaDataDumpWorker(appContext: Context, workerParams: WorkerParameters) :
 
             WakaDataFetchWorker.saveAggregateData(context, updatedAggregateData)
             WakaDataFetchWorker.saveProjectDataMap(context, updatedProjectSpecificDataMap)
-
+            WakaDataFetchWorker.updateWakaStatistics(
+                context,
+                updatedAggregateData,
+                updatedProjectSpecificDataMap
+            )
         }
     }
 }
