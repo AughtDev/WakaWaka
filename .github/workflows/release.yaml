@@ -11,6 +11,7 @@ jobs:
         with:
           # Important: Need a token that allows pushing back to the repo for version bump
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0  # Fetch all history for all tags and branches
       
       # 1. Setup Java/JDK
       - name: Set up JDK 17
