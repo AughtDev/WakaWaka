@@ -4,6 +4,7 @@ import AlertData
 import AlertPane
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -39,9 +40,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.aught.wakawaka.data.DataDump
 import com.aught.wakawaka.data.WakaHelpers
@@ -57,6 +60,8 @@ import java.io.InputStreamReader
 import androidx.core.content.edit
 import com.aught.wakawaka.utils.ColorUtils
 import com.aught.wakawaka.utils.getMoshi
+import okio.buffer
+import okio.source
 
 
 // region HELPER FUNCTIONS
@@ -71,11 +76,23 @@ fun readTextFromUri(context: Context, uri: Uri): String? {
     }
 }
 
+fun readAndParseDataDump(context: Context, uri: Uri, moshi: Moshi): DataDump? {
+    return try {
+        context.contentResolver.openInputStream(uri)?.use { inputStream ->
+            val source = inputStream.source().buffer()
+            moshi.adapter(DataDump::class.java).fromJson(source)
+        }
+    } catch (e: Exception) {
+        Log.e("DataDump", "Failed to parse JSON", e)
+        null
+    }
+}
+
 // endregion
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DataSection(context: Context) {
+fun DataSection(context: Context,setAlertData: (AlertData?) -> Unit) {
     val moshi = getMoshi()
 
 
@@ -87,44 +104,39 @@ fun DataSection(context: Context) {
     )
 
     // Success message
-    JSONDataCard(context, moshi)
+    JSONDataCard(context, moshi,setAlertData)
 
-    BackupAndRestoreDataCard(context)
+    BackupAndRestoreDataCard(context,setAlertData)
 
-    DeleteDataCard(context)
+    DeleteDataCard(context,setAlertData)
 }
 
 @Composable
-fun JSONDataCard(context: Context, moshi: Moshi) {
-    var alertData by remember { mutableStateOf<AlertData?>(null) }
+fun JSONDataCard(context: Context, moshi: Moshi,setAlertData: (AlertData?) -> Unit) {
+//    var alertData by remember { mutableStateOf<AlertData?>(null) }
 
-
-    LaunchedEffect(alertData) {
-        if (alertData != null) {
-            // Hide the success message after 2 seconds
-            delay(2000)
-            alertData = null
-        }
-    }
+//
+//    LaunchedEffect(alertData) {
+//        if (alertData != null) {
+//            // Hide the success message after 2 seconds
+//            delay(2000)
+//            alertData = null
+//        }
+//    }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
     ) { uri: Uri? ->
         uri?.let {
-            val jsonString = readTextFromUri(context, uri)
-            if (jsonString == null) {
-                println("Failed to read JSON from URI")
-                return@let
-            }
-            println("first 100 chars of json read are ${jsonString.take(100)}")
-            val dataDump = moshi.adapter(DataDump::class.java).fromJson(jsonString)
+            Log.d("DataDump", "Selected URI: $uri, reading text")
+            val dataDump = readAndParseDataDump(context, uri, moshi)
             if (dataDump != null) {
                 WakaDataDumpWorker.saveDataDumpToLocalStorage(context, dataDump)
                 println("Download successful: ${dataDump.user}")
-                alertData = AlertData("Data imported successfully")
+                setAlertData(AlertData("Data imported successfully"))
             } else {
                 println("Failed to parse DataDump")
-                alertData = AlertData("Failed to parse json data", AlertType.Failure)
+                setAlertData(AlertData("Failed to parse json data", AlertType.Failure))
             }
         }
     }
@@ -144,7 +156,7 @@ fun JSONDataCard(context: Context, moshi: Moshi) {
             }
         }
     }
-    AlertPane(alertData, alertData != null)
+//    AlertPane(alertData, alertData != null)
 
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -209,19 +221,19 @@ fun JSONDataCard(context: Context, moshi: Moshi) {
 
 
 @Composable
-fun BackupAndRestoreDataCard(context: Context) {
-    var alertData by remember { mutableStateOf<AlertData?>(null) }
+fun BackupAndRestoreDataCard(context: Context,setAlertData: (AlertData?) -> Unit) {
+//    var alertData by remember { mutableStateOf<AlertData?>(null) }
 
 
-    LaunchedEffect(alertData) {
-        if (alertData != null) {
-            // Hide the success message after 2 seconds
-            delay(2000)
-            alertData = null
-        }
-    }
-
-    AlertPane(alertData, alertData != null)
+//    LaunchedEffect(alertData) {
+//        if (alertData != null) {
+//            // Hide the success message after 2 seconds
+//            delay(2000)
+//            alertData = null
+//        }
+//    }
+//
+//    AlertPane(alertData, alertData != null)
 
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -249,9 +261,9 @@ fun BackupAndRestoreDataCard(context: Context) {
                         val backupFile = BackupManager.createBackup(context)
                         if (backupFile != null) {
                             BackupManager.shareBackup(context, backupFile)
-                            alertData = AlertData("Backup created and ready to share")
+                            setAlertData(AlertData("Backup created and ready to share"))
                         } else {
-                            alertData = AlertData("Backup failed", AlertType.Failure)
+                            setAlertData(AlertData("Backup failed", AlertType.Failure))
                         }
                     }
                 },
@@ -275,10 +287,10 @@ fun BackupAndRestoreDataCard(context: Context) {
                     if (backupData != null) {
                         BackupManager.restoreBackup(context, backupData)
                         println("Backup restoration successful")
-                        alertData = AlertData("Backup restored successfully")
+                        setAlertData(AlertData("Backup restored successfully"))
                     } else {
                         println("Failed to parse backup data")
-                        alertData = AlertData("Failed to parse backup data", AlertType.Failure)
+                        setAlertData(AlertData("Failed to parse backup data", AlertType.Failure))
                     }
                 }
             }
@@ -296,21 +308,21 @@ fun BackupAndRestoreDataCard(context: Context) {
 }
 
 @Composable
-fun DeleteDataCard(context: Context) {
+fun DeleteDataCard(context: Context,setAlertData: (AlertData?) -> Unit) {
 
-    var alertData by remember { mutableStateOf<AlertData?>(null) }
+//    var alertData by remember { mutableStateOf<AlertData?>(null) }
     var confirmationDialogOpen by remember { mutableStateOf(false) }
 
 
-    LaunchedEffect(alertData) {
-        if (alertData != null) {
-            // Hide the success message after 2 seconds
-            delay(2000)
-            alertData = null
-        }
-    }
+//    LaunchedEffect(alertData) {
+//        if (alertData != null) {
+//            // Hide the success message after 2 seconds
+//            delay(2000)
+//            alertData = null
+//        }
+//    }
 
-    AlertPane(alertData, alertData != null)
+//    AlertPane(alertData, alertData != null)
 
     if (confirmationDialogOpen) {
         Dialog(
@@ -320,22 +332,38 @@ fun DeleteDataCard(context: Context) {
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .padding(16.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal =16.dp,vertical = 24.dp)
             ) {
                 Text(
                     text = "Are you sure you want to delete all your data?",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    color = Color.White
+                )
+                Text(
+                    text = "Consider making a backup first. \n This action cannot be undone.",
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = 14.sp
+                    ),
+                    textAlign = TextAlign.Center,
                     color = Color.White
                 )
                 Button(
                     onClick = {
                         // wipe shared prefs
                         val prefs =
-                            context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+                            context.getSharedPreferences(
+                                WakaHelpers.Companion.PREFS,
+                                Context.MODE_PRIVATE
+                            )
 
-                        prefs.edit { clear() }
+                        prefs.edit {
+                            clear()
+                        }
 
-                        alertData = AlertData("Successfully wiped all app data")
+                        setAlertData(AlertData("Successfully wiped all app data"))
                         confirmationDialogOpen = false
                     },
 //                    border = BorderStroke(1.dp, Color.Red),

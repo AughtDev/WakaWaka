@@ -66,6 +66,22 @@ class WakaDataRepositoryImpl(
     private val sharedPrefsListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, changedKey ->
             Log.d("KaiDataRepositoryImpl", "sharedPrefsListener: $changedKey")
+            if (changedKey == null) {
+                // Verify this is a clear() by checking if keys are gone
+                val hasNoData = !sharedPreferences.contains(WakaHelpers.AGGREGATE_DATA_KEY) &&
+                        !sharedPreferences.contains(WakaHelpers.PROJECT_SPECIFIC_DATA_KEY) &&
+                        !sharedPreferences.contains(WakaHelpers.WAKA_STATISTICS_KEY) &&
+                        !sharedPreferences.contains(WakaHelpers.WAKATIME_API)
+
+                if (hasNoData) {
+                    // This is definitely a clear operation
+                    _aggregateDataFlow.value = WakaHelpers.INITIAL_AGGREGATE_DATA
+                    _projectsDataFlow.value = emptyMap()
+                    _statisticsFlow.value = WakaHelpers.INITIAL_WAKA_STATISTICS
+                    _settingsFlow.value = SettingsData()
+                }
+                return@OnSharedPreferenceChangeListener
+            }
             when (changedKey) {
                 WakaHelpers.AGGREGATE_DATA_KEY -> {
                     val newAggregateData = WakaDataFetchWorker.loadAggregateData(context)

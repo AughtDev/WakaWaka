@@ -190,30 +190,6 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
     }
 
 
-    private fun updateWakaStatistics(
-        context: Context,
-        aggregateData: AggregateData,
-        projectData: Map<String, ProjectSpecificData>
-    ) {
-        val prefs = context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
-
-        val wakaStatisticsAdapter = moshi.adapter(WakaStatistics::class.java)
-
-        val wakaStatistics = WakaStatistics(
-            calculateDurationStats(aggregateData.dailyRecords.mapValues { it.value.totalSeconds }),
-            projectData.mapValues {
-                calculateDurationStats(it.value.dailyDurationInSeconds)
-            }
-        )
-
-        prefs.edit {
-            putString(
-                WakaHelpers.Companion.WAKA_STATISTICS_KEY,
-                wakaStatisticsAdapter.toJson(wakaStatistics)
-            )
-        }
-    }
-
     private fun handleNotifications(
         prefs: SharedPreferences,
         aggregateData: AggregateData,
@@ -693,7 +669,6 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
         //endregion
 
-
         //region SAVE DATA
 
         fun saveAggregateData(context: Context, aggregateData: AggregateData) {
@@ -788,8 +763,32 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             }
         }
 
+
+        fun updateWakaStatistics(
+            context: Context,
+            aggregateData: AggregateData,
+            projectData: Map<String, ProjectSpecificData>
+        ) {
+            val moshi = getMoshi()
+            val prefs = context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+
+            val wakaStatisticsAdapter = moshi.adapter(WakaStatistics::class.java)
+
+            val wakaStatistics = WakaStatistics(
+                calculateDurationStats(aggregateData.dailyRecords.mapValues { it.value.totalSeconds }),
+                projectData.mapValues {
+                    calculateDurationStats(it.value.dailyDurationInSeconds)
+                }
+            )
+
+            prefs.edit {
+                putString(
+                    WakaHelpers.Companion.WAKA_STATISTICS_KEY,
+                    wakaStatisticsAdapter.toJson(wakaStatistics)
+                )
+            }
+        }
+
         //endregion
-
-
     }
 }
