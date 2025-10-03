@@ -42,124 +42,172 @@ jobs:
       - name: Bump Version Code and Name (Kotlin DSL)
         id: bump
         run: |
-          # Set gradle file path for Kotlin DSL
           GRADLE_FILE="app/build.gradle.kts"
+    
+          # Get the latest release tag from GitHub
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest release tag: $LATEST_TAG"
           
-          # Check if file exists
-          if [ ! -f "$GRADLE_FILE" ]; then
-            echo "Error: $GRADLE_FILE not found!"
-            exit 1
-          fi
-          
-          echo "Processing Kotlin DSL file: $GRADLE_FILE..."
-          
-          # Show current content around version declarations
-          echo "Current version-related lines:"
-          grep -n -E "(versionCode|versionName)" "$GRADLE_FILE" || echo "No version lines found with standard grep"
-          
-          # Kotlin DSL uses = assignment, so we need different regex patterns
-          CURRENT_VERSION_CODE=$(grep -oE 'versionCode[[:space:]]*=[[:space:]]*[0-9]+' "$GRADLE_FILE" | grep -oE '[0-9]+' | head -1)
-          CURRENT_VERSION_NAME=$(grep -oE 'versionName[[:space:]]*=[[:space:]]*"[^"]*"' "$GRADLE_FILE" | grep -oE '"[^"]*"' | sed 's/"//g' | head -1)
-          
-          # Fallback if not found
-          if [ -z "$CURRENT_VERSION_CODE" ]; then
-            echo "Warning: Could not find versionCode, using default 1"
-            CURRENT_VERSION_CODE="1"
-          fi
-          
-          if [ -z "$CURRENT_VERSION_NAME" ]; then
-            echo "Warning: Could not find versionName, using default 1.0.0"
-            CURRENT_VERSION_NAME="1.0.0"
-          fi
-          
-          echo "Current versionCode: $CURRENT_VERSION_CODE"
-          echo "Current versionName: $CURRENT_VERSION_NAME"
-          
-          # Set new version code
-          NEW_VERSION_CODE=${{ github.run_number }}
-          
-          # Determine version increment based on commit message or manual triggers
-          COMMIT_MESSAGE="${{ github.event.head_commit.message }}"
-          echo "Commit message: $COMMIT_MESSAGE"
+          # Strip the 'v' prefix to get version number
+          CURRENT_VERSION_NAME="${LATEST_TAG#v}"
+          echo "Current version from tag: $CURRENT_VERSION_NAME"
           
           # Parse current version
           IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION_NAME"
-          MAJOR=${VERSION_PARTS[0]:-1}
+          MAJOR=${VERSION_PARTS[0]:-0}
           MINOR=${VERSION_PARTS[1]:-0}
           PATCH=${VERSION_PARTS[2]:-0}
           
           echo "Current version parts - Major: $MAJOR, Minor: $MINOR, Patch: $PATCH"
           
-          # Check for version bump keywords in commit message
+          # Version bump logic (your existing code)
+          COMMIT_MESSAGE="${{ github.event.head_commit.message }}"
+          
           if [[ "$COMMIT_MESSAGE" =~ \[major\]|\[MAJOR\]|BREAKING[[:space:]]CHANGE ]]; then
-            echo "🚀 Major version bump detected"
-            MAJOR=$((MAJOR + 1))
-            MINOR=0
-            PATCH=0
+          echo "🚀 Major version bump detected"
+          MAJOR=$((MAJOR + 1))
+          MINOR=0
+          PATCH=0
           elif [[ "$COMMIT_MESSAGE" =~ \[minor\]|\[MINOR\]|\[feature\]|\[FEATURE\] ]]; then
-            echo "✨ Minor version bump detected"
-            MINOR=$((MINOR + 1))
-            PATCH=0
-          elif [[ "$COMMIT_MESSAGE" =~ \[patch\]|\[PATCH\]|\[fix\]|\[FIX\] ]]; then
-            echo "🐛 Patch version bump detected"
-            PATCH=$((PATCH + 1))
+          echo "✨ Minor version bump detected"
+          MINOR=$((MINOR + 1))
+          PATCH=0
           else
-            echo "📦 Auto patch increment (default)"
-            PATCH=$((PATCH + 1))
+          echo "📦 Patch increment (default)"
+          PATCH=$((PATCH + 1))
           fi
           
           NEW_VERSION_NAME="${MAJOR}.${MINOR}.${PATCH}"
+          NEW_VERSION_CODE=${{ github.run_number }}
           
-          echo "New versionCode: $NEW_VERSION_CODE"
           echo "New versionName: $NEW_VERSION_NAME"
+          echo "New versionCode: $NEW_VERSION_CODE"
           
-          # Create backup
-          cp "$GRADLE_FILE" "${GRADLE_FILE}.backup"
-          
-          # Update versionCode for Kotlin DSL (with = assignment)
+          # Update gradle file (your existing sed commands)
           sed -i "s/versionCode[[:space:]]*=[[:space:]]*[0-9]\+/versionCode = $NEW_VERSION_CODE/g" "$GRADLE_FILE"
-          
-          # Update versionName for Kotlin DSL (with = assignment)
           sed -i "s/versionName[[:space:]]*=[[:space:]]*\"[^\"]*\"/versionName = \"$NEW_VERSION_NAME\"/g" "$GRADLE_FILE"
           
-          # Verify changes were made
-          echo "Checking if updates were successful..."
-          NEW_CODE_CHECK=$(grep -oE 'versionCode[[:space:]]*=[[:space:]]*[0-9]+' "$GRADLE_FILE" | grep -oE '[0-9]+' | head -1)
-          NEW_NAME_CHECK=$(grep -oE 'versionName[[:space:]]*=[[:space:]]*"[^"]*"' "$GRADLE_FILE" | grep -oE '"[^"]*"' | sed 's/"//g' | head -1)
-          
-          if [ "$NEW_CODE_CHECK" = "$NEW_VERSION_CODE" ]; then
-            echo "✓ versionCode updated successfully"
-          else
-            echo "✗ versionCode update failed"
-            echo "Expected: $NEW_VERSION_CODE, Got: $NEW_CODE_CHECK"
-          fi
-          
-          if [ "$NEW_NAME_CHECK" = "$NEW_VERSION_NAME" ]; then
-            echo "✓ versionName updated successfully"
-          else
-            echo "✗ versionName update failed"
-            echo "Expected: $NEW_VERSION_NAME, Got: $NEW_NAME_CHECK"
-          fi
-          
-          # Show the changes
-          echo "Changes made to gradle file:"
-          diff "${GRADLE_FILE}.backup" "$GRADLE_FILE" || true
-          
-          # Set outputs for later steps
           echo "versionCode=$NEW_VERSION_CODE" >> $GITHUB_OUTPUT
           echo "versionName=$NEW_VERSION_NAME" >> $GITHUB_OUTPUT
-          
-          echo "Version update completed!"
+
+#          # Set gradle file path for Kotlin DSL
+#          GRADLE_FILE="app/build.gradle.kts"
+#
+#          # Check if file exists
+#          if [ ! -f "$GRADLE_FILE" ]; then
+#            echo "Error: $GRADLE_FILE not found!"
+#            exit 1
+#          fi
+#
+#          echo "Processing Kotlin DSL file: $GRADLE_FILE..."
+#
+#          # Show current content around version declarations
+#          echo "Current version-related lines:"
+#          grep -n -E "(versionCode|versionName)" "$GRADLE_FILE" || echo "No version lines found with standard grep"
+#
+#          # Kotlin DSL uses = assignment, so we need different regex patterns
+#          CURRENT_VERSION_CODE=$(grep -oE 'versionCode[[:space:]]*=[[:space:]]*[0-9]+' "$GRADLE_FILE" | grep -oE '[0-9]+' | head -1)
+#          CURRENT_VERSION_NAME=$(grep -oE 'versionName[[:space:]]*=[[:space:]]*"[^"]*"' "$GRADLE_FILE" | grep -oE '"[^"]*"' | sed 's/"//g' | head -1)
+#
+#          # Fallback if not found
+#          if [ -z "$CURRENT_VERSION_CODE" ]; then
+#            echo "Warning: Could not find versionCode, using default 1"
+#            CURRENT_VERSION_CODE="1"
+#          fi
+#
+#          if [ -z "$CURRENT_VERSION_NAME" ]; then
+#            echo "Warning: Could not find versionName, using default 1.0.0"
+#            CURRENT_VERSION_NAME="1.0.0"
+#          fi
+#
+#          echo "Current versionCode: $CURRENT_VERSION_CODE"
+#          echo "Current versionName: $CURRENT_VERSION_NAME"
+#
+#          # Set new version code
+#          NEW_VERSION_CODE=${{ github.run_number }}
+#
+#          # Determine version increment based on commit message or manual triggers
+#          COMMIT_MESSAGE="${{ github.event.head_commit.message }}"
+#          echo "Commit message: $COMMIT_MESSAGE"
+#
+#          # Parse current version
+#          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION_NAME"
+#          MAJOR=${VERSION_PARTS[0]:-1}
+#          MINOR=${VERSION_PARTS[1]:-0}
+#          PATCH=${VERSION_PARTS[2]:-0}
+#
+#          echo "Current version parts - Major: $MAJOR, Minor: $MINOR, Patch: $PATCH"
+#
+#          # Check for version bump keywords in commit message
+#          if [[ "$COMMIT_MESSAGE" =~ \[major\]|\[MAJOR\]|BREAKING[[:space:]]CHANGE ]]; then
+#            echo "🚀 Major version bump detected"
+#            MAJOR=$((MAJOR + 1))
+#            MINOR=0
+#            PATCH=0
+#          elif [[ "$COMMIT_MESSAGE" =~ \[minor\]|\[MINOR\]|\[feature\]|\[FEATURE\] ]]; then
+#            echo "✨ Minor version bump detected"
+#            MINOR=$((MINOR + 1))
+#            PATCH=0
+#          elif [[ "$COMMIT_MESSAGE" =~ \[patch\]|\[PATCH\]|\[fix\]|\[FIX\] ]]; then
+#            echo "🐛 Patch version bump detected"
+#            PATCH=$((PATCH + 1))
+#          else
+#            echo "📦 Auto patch increment (default)"
+#            PATCH=$((PATCH + 1))
+#          fi
+#
+#          NEW_VERSION_NAME="${MAJOR}.${MINOR}.${PATCH}"
+#
+#          echo "New versionCode: $NEW_VERSION_CODE"
+#          echo "New versionName: $NEW_VERSION_NAME"
+#
+#          # Create backup
+#          cp "$GRADLE_FILE" "${GRADLE_FILE}.backup"
+#
+#          # Update versionCode for Kotlin DSL (with = assignment)
+#          sed -i "s/versionCode[[:space:]]*=[[:space:]]*[0-9]\+/versionCode = $NEW_VERSION_CODE/g" "$GRADLE_FILE"
+#
+#          # Update versionName for Kotlin DSL (with = assignment)
+#          sed -i "s/versionName[[:space:]]*=[[:space:]]*\"[^\"]*\"/versionName = \"$NEW_VERSION_NAME\"/g" "$GRADLE_FILE"
+#
+#          # Verify changes were made
+#          echo "Checking if updates were successful..."
+#          NEW_CODE_CHECK=$(grep -oE 'versionCode[[:space:]]*=[[:space:]]*[0-9]+' "$GRADLE_FILE" | grep -oE '[0-9]+' | head -1)
+#          NEW_NAME_CHECK=$(grep -oE 'versionName[[:space:]]*=[[:space:]]*"[^"]*"' "$GRADLE_FILE" | grep -oE '"[^"]*"' | sed 's/"//g' | head -1)
+#
+#          if [ "$NEW_CODE_CHECK" = "$NEW_VERSION_CODE" ]; then
+#            echo "✓ versionCode updated successfully"
+#          else
+#            echo "✗ versionCode update failed"
+#            echo "Expected: $NEW_VERSION_CODE, Got: $NEW_CODE_CHECK"
+#          fi
+#
+#          if [ "$NEW_NAME_CHECK" = "$NEW_VERSION_NAME" ]; then
+#            echo "✓ versionName updated successfully"
+#          else
+#            echo "✗ versionName update failed"
+#            echo "Expected: $NEW_VERSION_NAME, Got: $NEW_NAME_CHECK"
+#          fi
+#
+#          # Show the changes
+#          echo "Changes made to gradle file:"
+#          diff "${GRADLE_FILE}.backup" "$GRADLE_FILE" || true
+#
+#          # Set outputs for later steps
+#          echo "versionCode=$NEW_VERSION_CODE" >> $GITHUB_OUTPUT
+#          echo "versionName=$NEW_VERSION_NAME" >> $GITHUB_OUTPUT
+#
+#          echo "Version update completed!"
       
       # 3. Commit the Version Changes
 
-      # - name: Commit version updates
-      #  run: |
-      #    git config --global user.name 'github-actions[bot]'
-      #    git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-      #    git add app/build.gradle.kts
-      #    git commit -m "chore(release): version update to ${{ steps.bump.outputs.versionName }}"
-      #    git push origin HEAD:${{ github.ref_name }}
+#      - name: Commit version updates
+#        run: |
+#          git config --global user.name 'github-actions[bot]'
+#          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+#          git add app/build.gradle.kts
+#          git commit -m "chore(release): version update to ${{ steps.bump.outputs.versionName }}"
+#          git push origin HEAD:${{ github.ref_name }}
       
       # 4. Grant execute permission for gradlew
       - name: Grant execute permission for gradlew
