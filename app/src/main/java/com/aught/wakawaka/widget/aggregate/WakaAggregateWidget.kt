@@ -35,6 +35,7 @@ import androidx.glance.text.TextStyle
 import com.aught.wakawaka.MainActivity
 import com.aught.wakawaka.data.DataRequest
 import com.aught.wakawaka.data.GraphMode
+import com.aught.wakawaka.data.ProjectTargetCompletionData
 import com.aught.wakawaka.data.TimePeriod
 import com.aught.wakawaka.data.WakaDataHandler
 import com.aught.wakawaka.data.WakaHelpers
@@ -61,7 +62,7 @@ class WakaAggregateWidget : GlanceAppWidget() {
         val wakaDataHandler = WakaDataHandler.fromContext(context)
         val dataRequest = DataRequest.Aggregate
 
-        val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
+//        val prefs = context.getSharedPreferences(WakaHelpers.PREFS, Context.MODE_PRIVATE)
 
         // create a graph mode state
         var graphMode = remember { mutableStateOf(GraphMode.Daily) }
@@ -71,16 +72,31 @@ class WakaAggregateWidget : GlanceAppWidget() {
             GraphMode.Weekly -> TimePeriod.WEEK
         }
         val data = wakaDataHandler.getPeriodicDurationsInSeconds(dataRequest, timePeriod, 7)
-        val dates = getPeriodicDates( timePeriod, 7)
+        val dates = getPeriodicDates(timePeriod, 7)
 
 
         val targetInHours = wakaDataHandler.getTarget(dataRequest, timePeriod)
 
+//        val maxHours =
+//            when (graphMode.value) {
+//                GraphMode.Daily -> 24 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
+//                GraphMode.Weekly -> 24 * 7 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
+//            }
         val maxHours =
-            when (graphMode.value) {
-                GraphMode.Daily -> 24 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
-                GraphMode.Weekly -> 24 * 7 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
-            }
+            (if (targetInHours != null) {
+                targetInHours * 2
+            } else {
+                // maximum duration at 3/4 of the day
+                val maxDurationInHours = data.maxOf { it / 3600f }
+                maxDurationInHours * 1.25f
+
+            }).coerceIn(
+                4f, if (graphMode.value == GraphMode.Daily) {
+                    24 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
+                } else {
+                    24 * 7 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
+                }
+            )
 
         val streak = wakaDataHandler.getStreak(dataRequest, timePeriod).count
 
@@ -101,6 +117,8 @@ class WakaAggregateWidget : GlanceAppWidget() {
             ColorProvider(day = Color.Black, night = Color.Black)
         }
 
+        val projectTargetSummaries =
+            wakaDataHandler.getProjectsTargetCompletionSummaryData(timePeriod)
 
         Box(
             modifier = GlanceModifier.fillMaxSize().background(
@@ -121,9 +139,9 @@ class WakaAggregateWidget : GlanceAppWidget() {
             Box(
                 modifier = GlanceModifier
 //                    .height(110.dp)
-                    .padding(start = 8.dp,top = 8.dp)
+                    .padding(start = 8.dp, top = 8.dp)
             ) {
-                WakaWidgetComponents.StreakDisplay(streak, hitTargetToday)
+                WakaWidgetComponents.StreakDisplay(streak, hitTargetToday, projectTargetSummaries)
             }
             Column(
                 modifier = GlanceModifier.fillMaxSize(),
@@ -132,69 +150,93 @@ class WakaAggregateWidget : GlanceAppWidget() {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // top bar
-                Row(
-                    modifier = GlanceModifier.fillMaxWidth()
-                        .padding(horizontal = 15.dp, vertical = 10.dp),
+                Column(
+                    modifier = GlanceModifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Box(modifier = GlanceModifier.defaultWeight()) {}
-                    Row {
-                        Text(
-                            text = "DAILY",
-                            style = TextStyle(
-                                color = when (graphMode.value) {
-                                    GraphMode.Daily -> primaryColor
+                    Row(
+                        modifier = GlanceModifier.fillMaxWidth()
+                            .padding(horizontal = 15.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(modifier = GlanceModifier.defaultWeight()) {}
+                        Row {
+                            Text(
+                                text = "DAILY",
+                                style = TextStyle(
+                                    color = when (graphMode.value) {
+                                        GraphMode.Daily -> primaryColor
 
-                                    GraphMode.Weekly -> ColorProvider(
-                                        day = Color.Gray,
-                                        night = Color.Gray
-                                    )
-                                },
-                                fontSize = 16.sp,
-                                fontWeight =
-                                    when (graphMode.value) {
-                                        GraphMode.Daily -> FontWeight.Bold
-                                        GraphMode.Weekly -> FontWeight.Normal
+                                        GraphMode.Weekly -> ColorProvider(
+                                            day = Color.Gray,
+                                            night = Color.Gray
+                                        )
+                                    },
+                                    fontSize = 16.sp,
+                                    fontWeight =
+                                        when (graphMode.value) {
+                                            GraphMode.Daily -> FontWeight.Bold
+                                            GraphMode.Weekly -> FontWeight.Normal
+                                        }
+
+                                ),
+                                modifier = GlanceModifier
+                                    .clickable {
+                                        graphMode.value = GraphMode.Daily
                                     }
+                            )
+                            Box(modifier = GlanceModifier.width(10.dp)) {}
+                            Text(
+                                text = "WEEKLY",
+                                style = TextStyle(
+                                    color = when (graphMode.value) {
+                                        GraphMode.Daily -> ColorProvider(
+                                            day = Color.Gray,
+                                            night = Color.Gray
+                                        )
 
-                            ),
-                            modifier = GlanceModifier
-                                .clickable {
-                                    graphMode.value = GraphMode.Daily
-                                }
-                        )
-                        Box(modifier = GlanceModifier.width(10.dp)) {}
-                        Text(
-                            text = "WEEKLY",
-                            style = TextStyle(
-                                color = when (graphMode.value) {
-                                    GraphMode.Daily -> ColorProvider(
-                                        day = Color.Gray,
-                                        night = Color.Gray
-                                    )
-
-                                    GraphMode.Weekly -> primaryColor
-                                },
-                                fontSize = 16.sp,
-                                fontWeight =
-                                    when (graphMode.value) {
-                                        GraphMode.Daily -> FontWeight.Normal
-                                        GraphMode.Weekly -> FontWeight.Bold
+                                        GraphMode.Weekly -> primaryColor
+                                    },
+                                    fontSize = 16.sp,
+                                    fontWeight =
+                                        when (graphMode.value) {
+                                            GraphMode.Daily -> FontWeight.Normal
+                                            GraphMode.Weekly -> FontWeight.Bold
+                                        }
+                                ),
+                                modifier = GlanceModifier
+                                    .clickable {
+                                        graphMode.value = GraphMode.Weekly
                                     }
-                            ),
-                            modifier = GlanceModifier
-                                .clickable {
-                                    graphMode.value = GraphMode.Weekly
-                                }
-                        )
+                            )
 
+                        }
+                    }
+
+
+                    Row(
+                        modifier = GlanceModifier.fillMaxWidth()
+                            .padding(horizontal = 15.dp, vertical = 0.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(modifier = GlanceModifier.defaultWeight()) {}
+                        projectTargetSummaries.values.map {
+                            Box (
+                                GlanceModifier.padding(horizontal = 2.dp)
+                            ) {
+                                WakaWidgetComponents.ProjectTargetCompletionDisplay(it, 25, 15, 6)
+                            }
+                        }
                     }
                 }
                 // graph container
                 Box(
                     // go to the app MainActivity
-                    modifier = GlanceModifier.fillMaxSize().clickable(actionStartActivity<MainActivity>()),
+                    modifier = GlanceModifier.fillMaxSize()
+                        .clickable(actionStartActivity<MainActivity>()),
                 ) {
                     Row(
                         verticalAlignment = Alignment.Bottom,
@@ -211,7 +253,8 @@ class WakaAggregateWidget : GlanceAppWidget() {
                             Column(
                                 modifier = GlanceModifier
 //                            .background(Color.Green)
-                                    .width((WakaWidgetHelpers.GRAPH_WIDTH / 7).dp).padding(horizontal = 3.dp),
+                                    .width((WakaWidgetHelpers.GRAPH_WIDTH / 7).dp)
+                                    .padding(horizontal = 3.dp),
                                 verticalAlignment = Alignment.Bottom
                             ) {
                                 val barColor =
@@ -267,8 +310,13 @@ class WakaAggregateWidget : GlanceAppWidget() {
                     }
 
                     // Add this Box for the target line overlay
-                    if (targetInHours != null) WakaWidgetComponents.TargetLine(targetInHours, maxHours, theme)
+                    if (targetInHours != null) WakaWidgetComponents.TargetLine(
+                        targetInHours,
+                        maxHours,
+                        theme
+                    )
                 }
+
 //            Row(horizontalAlignment = Alignment.CenterHorizontally) {
 //                Button(
 //                    text = "Homes",

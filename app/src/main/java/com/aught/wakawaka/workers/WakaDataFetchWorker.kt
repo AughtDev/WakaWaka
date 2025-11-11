@@ -15,6 +15,7 @@ import com.aught.wakawaka.data.DurationStats
 import com.aught.wakawaka.data.NotificationData
 import com.aught.wakawaka.data.ProjectSpecificData
 import com.aught.wakawaka.data.ProjectStats
+import com.aught.wakawaka.data.ProjectTargetCompletionData
 import com.aught.wakawaka.data.SettingsData
 import com.aught.wakawaka.data.StreakData
 import com.aught.wakawaka.data.SummariesResponse
@@ -204,74 +205,23 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                 ?: WakaHelpers.Companion.INITIAL_NOTIFICATION_DATA)
         } ?: WakaHelpers.Companion.INITIAL_NOTIFICATION_DATA
 
-        var updatedLastAggDailyTgtNotifDate =
-            notificationData.lastAggregateDailyTargetNotificationDate
-        var updatedLastAggWeeklyTgtNotifDate =
-            notificationData.lastAggregateWeeklyTargetNotificationDate
+        val updatedDailyData = handleDailyNotifications(
+            notificationData,
+            aggregateData,
+            projectData
+        )
 
-        val today = LocalDate.now()
-//        wakaNotificationManager.showNotification(
-//            "Daily Target Hit",
-//            "Congratulations! You have hit your daily target of ${
-//                WakaHelpers.Companion.durationInSecondsToDurationString(
-//                    ((aggregateData.dailyTargetHours ?: (0f * 3600f))).roundToInt(),
-//                    " hours", " minutes"
-//                )
-//            }", 112
-//        )
+        val updatedWeeklyData = handleWeeklyNotifications(
+            notificationData,
+            aggregateData,
+            projectData
+        )
 
-        if (
-            aggregateData.dailyTargetHours != null &&
-            dailyTargetHit(
-                aggregateData.dailyRecords.mapValues { it.value.totalSeconds },
-                aggregateData.dailyTargetHours
-            ) &&
-            WakaHelpers.Companion.yyyyMMDDToDate(notificationData.lastAggregateDailyTargetNotificationDate)
-                .isBefore(today)
-        ) {
-            wakaNotificationManager.showNotification(
-                "Daily Target Hit",
-                "Congratulations! You have hit your daily target of ${
-                    WakaHelpers.Companion.durationInSecondsToDurationString(
-                        (aggregateData.dailyTargetHours * 3600f).roundToInt(),
-                        " hours", " minutes"
-                    )
-                }", 112
-            )
-            updatedLastAggDailyTgtNotifDate = WakaHelpers.Companion.dateToYYYYMMDD(today)
-        }
-
-        val firstDateThisWeek =
-            LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-
-        if (
-            aggregateData.weeklyTargetHours != null &&
-            weeklyTargetHit(
-                aggregateData.dailyRecords.mapValues { it.value.totalSeconds },
-                aggregateData.weeklyTargetHours
-            ) &&
-            WakaHelpers.Companion.yyyyMMDDToDate(notificationData.lastAggregateWeeklyTargetNotificationDate)
-                .isBefore(firstDateThisWeek)
-        ) {
-            wakaNotificationManager.showNotification(
-                "Weekly Target Hit",
-                "Congratulations! You have hit your weekly target of ${
-                    WakaHelpers.Companion.durationInSecondsToDurationString(
-                        (aggregateData.weeklyTargetHours * 3600f).roundToInt(),
-                        " hours", " minutes"
-                    )
-                }", 111
-            )
-            updatedLastAggWeeklyTgtNotifDate =
-                WakaHelpers.Companion.dateToYYYYMMDD(firstDateThisWeek)
-        }
-
-        // save the updated notification data
         val updatedNotificationData = NotificationData(
-            updatedLastAggDailyTgtNotifDate,
-            updatedLastAggWeeklyTgtNotifDate,
-            notificationData.lastProjectDailyNotificationDates,
-            notificationData.lastProjectWeeklyNotificationDates
+            updatedDailyData.first,
+            updatedWeeklyData.first,
+            updatedDailyData.second,
+            updatedWeeklyData.second
         )
 
         prefs.edit {
@@ -280,6 +230,160 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                 notificationDataAdapter.toJson(updatedNotificationData)
             )
         }
+    }
+
+    private fun handleDailyNotifications(
+        notificationData: NotificationData,
+        aggregateData: AggregateData,
+        projectData: Map<String, ProjectSpecificData>
+    ): Pair<String, Map<String, String>> {
+        val today = LocalDate.now()
+        var updatedLastAggDailyTgtNotifDate =
+            notificationData.lastAggregateDailyTargetNotificationDate
+        val updatedProjectDailyNotifDates =
+            notificationData.lastProjectDailyNotificationDates.toMutableMap()
+
+        val hasAggregateDailyTarget = aggregateData.dailyTargetHours != null
+        val hasHitAggregateDailyTarget = dailyTargetHit(
+            aggregateData.dailyRecords.mapValues { it.value.totalSeconds },
+            aggregateData.dailyTargetHours
+        )
+
+        val dailyTargetProjects =
+            projectData.values.filter { it.dailyTargetHours != null }
+
+        val isLastDailyTarget =
+            (hasAggregateDailyTarget && hasHitAggregateDailyTarget) && dailyTargetProjects.all {
+                dailyTargetHit(it.dailyDurationInSeconds, it.dailyTargetHours)
+            }
+
+        // AGGREGATE
+        if (hasAggregateDailyTarget && hasHitAggregateDailyTarget
+            && WakaHelpers.Companion.yyyyMMDDToDate(
+                notificationData.lastAggregateDailyTargetNotificationDate
+            ).isBefore(today)
+        ) {
+            val targetDuration = WakaHelpers.Companion.durationInSecondsToDurationString(
+                (aggregateData.dailyTargetHours * 3600f).roundToInt(),
+                "h", "m"
+            )
+            wakaNotificationManager.showNotification(
+                if (isLastDailyTarget) "🎉 All Daily Targets Complete!" else "Daily Goal Reached!",
+                "$targetDuration logged today. Great work!",
+                112
+            )
+            updatedLastAggDailyTgtNotifDate = WakaHelpers.Companion.dateToYYYYMMDD(today)
+        }
+
+        // PROJECTS
+        var dailyCompletions = 0
+
+        dailyTargetProjects.sortedByDescending {
+            dailyTargetHit(it.dailyDurationInSeconds, it.dailyTargetHours)
+        }.forEach { projectData ->
+            val projectName = projectData.name
+            if (dailyTargetHit(projectData.dailyDurationInSeconds, projectData.dailyTargetHours)) {
+                dailyCompletions += 1
+                if (!notificationData.lastProjectDailyNotificationDates.containsKey(projectName) ||
+                    WakaHelpers.Companion.yyyyMMDDToDate(
+                        notificationData.lastProjectDailyNotificationDates[projectName]!!
+                    ).isBefore(today)
+                ) {
+                    val targetDuration = WakaHelpers.Companion.durationInSecondsToDurationString(
+                        (projectData.dailyTargetHours!! * 3600f).roundToInt(),
+                        "h", "m"
+                    )
+                    wakaNotificationManager.showNotification(
+                        if (isLastDailyTarget) "🎉 All Daily Targets Complete!"
+                        else "✓ $projectName ($dailyCompletions/${dailyTargetProjects.size})",
+                        "$targetDuration daily goal achieved!",
+                        projectName.hashCode()
+                    )
+                    updatedProjectDailyNotifDates[projectName] =
+                        WakaHelpers.Companion.dateToYYYYMMDD(today)
+                }
+            }
+        }
+
+        return Pair(updatedLastAggDailyTgtNotifDate, updatedProjectDailyNotifDates)
+    }
+
+    private fun handleWeeklyNotifications(
+        notificationData: NotificationData,
+        aggregateData: AggregateData,
+        projectData: Map<String, ProjectSpecificData>
+    ): Pair<String, Map<String, String>> {
+        val firstDateThisWeek =
+            LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        var updatedLastAggWeeklyTgtNotifDate =
+            notificationData.lastAggregateWeeklyTargetNotificationDate
+        val updatedProjectWeeklyNotifDates =
+            notificationData.lastProjectWeeklyNotificationDates.toMutableMap()
+
+        val hasAggregateWeeklyTarget = aggregateData.weeklyTargetHours != null
+        val hasHitAggregateWeeklyTarget = weeklyTargetHit(
+            aggregateData.dailyRecords.mapValues { it.value.totalSeconds },
+            aggregateData.weeklyTargetHours
+        )
+
+        val weeklyTargetProjects =
+            projectData.values.filter { it.weeklyTargetHours != null }
+
+        val isLastWeeklyTarget =
+            (hasAggregateWeeklyTarget && hasHitAggregateWeeklyTarget) && weeklyTargetProjects.all {
+                weeklyTargetHit(it.dailyDurationInSeconds, it.weeklyTargetHours)
+            }
+
+        // AGGREGATE
+        if (hasAggregateWeeklyTarget && hasHitAggregateWeeklyTarget &&
+            WakaHelpers.Companion.yyyyMMDDToDate(notificationData.lastAggregateWeeklyTargetNotificationDate)
+                .isBefore(firstDateThisWeek)
+        ) {
+            val targetDuration = WakaHelpers.Companion.durationInSecondsToDurationString(
+                (aggregateData.weeklyTargetHours * 3600f).roundToInt(),
+                "h", "m"
+            )
+            wakaNotificationManager.showNotification(
+                if (isLastWeeklyTarget) "🎉 All Weekly Targets Complete!" else "Weekly Goal Reached!",
+                "$targetDuration logged this week. Keep it up!",
+                111
+            )
+            updatedLastAggWeeklyTgtNotifDate =
+                WakaHelpers.Companion.dateToYYYYMMDD(firstDateThisWeek)
+        }
+
+        // PROJECTS
+        var weeklyCompletions = 0
+
+        weeklyTargetProjects.sortedByDescending {
+            weeklyTargetHit(it.dailyDurationInSeconds, it.weeklyTargetHours)
+        }.forEach { projectData ->
+            val projectName = projectData.name
+            if (weeklyTargetHit(projectData.dailyDurationInSeconds, projectData.weeklyTargetHours)) {
+                weeklyCompletions += 1
+                if (!notificationData.lastProjectWeeklyNotificationDates.containsKey(projectName) ||
+                    WakaHelpers.Companion.yyyyMMDDToDate(
+                        notificationData.lastProjectWeeklyNotificationDates[projectName]!!
+                    ).isBefore(firstDateThisWeek)
+                ) {
+                    val targetDuration = WakaHelpers.Companion.durationInSecondsToDurationString(
+                        (projectData.weeklyTargetHours!! * 3600f).roundToInt(),
+                        "h", "m"
+                    )
+                    wakaNotificationManager.showNotification(
+                        if (isLastWeeklyTarget) "🎉 All Weekly Targets Complete!"
+                        else "✓ $projectName ($weeklyCompletions/${weeklyTargetProjects.size})",
+                        if (isLastWeeklyTarget) "$targetDuration weekly goal achieved for $projectName!"
+                        else "$targetDuration weekly goal achieved!",
+                        projectName.hashCode()
+                    )
+                    updatedProjectWeeklyNotifDates[projectName] =
+                        WakaHelpers.Companion.dateToYYYYMMDD(firstDateThisWeek)
+                }
+            }
+        }
+
+        return Pair(updatedLastAggWeeklyTgtNotifDate, updatedProjectWeeklyNotifDates)
     }
 
     private fun updateAppDataWithResponse(context: Context, data: SummariesResponse) {
@@ -747,7 +851,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             }
         }
 
-        fun saveSettingsData(context: Context,settingsData: SettingsData) {
+        fun saveSettingsData(context: Context, settingsData: SettingsData) {
             val prefs =
                 context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
 
@@ -770,7 +874,8 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             projectData: Map<String, ProjectSpecificData>
         ) {
             val moshi = getMoshi()
-            val prefs = context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+            val prefs =
+                context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
 
             val wakaStatisticsAdapter = moshi.adapter(WakaStatistics::class.java)
 

@@ -20,6 +20,13 @@ enum class TimePeriod {
     YEAR
 }
 
+
+data class ProjectTargetCompletionData(
+    val name: String,
+    val color: String,
+    val completion: Float,
+)
+
 class WakaDataHandler(
     val aggregateData: AggregateData?,
     val projectSpecificData: Map<String, ProjectSpecificData>
@@ -307,8 +314,30 @@ class WakaDataHandler(
         generateSortedProjectsList()
     }
 
+
+    fun getProjectsTargetCompletionSummaryData(period: TimePeriod): Map<String, ProjectTargetCompletionData> {
+        val result = mutableMapOf<String, ProjectTargetCompletionData>()
+        for (projectName in sortedProjectList) {
+            // if the project does not have a target for the given period, skip it
+            if (getTarget(DataRequest.ProjectSpecific(projectName), period) == null) {
+                continue
+            }
+            val dataRequest = DataRequest.ProjectSpecific(projectName)
+            val completion = getStreakCompletion(dataRequest, period)
+            val color = projectSpecificData[projectName]?.color ?: "#CCCCCC"
+
+            result[projectName] = ProjectTargetCompletionData(
+                name = projectName,
+                color = color,
+                completion = completion
+            )
+        }
+        return result
+    }
+
     // endregion
 }
+
 fun getPeriodicDateAtOffset(period: TimePeriod, offset: Int): LocalDate {
     if (offset < 0) {
         throw IllegalArgumentException("Offset must be greater than or equal to 0")
