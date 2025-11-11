@@ -44,6 +44,7 @@ import com.aught.wakawaka.data.getPeriodicDates
 import com.aught.wakawaka.utils.ColorUtils
 import com.aught.wakawaka.widget.WakaWidgetComponents
 import com.aught.wakawaka.widget.WakaWidgetHelpers
+import kotlin.math.max
 import kotlin.math.min
 
 class WakaProjectWidget : GlanceAppWidget() {
@@ -86,11 +87,27 @@ class WakaProjectWidget : GlanceAppWidget() {
 
             val targetInHours = wakaDataHandler.getTarget(dataRequest, timePeriod)
 
+//            val maxHours =
+//                when (graphMode.value) {
+//                    GraphMode.Daily -> 24 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
+//                    GraphMode.Weekly -> 24 * 7 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
+//                }
             val maxHours =
-                when (graphMode.value) {
-                    GraphMode.Daily -> 24 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
-                    GraphMode.Weekly -> 24 * 7 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
-                }
+                (if (targetInHours != null) {
+                    targetInHours * 2
+                } else {
+                    // maximum duration at 3/4 of the day
+                    val maxDurationInHours = data.maxOf { it / 3600f }
+                    maxDurationInHours * 1.25f
+
+                }).coerceIn(
+                    4f, if (graphMode.value == GraphMode.Daily) {
+                        24 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
+                    } else {
+                        24 * 7 * WakaWidgetHelpers.TIME_WINDOW_PROPORTION
+                    }
+                )
+
 
             val streak = wakaDataHandler.getStreak(dataRequest, timePeriod).count
 
@@ -125,10 +142,10 @@ class WakaProjectWidget : GlanceAppWidget() {
                 Box(
                     modifier = GlanceModifier
 //                        .height(110.dp)
-                        .padding(start = 8.dp,top = 8.dp)
+                        .padding(start = 8.dp, top = 8.dp)
 //                        .padding(start = 10.dp)
                 ) {
-                    WakaWidgetComponents.StreakDisplay(streak, hitTargetToday)
+                    WakaWidgetComponents.StreakDisplay(streak, hitTargetToday, null)
                 }
                 Column(
                     modifier = GlanceModifier.fillMaxSize(),
@@ -215,9 +232,13 @@ class WakaProjectWidget : GlanceAppWidget() {
                     Box(
                         // go to the app MainActivity
                         modifier = GlanceModifier.fillMaxSize()
-                            .clickable(actionStartActivity<MainActivity>(parameters = actionParametersOf(
-                                WakaWidgetHelpers.WIDGET_INTENT_ID to widgetProject
-                            )))
+                            .clickable(
+                                actionStartActivity<MainActivity>(
+                                    parameters = actionParametersOf(
+                                        WakaWidgetHelpers.WIDGET_INTENT_ID to widgetProject
+                                    )
+                                )
+                            )
                     ) {
                         Row(
                             verticalAlignment = Alignment.Bottom,
@@ -235,7 +256,8 @@ class WakaProjectWidget : GlanceAppWidget() {
                                 Column(
                                     modifier = GlanceModifier
 //                            .background(Color.Green)
-                                        .width((WakaWidgetHelpers.GRAPH_WIDTH / 7).dp).padding(horizontal = 3.dp),
+                                        .width((WakaWidgetHelpers.GRAPH_WIDTH / 7).dp)
+                                        .padding(horizontal = 3.dp),
                                     verticalAlignment = Alignment.Bottom
                                 ) {
                                     val barColor =

@@ -23,12 +23,14 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
+import com.aught.wakawaka.data.ProjectTargetCompletionData
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaWidgetTheme
 import com.aught.wakawaka.utils.ColorUtils
 import com.aught.wakawaka.utils.StreakColors
 import kotlin.math.min
 import kotlin.math.roundToInt
+import androidx.core.graphics.toColorInt
 
 class WakaWidgetComponents {
     companion object {
@@ -113,7 +115,7 @@ class WakaWidgetComponents {
 
         @Composable
         fun DurationScale(numMarkers: Int, maxHours: Float, textColor: Color) {
-            val interval = (maxHours / numMarkers).toInt()
+            val interval = (maxHours / numMarkers).toInt().coerceAtLeast(1)
             val intervalDp = (WakaWidgetHelpers.GRAPH_HEIGHT * min(
                 1f, interval / maxHours
             ))
@@ -138,6 +140,10 @@ class WakaWidgetComponents {
                     Column(
                         modifier = GlanceModifier.height(intervalDp.dp).width(25.dp)
                     ) {
+                        // if beyond graph height, skip
+                        if (intervalDp * it > WakaWidgetHelpers.GRAPH_HEIGHT) {
+                            return@Column
+                        }
                         Row(
                             modifier = GlanceModifier.height(heightOfUnitMarker.dp).fillMaxWidth()
                                 .padding(end = 2.dp),
@@ -175,7 +181,7 @@ class WakaWidgetComponents {
         }
 
         @Composable
-        fun StreakDisplay(streak: Int, hitTargetToday: Boolean) {
+        fun StreakDisplay(streak: Int, hitTargetToday: Boolean,targetCompletionData: Map<String, ProjectTargetCompletionData>?) {
             val trueStreak = if (hitTargetToday) streak + 1 else streak
             val streakColors = ColorUtils.getStreakColors(trueStreak)
 
@@ -186,7 +192,7 @@ class WakaWidgetComponents {
 
             // get the color for each char, then create a list of pairs of char and color
             // the characters get assigned to streak colors in order, when we run out of colors, we use the last color for the rest of the characters
-            val segments = mutableListOf<Pair<String,Triple<Color,Color,Color>>>()
+            val segments = mutableListOf<Pair<String, Triple<Color, Color, Color>>>()
 
             for (i in chars.indices) {
                 val char = chars[i].toString()
@@ -202,60 +208,151 @@ class WakaWidgetComponents {
                 segments.add(Pair(char, colors))
             }
 
-            Column(
+            Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = GlanceModifier
-//                    .background(Color.Black.copy(0.5f))
-                    .cornerRadius(16.dp)
             ) {
-                Row(
+                Column(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalAlignment = Alignment.Start
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = GlanceModifier
+//                    .background(Color.Black.copy(0.5f))
+                        .cornerRadius(16.dp)
                 ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalAlignment = Alignment.Start
+                    ) {
 //                    Box(
 //                        modifier = GlanceModifier.background(streakColors[0]).size(8.dp).cornerRadius(4.dp).padding(horizontal = 4.dp)
 //                    ) {  }
-                    segments.forEachIndexed { i, (seg,colors) ->
-                        var (color,inactiveColor,bgColor) = colors
-                        if (!hitTargetToday) {
-                            color = color.copy(0.4f)
+                        segments.forEachIndexed { i, (seg, colors) ->
+                            var (color, inactiveColor, bgColor) = colors
+                            if (!hitTargetToday) {
+                                color = color.copy(0.4f)
+                            }
+                            val lp = if (i == 0) 8.dp else 0.dp
+                            val rp = if (i == segments.size - 1) 8.dp else 0.dp
+                            // background is black if only one color, else the next color in the streakColors list, the first color if last character
+                            Text(
+                                text = seg,
+                                style = TextStyle(
+                                    color = ColorProvider(
+                                        day = color, night = color
+                                    ),
+                                    fontSize = 56.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.SansSerif,
+                                ),
+                                modifier = GlanceModifier.height(60.dp).padding(
+                                    top = (-10).dp, start = lp, end = rp,
+                                ).background(bgColor)
+                            )
                         }
-                        val lp = if (i == 0) 8.dp else 0.dp
-                        val rp = if (i == segments.size - 1) 8.dp else 0.dp
-                        // background is black if only one color, else the next color in the streakColors list, the first color if last character
+                    }
+                }
+                if (targetCompletionData != null && targetCompletionData.values.isNotEmpty()) {
+                    // get number of completed projects, display as a fraction next to the streak like 4/6. 4 on top of -- on top of 6
+                    // if not all projects completed, slightly transparent. use the same color as the streak text. if 2 or more colors,
+                    // one color for the numerator, next color for the denominator
+
+                    val totalProjects = targetCompletionData.size
+                    val completedProjects = targetCompletionData.values.count { it.completion >= 1f }
+                    val allCompleted = completedProjects == totalProjects
+
+                    // Get colors from streak colors
+                    val numeratorColor = if (streakColors.colors.size >= 2) {
+                        streakColors.colors[0]
+                    } else {
+                        streakColors.colors[0]
+                    }
+
+                    val denominatorColor = if (streakColors.colors.size >= 2) {
+                        streakColors.colors[1]
+                    } else {
+                        streakColors.colors[0]
+                    }
+
+                    val alpha = if (allCompleted) 1f else 0.5f
+
+                    Box(modifier = GlanceModifier.width(8.dp)) {}
+
+                    Column(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = GlanceModifier.padding(horizontal = 4.dp)
+                    ) {
+                        // Numerator (completed)
                         Text(
-                            text = seg,
+                            text = completedProjects.toString(),
                             style = TextStyle(
                                 color = ColorProvider(
-                                    day = color, night = color
+                                    day = numeratorColor.copy(alpha = alpha),
+                                    night = numeratorColor.copy(alpha = alpha)
                                 ),
-                                fontSize = 56.sp,
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.SansSerif,
-                            ),
-                            modifier = GlanceModifier.height(60.dp).padding(
-                                top = (-10).dp, start = lp, end = rp,
-                            ).background(bgColor)
+                                textAlign = TextAlign.Center
+                            )
+                        )
+                        // Divider line
+                        Box(
+                            modifier = GlanceModifier
+                                .width(20.dp)
+                                .height(2.dp)
+                                .background(numeratorColor.copy(alpha = alpha * 0.7f))
+                        ) {}
+                        // Denominator (total)
+                        Text(
+                            text = totalProjects.toString(),
+                            style = TextStyle(
+                                color = ColorProvider(
+                                    day = denominatorColor.copy(alpha = alpha),
+                                    night = denominatorColor.copy(alpha = alpha)
+                                ),
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
                         )
                     }
-//                    Column(
-//                        modifier = GlanceModifier.padding(start = 2.dp, bottom = 2.dp),
-//                    ) {
-//                        Box(
-//                            modifier = GlanceModifier.size(12.dp).cornerRadius(5.dp).background(streakColors[0])
-//                        ) {}
-//                    }
                 }
-//                if (hitTargetToday) {
-//                    Box(
-//                        modifier = GlanceModifier.height(3.dp)
-//                    ) {}
-//                    Box(
-//                        modifier = GlanceModifier.width((24 * n + 10 * (n - 1)).dp).height(7.dp)
-//                            .cornerRadius(4.dp).background(streakColors[0])
-//                    ) {}
-//                }
+            }
+        }
+
+
+        @Composable
+        fun ProjectTargetCompletionDisplay(
+            projectTargetCompletionData: ProjectTargetCompletionData,
+            width: Int,
+            height: Int,
+            radius: Int
+        ) {
+            // a rounded rectangle colored with the project color that is transparent as the background
+            // but has a bar showing the completion percentage that is not transparent from left to right
+
+            val projectColor = runCatching {
+                Color(projectTargetCompletionData.color.toColorInt())
+            }.getOrNull() ?: Color.White
+
+            val completionWidth =
+                (width * projectTargetCompletionData.completion.coerceIn(0f, 1f)).toInt()
+
+            Box(
+                modifier = GlanceModifier
+                    .width(width.dp)
+                    .height(height.dp)
+                    .cornerRadius(radius.dp)
+                    .background(projectColor.copy(alpha = 0.3f))
+            ) {
+                // Completion bar
+                Box(
+                    modifier = GlanceModifier
+                        .width(completionWidth.dp)
+                        .height(height.dp)
+                        .cornerRadius(radius.dp)
+                        .background(projectColor)
+                ) {}
             }
         }
     }
