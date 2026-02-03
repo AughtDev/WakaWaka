@@ -178,6 +178,7 @@ object WakaDataTransformers {
 class WakaDataUseCase(wakaDataRepository: WakaDataRepository) {
     private val p = wakaDataRepository.projects
     private val s = wakaDataRepository.statistics
+    private val c = wakaDataRepository.cheats
 
     // helpers
 
@@ -433,4 +434,42 @@ class WakaDataUseCase(wakaDataRepository: WakaDataRepository) {
             }
         }.toDataState()
     }
+
+    // region CHEAT DATA
+    // ? ........................
+
+    fun getCheatCounts(dataRequest: DataRequest): Flow<DataState<ProjectCheatCounts?>> {
+        val projectName = when (dataRequest) {
+            is DataRequest.Aggregate -> null
+            is DataRequest.ProjectSpecific -> dataRequest.projectName
+        }
+        return c.getCheatCount(projectName).toDataState()
+    }
+
+    fun getBlockedCheatDates(dataRequest: DataRequest, type: CheatType): Flow<Set<String>> {
+        val projectName = when (dataRequest) {
+            is DataRequest.Aggregate -> null
+            is DataRequest.ProjectSpecific -> dataRequest.projectName
+        }
+        return c.getBlockedDates(type, projectName)
+    }
+
+    fun getUsedCheatDates(dataRequest: DataRequest, type: CheatType): Flow<List<String>> {
+        val projectName = when (dataRequest) {
+            is DataRequest.Aggregate -> null
+            is DataRequest.ProjectSpecific -> dataRequest.projectName
+        }
+        return c.getUsedCheatDates(type, projectName)
+    }
+
+    suspend fun useCheat(dataRequest: DataRequest, type: CheatType, date: LocalDate): Boolean {
+        val projectName = when (dataRequest) {
+            is DataRequest.Aggregate -> null
+            is DataRequest.ProjectSpecific -> dataRequest.projectName
+        }
+        return c.useCheat(type, date, projectName)
+    }
+
+    // ? ........................
+    // endregion ........................
 }

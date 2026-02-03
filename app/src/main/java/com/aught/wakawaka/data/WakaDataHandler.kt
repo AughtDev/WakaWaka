@@ -29,13 +29,15 @@ data class ProjectTargetCompletionData(
 
 class WakaDataHandler(
     val aggregateData: AggregateData?,
-    val projectSpecificData: Map<String, ProjectSpecificData>
+    val projectSpecificData: Map<String, ProjectSpecificData>,
+    val cheatData: WakaCheatData? = null
 ) {
     companion object {
         fun fromContext(context: Context): WakaDataHandler {
             val aggregateData = WakaDataFetchWorker.loadAggregateData(context)
             val projectSpecificData = WakaDataFetchWorker.loadProjectSpecificData(context)
-            return WakaDataHandler(aggregateData, projectSpecificData)
+            val cheatData = WakaDataFetchWorker.loadCheatData(context)
+            return WakaDataHandler(aggregateData, projectSpecificData, cheatData)
         }
 
 
@@ -119,6 +121,21 @@ class WakaDataHandler(
             TimePeriod.MONTH -> emptyList()
             TimePeriod.YEAR -> emptyList()
         }.toSet()
+    }
+
+    fun getCheatDays(dataRequest: DataRequest, period: TimePeriod): Set<String> {
+        val key = when (dataRequest) {
+            is DataRequest.Aggregate -> AggregateKey
+            is DataRequest.ProjectSpecific -> dataRequest.projectName
+        }
+        val projectCheatData = cheatData?.cheatSpecs?.get(key) ?: return emptySet()
+
+        return when (period) {
+            TimePeriod.DAY -> projectCheatData.dailyCheatUsageRecord.toSet()
+            TimePeriod.WEEK -> projectCheatData.weeklyCheatUsageRecord.toSet()
+            TimePeriod.MONTH -> emptySet()
+            TimePeriod.YEAR -> emptySet()
+        }
     }
 
     fun getLastXDaysDurationInSeconds(dataRequest: DataRequest, days: Int): Int {
@@ -249,24 +266,31 @@ class WakaDataHandler(
         }
     }
 
-    fun calculateUpdatedStreak(dataRequest: DataRequest, period: TimePeriod): Int {
+    fun calculateUpdatedStreak(dataRequest: DataRequest, period: TimePeriod, fromScratch: Boolean = false): Int {
         var streak = 0
         var offset = 0
 
         val target = getTarget(dataRequest, period)
         val currentStreak = getStreak(dataRequest, period)
         val excludedDays = getExcludedDays(dataRequest, period)
-
+        val cheatDays = getCheatDays(dataRequest, period)
+        val dateFormatter = WakaHelpers.getYYYYMMDDDateFormatter()
 
         while (true) {
             offset++
             val date = getPeriodicDateAtOffset(period, offset)
-            if (date.toString() == currentStreak.updatedAt) {
+            if (date.toString() == currentStreak.updatedAt && !fromScratch) {
                 streak += currentStreak.count
                 break
             }
             val duration = getOffsetPeriodicDurationInSeconds(dataRequest, period, offset)
+            // Skip excluded days (by day of week)
             if (excludedDays.contains(date.dayOfWeek.value)) {
+                continue
+            }
+            // Skip cheat days (by specific date)
+            val formattedDate = date.format(dateFormatter)
+            if (cheatDays.contains(formattedDate)) {
                 continue
             }
             if (target == null) {

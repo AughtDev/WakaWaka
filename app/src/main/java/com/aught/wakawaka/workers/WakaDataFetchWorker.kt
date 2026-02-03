@@ -20,6 +20,7 @@ import com.aught.wakawaka.data.SettingsData
 import com.aught.wakawaka.data.StreakData
 import com.aught.wakawaka.data.SummariesResponse
 import com.aught.wakawaka.data.TimePeriod
+import com.aught.wakawaka.data.WakaCheatData
 import com.aught.wakawaka.data.WakaDataHandler
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaStatistics
@@ -419,6 +420,9 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                 emptyMap<String, ProjectSpecificData>().toMutableMap()
             }
 
+        // load cheat data for streak calculations
+        val cheatData = loadCheatData(context)
+
         // create a map of project names to their mutable daily duration in seconds
         val projectDailyRecords: MutableMap<String, MutableMap<String, Int>> = mutableMapOf()
         projectDataMap.forEach {
@@ -456,6 +460,8 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             val name = it.key
             val updatedRecords = it.value.toMap()
             val projectData = projectDataMap[name]
+            // Get cheat days for this project
+            val projectCheatData = cheatData.cheatSpecs[name]
             projectDataMap[name] = ProjectSpecificData(
                 it.key,
                 projectData?.color
@@ -467,27 +473,34 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                     updatedRecords,
                     projectData?.dailyStreak,
                     projectData?.dailyTargetHours,
-                    projectData?.excludedDaysFromDailyStreak ?: emptyList()
+                    projectData?.excludedDaysFromDailyStreak ?: emptyList(),
+                    projectCheatData?.dailyCheatUsageRecord
                 ),
                 calculateWeeklyStreak(
                     updatedRecords,
                     projectData?.weeklyStreak,
-                    projectData?.weeklyTargetHours
+                    projectData?.weeklyTargetHours,
+                    projectCheatData?.weeklyCheatUsageRecord
                 ),
                 projectData?.excludedDaysFromDailyStreak ?: emptyList()
             )
         }
 
+        // Get aggregate cheat days
+        val aggregateCheatData = cheatData.cheatSpecs[com.aught.wakawaka.data.AggregateKey]
+
         val updatedAggregateDailyStreak = calculateDailyStreak(
             updatedAggregateDailyRecords.mapValues { it.value.totalSeconds },
             aggregateData.dailyStreak,
             aggregateData.dailyTargetHours,
-            aggregateData.excludedDaysFromDailyStreak
+            aggregateData.excludedDaysFromDailyStreak,
+            aggregateCheatData?.dailyCheatUsageRecord
         )
         val updatedWeeklyStreak = calculateWeeklyStreak(
             updatedAggregateDailyRecords.mapValues { it.value.totalSeconds },
             aggregateData.weeklyStreak,
-            aggregateData.weeklyTargetHours
+            aggregateData.weeklyTargetHours,
+            aggregateCheatData?.weeklyCheatUsageRecord
         )
 
         val updatedAggregateData = AggregateData(
@@ -528,7 +541,8 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             data: Map<String, Int>,
             currentStreak: StreakData?,
             target: Float?,
-            excludedDays: List<Int>?
+            excludedDays: List<Int>?,
+            cheatDays: List<String>? = null
         ): StreakData {
             // if there are no target hours, the target is assumed to be anything above 0
             val targetHours = target
@@ -560,7 +574,12 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                     (targetHours == null && data[formattedDate]!! == 0) ||
                     (targetHours != null && data[formattedDate]!! < targetHours * 3600)
                 ) {
+                    // Skip excluded days (by day of week)
                     if (excludedDays?.contains(date.dayOfWeek.value) == true) {
+                        continue
+                    }
+                    // Skip cheat days (by specific date)
+                    if (cheatDays?.contains(formattedDate) == true) {
                         continue
                     }
                     break
@@ -575,7 +594,8 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         fun calculateWeeklyStreak(
             data: Map<String, Int>,
             currentStreak: StreakData?,
-            target: Float?
+            target: Float?,
+            cheatWeeks: List<String>? = null
         ): StreakData {
             // if there are no target hours, the target is assumed to be anything above 0
             val targetHours = target
@@ -594,9 +614,11 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                 LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
                     .minusWeeks(1)
             var streak = 0;
+            var weeksAgo = 0;
 
             while (true) {
-                val date = firstDayOfLastWeek.minusWeeks(streak.toLong())
+                val date = firstDayOfLastWeek.minusWeeks(weeksAgo.toLong())
+                weeksAgo++
                 val formattedDate = date.format(dateFormatter)
 
                 if (formattedDate == weeklyStreakData.updatedAt) {
@@ -616,6 +638,10 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                 if ((targetHours == null && totalSeconds == 0L) ||
                     (targetHours != null && totalSeconds < targetHours * 3600)
                 ) {
+                    // Skip cheat weeks (by first day of week date)
+                    if (cheatWeeks?.contains(formattedDate) == true) {
+                        continue
+                    }
                     break
                 }
                 streak++
@@ -760,6 +786,21 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             return notificationData
         }
 
+        fun loadCheatData(context: Context): WakaCheatData {
+            val prefs =
+                context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+            val moshi = getMoshi()
+            val cheatDataAdapter = moshi.adapter(WakaCheatData::class.java)
+            val cheatDataString =
+                prefs.getString(WakaHelpers.Companion.CHEAT_DAY_DATA_KEY, null)
+
+            val cheatData: WakaCheatData = cheatDataString?.let {
+                (runCatching { cheatDataAdapter.fromJson(it) }.getOrNull()
+                    ?: WakaCheatData())
+            } ?: WakaCheatData()
+            return cheatData
+        }
+
         fun loadWakatimeAPI(context: Context): String {
             val prefs =
                 context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
@@ -823,7 +864,9 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             val currProjectDataMap = loadProjectSpecificData(context).toMutableMap()
             currProjectDataMap[projectName] = projectData
 
-            val wakaDataHandler = WakaDataHandler(null, currProjectDataMap)
+            // Load cheat data for streak calculation
+            val cheatData = loadCheatData(context)
+            val wakaDataHandler = WakaDataHandler(null, currProjectDataMap, cheatData)
 
             val newDailyStreakCount = wakaDataHandler.calculateUpdatedStreak(
                 DataRequest.ProjectSpecific(projectName),
@@ -890,6 +933,19 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                 putString(
                     WakaHelpers.Companion.WAKA_STATISTICS_KEY,
                     wakaStatisticsAdapter.toJson(wakaStatistics)
+                )
+            }
+        }
+
+        fun saveCheatData(context: Context, cheatData: WakaCheatData) {
+            val moshi = getMoshi()
+            val cheatDataAdapter = moshi.adapter(WakaCheatData::class.java)
+            val prefs =
+                context.getSharedPreferences(WakaHelpers.Companion.PREFS, Context.MODE_PRIVATE)
+            prefs.edit {
+                putString(
+                    WakaHelpers.Companion.CHEAT_DAY_DATA_KEY,
+                    cheatDataAdapter.toJson(cheatData)
                 )
             }
         }

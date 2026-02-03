@@ -44,6 +44,7 @@ import com.aught.wakawaka.data.getPeriodicDates
 import com.aught.wakawaka.ui.theme.Grotesk
 import com.aught.wakawaka.widget.WakaWidgetComponents
 import com.aught.wakawaka.widget.WakaWidgetHelpers
+import java.time.LocalDate
 import kotlin.math.min
 
 
@@ -74,6 +75,9 @@ class WakaAggregateWidget : GlanceAppWidget() {
         val data = wakaDataHandler.getPeriodicDurationsInSeconds(dataRequest, timePeriod, 7)
         val dates = getPeriodicDates(timePeriod, 7)
 
+        // Get cheat days for this data request
+        val cheatDays = wakaDataHandler.getCheatDays(dataRequest, timePeriod)
+        val dateFormatter = WakaHelpers.getYYYYMMDDDateFormatter()
 
         val targetInHours = wakaDataHandler.getTarget(dataRequest, timePeriod)
 
@@ -100,7 +104,17 @@ class WakaAggregateWidget : GlanceAppWidget() {
 
         val streak = wakaDataHandler.getStreak(dataRequest, timePeriod).count
 
-        val hitTargetToday = wakaDataHandler.targetHit(dataRequest, timePeriod)
+        // Check if today is a cheat day
+        val today = LocalDate.now()
+        val todayFormatted = today.format(dateFormatter)
+        val todayWeekStart = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)).format(dateFormatter)
+        val isTodayCheatDay = when (timePeriod) {
+            TimePeriod.DAY -> cheatDays.contains(todayFormatted)
+            TimePeriod.WEEK -> cheatDays.contains(todayWeekStart)
+            else -> false
+        }
+
+        val hitTargetToday = wakaDataHandler.targetHit(dataRequest, timePeriod) || isTodayCheatDay
 
         val excludedDays = wakaDataHandler.getExcludedDays(dataRequest, timePeriod)
 
@@ -250,6 +264,16 @@ class WakaAggregateWidget : GlanceAppWidget() {
                         dates.zip(data).forEach { it ->
                             val date = it.first
                             val duration = it.second
+
+                            // Check if this date is a cheat day
+                            val dateFormatted = date.format(dateFormatter)
+                            val weekStartFormatted = date.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)).format(dateFormatter)
+                            val isCheatDay = when (timePeriod) {
+                                TimePeriod.DAY -> cheatDays.contains(dateFormatted)
+                                TimePeriod.WEEK -> cheatDays.contains(weekStartFormatted)
+                                else -> false
+                            }
+
                             Column(
                                 modifier = GlanceModifier
 //                            .background(Color.Green)
@@ -257,8 +281,10 @@ class WakaAggregateWidget : GlanceAppWidget() {
                                     .padding(horizontal = 3.dp),
                                 verticalAlignment = Alignment.Bottom
                             ) {
+                                // If it's a cheat day, always use primary color (as if target hit)
                                 val barColor =
                                     if (
+                                        isCheatDay ||
                                         targetInHours == null ||
                                         // if the day is in the exclusion list, use the primary color
                                         date.dayOfWeek.value in excludedDays ||
@@ -267,26 +293,59 @@ class WakaAggregateWidget : GlanceAppWidget() {
                                     else
                                         ColorProvider(day = Color.Gray, night = Color.Gray)
 
+                                val barHeight = WakaWidgetHelpers.GRAPH_HEIGHT * min(
+                                    1f,
+                                    duration / (3600 * maxHours)
+                                )
+                                val cheatCircleSize = 16f
+                                val canFitCircleInBar = barHeight >= cheatCircleSize + 4
+
                                 Column(
                                     // 100% height
                                     modifier = GlanceModifier
                                         .wrapContentHeight()
                                         .cornerRadius(3.dp)
                                         .fillMaxWidth(),
-                                    verticalAlignment = Alignment.Bottom
+                                    verticalAlignment = Alignment.Bottom,
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
+                                    // If cheat day and circle doesn't fit in bar, show it above
+                                    if (isCheatDay && !canFitCircleInBar) {
+                                        Box(
+                                            modifier = GlanceModifier
+                                                .width(cheatCircleSize.dp)
+                                                .height(cheatCircleSize.dp)
+                                                .cornerRadius((cheatCircleSize / 2).dp)
+                                                .background(primaryColor),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Box(
+                                                modifier = GlanceModifier
+                                                    .width((cheatCircleSize - 4).dp)
+                                                    .height((cheatCircleSize - 4).dp)
+                                                    .cornerRadius(((cheatCircleSize - 4) / 2).dp)
+                                                    .background(Color.Black)
+                                            ) {}
+                                        }
+                                    }
                                     Box(
                                         modifier = GlanceModifier.fillMaxWidth()
-                                            .height(
-                                                (WakaWidgetHelpers.GRAPH_HEIGHT * min(
-                                                    1f,
-                                                    duration / (3600 * maxHours)
-                                                )).dp
-                                            )
-//                                                .background(WakaHelpers.projectNameToColor(it.name))
+                                            .height(barHeight.dp)
                                             .background(barColor)
-                                            .padding(4.dp)
-                                    ) {}
+                                            .cornerRadius(3.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        // If cheat day and circle fits in bar, show it centered
+                                        if (isCheatDay && canFitCircleInBar) {
+                                            Box(
+                                                modifier = GlanceModifier
+                                                    .width(cheatCircleSize.dp)
+                                                    .height(cheatCircleSize.dp)
+                                                    .cornerRadius((cheatCircleSize / 2).dp)
+                                                    .background(Color.Black)
+                                            ) {}
+                                        }
+                                    }
                                 }
                                 // get the day,month and year from date of format yyyy-mm-dd
                                 val date = date.toString().split("-")

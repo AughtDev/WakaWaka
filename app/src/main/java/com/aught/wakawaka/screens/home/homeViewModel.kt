@@ -4,8 +4,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aught.wakawaka.data.AggregateData
+import com.aught.wakawaka.data.CheatType
 import com.aught.wakawaka.data.DataRequest
 import com.aught.wakawaka.data.DataState
+import com.aught.wakawaka.data.ProjectCheatCounts
 import com.aught.wakawaka.data.ProjectSpecificData
 import com.aught.wakawaka.data.TargetStreakData
 import com.aught.wakawaka.data.TimePeriod
@@ -18,8 +20,11 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 data class HomeUIState(
     val selectedProjectName: String = WakaHelpers.ALL_PROJECTS_ID,
@@ -28,6 +33,7 @@ data class HomeUIState(
     val projectColor: Color? = null,
     val dailyTargetStreakData: TargetStreakData = TargetStreakData(null, 0, 0f, false),
     val weeklyTargetStreakData: TargetStreakData = TargetStreakData(null, 0, 0f, false),
+    val cheatCounts: ProjectCheatCounts? = null,
     val isLoading: Boolean = false,
     val unloaded: Boolean = true
 )
@@ -55,58 +61,8 @@ class HomeViewModel(
     // endregion ........................
 
 
-
     // region HOME UI DATA
     // ? ........................
-
-//    private val _uiState = MutableStateFlow(HomeUIState())
-//    val uiState: StateFlow<HomeUIState> = _uiState.asStateFlow()
-//
-//    fun selectProject(projectName: String) {
-//        _uiState.update { it.copy(isLoading = true, selectedProjectName = projectName) }
-//
-//        viewModelScope.launch {
-//            val dataRequest = if (projectName == WakaHelpers.ALL_PROJECTS_ID) {
-//                DataRequest.Aggregate
-//            } else {
-//                DataRequest.ProjectSpecific(projectName)
-//            }
-//
-//            // 1. Start all data fetching in parallel using async
-//            val durationMapDeferred = async {
-//                // Wait for a non-empty map before finishing
-//                wakaDataTransformer.getLabelledDurationStats(dataRequest).first()
-//            }
-//            val dateMapDeferred = async {
-//                wakaDataTransformer.getDateToDurationData(dataRequest).first()
-//            }
-//            val colorDeferred = async {
-//                // Wait for a non-null color
-//                wakaDataTransformer.getProjectColor(dataRequest).first()
-//            }
-//            val dailyStreakDeferred = async {
-//                // Wait for a streak that has been properly initialized
-//                wakaDataTransformer.getTargetStreak(dataRequest, TimePeriod.DAY).first()
-//            }
-//            val weeklyStreakDeferred = async {
-//                wakaDataTransformer.getTargetStreak(dataRequest, TimePeriod.WEEK).first()
-//            }
-//
-//            Log.d("HomeViewModel", "Fetching data for project: $projectName, streak deferred: ${dailyStreakDeferred.await()}")
-//
-//            // 2. Await all the results. This suspends the coroutine until all fetches are complete.
-//            _uiState.update {
-//                it.copy(
-//                    durationLabelValueMap = durationMapDeferred.await(),
-//                    dateToDurationMap = dateMapDeferred.await(),
-//                    projectColor = colorDeferred.await(),
-//                    dailyTargetStreakData = dailyStreakDeferred.await(),
-//                    weeklyTargetStreakData = weeklyStreakDeferred.await(),
-//                    isLoading = false
-//                )
-//            }
-//        }
-//    }
 
     private val _selectedProjectName = MutableStateFlow(WakaHelpers.ALL_PROJECTS_ID)
 
@@ -128,15 +84,24 @@ class HomeViewModel(
                 wakaDataUseCase.getLabelledDurationStats(dataRequest),
                 wakaDataUseCase.getDateToDurationData(dataRequest),
                 wakaDataUseCase.getProjectColor(dataRequest),
+                wakaDataUseCase.getCheatCounts(dataRequest),
                 wakaDataUseCase.getTargetStreak(dataRequest, TimePeriod.DAY),
-                wakaDataUseCase.getTargetStreak(dataRequest, TimePeriod.WEEK)
-            ) { durationMapState, dateMapState, colorState, dailyStreakState, weeklyStreakState ->
+                wakaDataUseCase.getTargetStreak(dataRequest, TimePeriod.WEEK),
+//            ) { durationMapState, dateMapState, colorState, cheatCountsState, dailyStreakState, weeklyStreakState ->
+                ) { states: Array<DataState<*>> ->
+                val durationMapState = states[0] as DataState<Map<String, Int>>
+                val dateMapState = states[1] as DataState<Map<String, Int>>
+                val colorState = states[2] as DataState<Color?>
+                val cheatCountsState = states[3] as DataState<ProjectCheatCounts>
+                val dailyStreakState = states[4] as DataState<TargetStreakData>
+                val weeklyStreakState = states[5] as DataState<TargetStreakData>
 
                 // We only proceed if ALL data has successfully loaded
                 if (
                     durationMapState is DataState.Success &&
                     dateMapState is DataState.Success &&
                     colorState is DataState.Success &&
+                    cheatCountsState is DataState.Success &&
                     dailyStreakState is DataState.Success &&
                     weeklyStreakState is DataState.Success
                 ) {
@@ -145,13 +110,18 @@ class HomeViewModel(
                         durationLabelValueMap = durationMapState.data,
                         dateToDurationMap = dateMapState.data,
                         projectColor = colorState.data,
+                        cheatCounts = cheatCountsState.data,
                         dailyTargetStreakData = dailyStreakState.data,
                         weeklyTargetStreakData = weeklyStreakState.data,
                         isLoading = false, unloaded = false
                     )
                 } else {
                     // If any stream is still loading, reflect that in the state
-                    HomeUIState(selectedProjectName = projectName, unloaded = false, isLoading = true)
+                    HomeUIState(
+                        selectedProjectName = projectName,
+                        unloaded = false,
+                        isLoading = true
+                    )
                 }
             }
         }
@@ -160,7 +130,7 @@ class HomeViewModel(
     val uiState: StateFlow<HomeUIState> = projectSpecificDataFlow
         .scan(HomeUIState(isLoading = true)) { previous, current ->
             // Only log when loading state changes
-            if (current.isLoading ) {
+            if (current.isLoading) {
                 previous.copy(
                     isLoading = true
                 )
@@ -176,11 +146,73 @@ class HomeViewModel(
 
     fun selectProject(projectName: String) {
         _selectedProjectName.value = projectName
+        // update
     }
 
     init {
         selectProject(WakaHelpers.ALL_PROJECTS_ID)
     }
+
+    // region CHEAT FUNCTIONS
+    // ? ........................
+
+    fun useCheat(type: CheatType, date: LocalDate, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val dataRequest = if (_selectedProjectName.value == WakaHelpers.ALL_PROJECTS_ID) {
+                DataRequest.Aggregate
+            } else {
+                DataRequest.ProjectSpecific(_selectedProjectName.value)
+            }
+            val result = wakaDataUseCase.useCheat(dataRequest, type, date)
+            onResult(result)
+        }
+    }
+
+    fun useCheat(type: CheatType, date: LocalDate, projectName: String, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val dataRequest = DataRequest.ProjectSpecific(projectName)
+            val result = wakaDataUseCase.useCheat(dataRequest, type, date)
+            onResult(result)
+        }
+    }
+
+    fun getBlockedCheatDates(type: CheatType): Flow<Set<String>> {
+        val dataRequest = if (_selectedProjectName.value == WakaHelpers.ALL_PROJECTS_ID) {
+            DataRequest.Aggregate
+        } else {
+            DataRequest.ProjectSpecific(_selectedProjectName.value)
+        }
+        return wakaDataUseCase.getBlockedCheatDates(dataRequest, type)
+    }
+
+    fun getUsedCheatDates(type: CheatType): Flow<List<String>> {
+        val dataRequest = if (_selectedProjectName.value == WakaHelpers.ALL_PROJECTS_ID) {
+            DataRequest.Aggregate
+        } else {
+            DataRequest.ProjectSpecific(_selectedProjectName.value)
+        }
+        return wakaDataUseCase.getUsedCheatDates(dataRequest, type)
+    }
+
+    fun getUsedCheatDates(type: CheatType, projectName: String): Flow<List<String>> {
+        val dataRequest = DataRequest.ProjectSpecific(projectName)
+        return wakaDataUseCase.getUsedCheatDates(dataRequest, type)
+    }
+
+    fun getCheatCounts(projectName: String): Flow<ProjectCheatCounts?> {
+        val dataRequest = DataRequest.ProjectSpecific(projectName)
+        // extract the ProjectCheatCounts? from the DataState
+        return wakaDataUseCase.getCheatCounts(dataRequest).map { dataState ->
+            if (dataState is DataState.Success) {
+                dataState.data
+            } else {
+                null
+            }
+        }
+    }
+
+    // ? ........................
+    // endregion ........................
 
 
     // ? ........................

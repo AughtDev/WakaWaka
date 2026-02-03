@@ -136,6 +136,7 @@ fun DayCard(
     targetInHours: Float? = null,
     opacityStops: List<Pair<Float, Float>>,
     setDialogDayData: () -> Unit,
+    isCheatDay: Boolean = false,
 ) {
     val cellSize = 48.dp
     val progressPathPadding = 16f
@@ -197,9 +198,13 @@ fun DayCard(
         val bgColor = dayColorData.projectColor.copy(
             0.1f + (0.9f * cardOpacity)
         )
+        val inverseColor = MaterialTheme.colorScheme.background
 
         if (dayData.yyyymmdd == "2025-06-23") {
-            Log.d("waka", "Card opacity for ${dayData.yyyymmdd} is $cardOpacity for dayData $dayData")
+            Log.d(
+                "waka",
+                "Card opacity for ${dayData.yyyymmdd} is $cardOpacity for dayData $dayData"
+            )
         }
         Box(
             modifier = Modifier
@@ -219,7 +224,7 @@ fun DayCard(
                     WakaHelpers.PROJECT_COLOR_LUMINANCE * (cardOpacity)
 //                + dayColorData.luminance * (1 - cardOpacity)
 
-                val customTextColor = if (isFirstOfMonth || isToday || luminance < 0.4f) {
+                val customTextColor = if (isFirstOfMonth || isToday || isCheatDay || luminance < 0.4f) {
                     dayColorData.projectColor
                 } else {
                     if (dayData.isFutureDate) {
@@ -233,7 +238,7 @@ fun DayCard(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.fillMaxSize(),
 
-                    ) {
+                        ) {
                         Text(
                             text = if (isFirstOfMonth) dayData.month.slice(0..2) else dayData.date.toString(),
                             color = customTextColor,
@@ -247,10 +252,10 @@ fun DayCard(
 //                                dayData.isToday -> 16.sp
                                 else -> 14.sp
                             },
-                            textDecoration = if (isFirstOfMonth && isToday) TextDecoration.Underline else TextDecoration.None,
-                            modifier = if (isFirstOfMonth || isToday) Modifier
+//                            textDecoration = if (isFirstOfMonth && isToday) TextDecoration.Underline else TextDecoration.None,
+                            modifier = if (isFirstOfMonth || isToday || isCheatDay) Modifier
                                 .widthIn(min = if (isFirstOfMonth) 28.dp else 20.dp)
-                                .clip(RoundedCornerShape(6.dp))
+                                .clip(if (!isCheatDay) RoundedCornerShape(6.dp) else CircleShape)
                                 .background(MaterialTheme.colorScheme.background)
                                 .padding(horizontal = 3.dp, vertical = 2.dp) else Modifier,
                             fontWeight = if (isFirstOfMonth) FontWeight.Bold else FontWeight.Normal,
@@ -258,15 +263,6 @@ fun DayCard(
                         )
                     }
                 }
-            }
-            if (targetInHours != null && targetCompletion == 1f) {
-                Box(
-                    modifier = Modifier
-                        .size(5.dp)
-                        .offset(y = 4.dp)
-                        .clip(CircleShape)
-                        .background(dayColorData.projectColor)
-                )
             }
             if (targetInHours != null) {
                 Box(
@@ -283,7 +279,8 @@ fun DayCard(
                                                 progressPathPadding,
                                                 size.width - progressPathPadding,
                                                 size.height - progressPathPadding
-                                            ), cornerRadius = CornerRadius(cornerRadius, cornerRadius)
+                                            ),
+                                            cornerRadius = CornerRadius(cornerRadius, cornerRadius)
                                         )
                                     )
                                 }
@@ -309,6 +306,7 @@ fun DayCard(
                             }
 
 
+
                             drawPath(
                                 segmentPath,
                                 color = dayColorData.projectColor.copy(
@@ -320,10 +318,47 @@ fun DayCard(
                                     cap = StrokeCap.Round
                                 )
                             )
+
+                            // if it is a cheat day, draw a black triangle behind the text
+//                            if (isCheatDay) {
+//                                val trianglePath = Path().apply {
+//                                    val triangleSize = size.width * 0.6f
+//
+//                                    moveTo(size.width/2, size.width/2 - triangleSize/2)
+//                                    lineTo(size.width/2 + triangleSize/2, size.width/2 + triangleSize/2)
+//                                    lineTo(size.width/2 - triangleSize/2, size.width/2 + triangleSize/2)
+//                                    close()
+//                                }
+//                                drawPath(
+//                                    trianglePath,
+//                                    color = inverseColor
+//                                )
+//                            }
+
+//                            if (isCheatDay) {
+//                                drawPath(
+//                                    path,
+//                                    color = Color.Black.copy(),
+//                                    style = Stroke(
+//                                        width = 4f,
+//                                        pathEffect = null,
+//                                        cap = StrokeCap.Round
+//                                    )
+//                                )
+//                            }
                         }
                 ) {
 
                 }
+            }
+            if ((targetInHours != null && targetCompletion == 1f) || isCheatDay) {
+                Box(
+                    modifier = Modifier
+                        .size(5.dp)
+                        .offset(y = 4.dp)
+                        .clip(CircleShape)
+                        .background(if (!isCheatDay) dayColorData.projectColor else MaterialTheme.colorScheme.background)
+                )
             }
         }
     }
@@ -339,7 +374,8 @@ fun WeekGraph(
     projectColor: Color,
     excludedDays: Set<Int>,
     opacityStops: List<Pair<Float, Float>>,
-    setDialogDayData: (DayData) -> Unit
+    setDialogDayData: (DayData) -> Unit,
+    weekCheatDays: Set<Int> = emptySet(),
 ) {
 
     val dayColorData = remember(projectColor) {
@@ -349,6 +385,8 @@ fun WeekGraph(
 //            luminance = ColorUtils.calculateLuminance(projectColor)
         )
     }
+
+    Log.d("week","week cheat days are $weekCheatDays")
 
     Row(
         horizontalArrangement = Arrangement.Center,
@@ -361,7 +399,8 @@ fun WeekGraph(
                 excludedDays = excludedDays,
                 targetInHours = targetInHours,
                 opacityStops = opacityStops,
-                setDialogDayData = { setDialogDayData(data[it]) }
+                setDialogDayData = { setDialogDayData(data[it]) },
+                isCheatDay = weekCheatDays.contains(it),
             )
         }
     }
@@ -374,7 +413,8 @@ fun CalendarGraph(
     dateToDurationMap: Map<String, Int>,
     targetInHours: Float?,
     projectColor: Color,
-    aggregateData: AggregateData? = null
+    aggregateData: AggregateData? = null,
+    cheatDays: Set<String> = emptySet()
 ) {
 //    Log.d("waka", "Generating calendar graph for project: $projectName")
     var showDialog by remember { mutableStateOf(false) }
@@ -412,7 +452,7 @@ fun CalendarGraph(
                         contentAlignment = Alignment.CenterEnd
                     ) {
                         with(LocalDensity.current) {
-                            Row (
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
@@ -549,7 +589,7 @@ fun CalendarGraph(
             .fillMaxWidth()
             .fillMaxSize(fraction = 0.65f)
             .scrollBlurEffects(
-                lazyListState,weeklyData.size
+                lazyListState, weeklyData.size
             )
     ) {
         LazyColumn(
@@ -559,12 +599,19 @@ fun CalendarGraph(
         ) {
             items(weeklyData) {
                 var firstJanIdx: Int? = null
+                var weekCheatDays: Set<Int> = emptySet()
                 it.forEachIndexed { index, it ->
                     if (it.date == 1 && it.month.uppercase() == "JANUARY") {
                         firstJanIdx = index
                         return@forEachIndexed
                     }
+                    // iterate through the days, check if the form yyyy-mm-dd is in cheatDays, if so add the idx
+                    if (cheatDays.contains(it.yyyymmdd)) {
+                        // add idx to weekCheatDays
+                        weekCheatDays = weekCheatDays.plus(index)
+                    }
                 }
+
                 if (firstJanIdx != null) {
                     WeekGraph(
                         it,
@@ -573,7 +620,8 @@ fun CalendarGraph(
                         projectColor,
                         if (firstJanIdx != 0) (0..<firstJanIdx).toSet() else emptySet(),
                         opacityStops,
-                        setDialogDayData
+                        setDialogDayData,
+                        weekCheatDays
                     )
                     // display the new year
                     Row(
@@ -598,7 +646,8 @@ fun CalendarGraph(
                             projectColor,
                             (firstJanIdx..7).toSet(),
                             opacityStops,
-                            setDialogDayData
+                            setDialogDayData,
+                            weekCheatDays
                         )
                     }
                 } else {
@@ -609,7 +658,8 @@ fun CalendarGraph(
                         projectColor,
                         emptySet(),
                         opacityStops,
-                        setDialogDayData
+                        setDialogDayData,
+                        weekCheatDays
                     )
                 }
             }

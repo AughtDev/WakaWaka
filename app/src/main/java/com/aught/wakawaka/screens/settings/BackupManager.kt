@@ -9,6 +9,7 @@ import androidx.work.WorkManager
 import com.aught.wakawaka.data.AggregateData
 import com.aught.wakawaka.data.NotificationData
 import com.aught.wakawaka.data.ProjectSpecificData
+import com.aught.wakawaka.data.WakaCheatData
 import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.data.WakaStatistics
 import com.aught.wakawaka.utils.JSONDateAdapter
@@ -28,7 +29,8 @@ data class BackupData(
     val statistics: WakaStatistics,
     val notificationData: NotificationData,
     val wakatimeApi: String,
-    val projectAssignedToWidget: String?
+    val projectAssignedToWidget: String?,
+    val cheatData: WakaCheatData
 )
 
 object BackupManager {
@@ -46,7 +48,8 @@ object BackupManager {
             statistics = WakaDataFetchWorker.loadWakaStatistics(context),
             notificationData = WakaDataFetchWorker.loadNotificationData(context),
             wakatimeApi = WakaDataFetchWorker.loadWakatimeAPI(context),
-            projectAssignedToWidget = WakaDataFetchWorker.loadProjectAssignedToWidget(context)
+            projectAssignedToWidget = WakaDataFetchWorker.loadProjectAssignedToWidget(context),
+            cheatData = WakaDataFetchWorker.loadCheatData(context)
         )
 
         // convert to json
@@ -90,6 +93,7 @@ object BackupManager {
         val aggregateDataAdapter = moshi.adapter(AggregateData::class.java)
         val notificationDataAdapter = moshi.adapter(NotificationData::class.java)
         val statisticsAdapter = moshi.adapter(WakaStatistics::class.java)
+        val cheatDataAdapter = moshi.adapter(WakaCheatData::class.java)
 
         WakaDataFetchWorker.saveProjectDataMap(context, backupData.projectSpecificDataMap)
 
@@ -99,6 +103,7 @@ object BackupManager {
             putString(WakaHelpers.WAKA_STATISTICS_KEY, statisticsAdapter.toJson(backupData.statistics))
             putString(WakaHelpers.WAKATIME_API, backupData.wakatimeApi)
             putString(WakaHelpers.PROJECT_ASSIGNED_TO_PROJECT_WIDGET, backupData.projectAssignedToWidget)
+            putString(WakaHelpers.CHEAT_DAY_DATA_KEY, cheatDataAdapter.toJson(backupData.cheatData))
         }
 
         // start the worker to fetch data

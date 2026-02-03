@@ -59,6 +59,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.StrokeCap
+import com.aught.wakawaka.data.CheatType
 import org.koin.androidx.compose.koinViewModel
 
 fun refreshWakaData(context: Context, setIsLoading: ((Boolean) -> Unit)) {
@@ -105,6 +106,15 @@ fun HomeView(
     val aggregateData by viewModel.aggregateData.collectAsState()
 
     val uiState by viewModel.uiState.collectAsState()
+
+    val aggregateUsedCheatDays by viewModel.getUsedCheatDates(
+        CheatType.DAILY,
+    ).collectAsState(initial = emptyList())
+
+    val usedCheatDays by viewModel.getUsedCheatDates(
+        CheatType.DAILY,
+        uiState.selectedProjectName
+    ).collectAsState(initial = emptyList())
 
     if (uiState.unloaded) {
         Box(
@@ -203,12 +213,16 @@ fun HomeView(
 
             val primaryColor = MaterialTheme.colorScheme.primary
 
+
+            Log.d("waka", "Used cheat days for ${uiState.selectedProjectName}: $usedCheatDays, aggregate: $aggregateUsedCheatDays")
+
             CalendarGraph(
                 projectName = uiState.selectedProjectName,
                 uiState.dateToDurationMap,
                 targetInHours = uiState.dailyTargetStreakData.target,
                 projectColor = uiState.projectColor ?: primaryColor,
-                aggregateData
+                aggregateData,
+                (if (uiState.selectedProjectName == WakaHelpers.ALL_PROJECTS_ID) aggregateUsedCheatDays else usedCheatDays).toSet()
             )
             Column(
                 modifier = Modifier

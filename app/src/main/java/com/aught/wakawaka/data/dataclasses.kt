@@ -231,10 +231,29 @@ data class SettingsData (
 
 // region DATA CLASSES FOR CHEAT DAY DATA
 
-data class CheatDayData(
-    val availableDays: Map<String,Int>, // the available cheat days for each project, 0 by default. for the aggregate data, the key is WakaHelpers.ALL_PROJECTS_ID
-    val usedCheatDays: Map<String, List<String>> // the used cheat days for each project in the format yyyy-mm-dd, empty by default. for the aggregate data, the key is WakaHelpers.ALL_PROJECTS_ID
+const val AggregateKey = "--aggregate--"
+
+@JsonClass(generateAdapter = true)
+data class WakaCheatData(
+    val cheatSpecs: Map<String, ProjectCheatData> = mapOf(AggregateKey to ProjectCheatData()),
 )
+
+@JsonClass(generateAdapter = true)
+data class ProjectCheatData(
+    // days during which a cheat has been used in the form yyyy-mm-dd
+    val dailyCheatUsageRecord: List<String> = emptyList<String>(),
+    // weeks during which a cheat has been used in the form of the first date of the week
+    val weeklyCheatUsageRecord: List<String> = emptyList<String>(),
+    // hours per earned cheat day
+    val hoursPerCheatDay: Float = 100f,
+    // hours per earned cheat week
+    val hoursPerCheatWeek: Float = 500f,
+    // the window of time within which the hours per cheat day are counted
+    val dailyCheatTimeWindowInDays: Int = 365,
+    // the window of time within which the hours per cheat week are counted
+    val weeklyCheatTimeWindowInDays: Int = 365
+)
+
 
 // endregion
 
