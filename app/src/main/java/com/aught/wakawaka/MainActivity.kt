@@ -30,16 +30,22 @@ import com.aught.wakawaka.screens.settings.SettingsView
 import com.aught.wakawaka.ui.theme.WakaWakaTheme
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
-import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.screens.projects.ProjectDetailsView
 import androidx.core.content.edit
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
+import androidx.work.workDataOf
+import com.aught.wakawaka.data.WakaHelpers
 import com.aught.wakawaka.widget.WakaWidgetHelpers
 import com.aught.wakawaka.widget.project.WakaProjectWidget
+import com.aught.wakawaka.workers.TargetReminderWorker
 import com.aught.wakawaka.workers.WakaDataFetchWorker
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
 
 
@@ -98,10 +104,60 @@ class MainActivity : ComponentActivity() {
             periodicWorkRequest
         )
 
+        // Schedule reminder workers for 6pm and 10pm
+        scheduleReminderWorkers()
 
         super.onCreate(savedInstanceState)
 
         enableEdgeToEdge()
+    }
+
+    private fun scheduleReminderWorkers() {
+        val now = ZonedDateTime.now(ZoneId.systemDefault())
+
+        // Schedule 6pm reminder
+        val sixPm = now.withHour(WakaHelpers.REMINDER_6PM_HOUR).withMinute(0).withSecond(0)
+        val sixPmDelay = if (now.isAfter(sixPm)) {
+            // Schedule for tomorrow
+            java.time.Duration.between(now, sixPm.plusDays(1)).toMillis()
+        } else {
+            // Schedule for today
+            java.time.Duration.between(now, sixPm).toMillis()
+        }
+
+        val sixPmWorkRequest = OneTimeWorkRequestBuilder<TargetReminderWorker>()
+            .setInitialDelay(sixPmDelay, TimeUnit.MILLISECONDS)
+            .setInputData(workDataOf(TargetReminderWorker.REMINDER_TYPE_KEY to TargetReminderWorker.REMINDER_6PM))
+            .addTag("reminder_6pm")
+            .build()
+
+        WorkManager.getInstance(this).enqueueUniqueWork(
+            "reminder_6pm",
+            ExistingWorkPolicy.KEEP,
+            sixPmWorkRequest
+        )
+
+        // Schedule 10pm reminder
+        val tenPm = now.withHour(WakaHelpers.REMINDER_10PM_HOUR).withMinute(0).withSecond(0)
+        val tenPmDelay = if (now.isAfter(tenPm)) {
+            // Schedule for tomorrow
+            java.time.Duration.between(now, tenPm.plusDays(1)).toMillis()
+        } else {
+            // Schedule for today
+            java.time.Duration.between(now, tenPm).toMillis()
+        }
+
+        val tenPmWorkRequest = OneTimeWorkRequestBuilder<TargetReminderWorker>()
+            .setInitialDelay(tenPmDelay, TimeUnit.MILLISECONDS)
+            .setInputData(workDataOf(TargetReminderWorker.REMINDER_TYPE_KEY to TargetReminderWorker.REMINDER_10PM))
+            .addTag("reminder_10pm")
+            .build()
+
+        WorkManager.getInstance(this).enqueueUniqueWork(
+            "reminder_10pm",
+            ExistingWorkPolicy.KEEP,
+            tenPmWorkRequest
+        )
 
         val ogProjectId = intent.getStringExtra(WakaWidgetHelpers.WIDGET_INTENT_ID.toString())
 

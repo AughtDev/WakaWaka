@@ -1,6 +1,7 @@
 package com.aught.wakawaka.data
 
 import com.aught.wakawaka.screens.home.HomeViewModel
+import com.aught.wakawaka.screens.home.StatsViewModel
 import com.aught.wakawaka.screens.projects.ProjectsViewModel
 import com.aught.wakawaka.screens.settings.SettingsViewModel
 import org.koin.dsl.module
@@ -21,5 +22,7 @@ val wakaAppModule = module {
     viewModel { ProjectsViewModel(get()) }
 
     viewModel { SettingsViewModel(get()) }
+
+    viewModel { StatsViewModel(get()) }
 }
 

@@ -15,9 +15,11 @@ import com.aught.wakawaka.R
 
 class WakaNotifications(val context: Context) {
     private val CHANNEL_ID = "WakaWakaChannel"
+    private val REMINDER_CHANNEL_ID = "WakaWakaReminderChannel"
 
     init {
         createNotificationChannel()
+        createReminderNotificationChannel()
     }
 
     private fun createNotificationChannel() {
@@ -27,6 +29,20 @@ class WakaNotifications(val context: Context) {
             NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
             description = "Notifications for coding targets reached"
+        }
+
+        val notificationsManager: NotificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationsManager.createNotificationChannel(channel)
+    }
+
+    private fun createReminderNotificationChannel() {
+        val channel = NotificationChannel(
+            REMINDER_CHANNEL_ID,
+            "WakaWaka Reminders",
+            NotificationManager.IMPORTANCE_HIGH,
+        ).apply {
+            description = "Daily reminders for unmet coding targets at 6pm and 10pm"
         }
 
         val notificationsManager: NotificationManager =
@@ -48,12 +64,34 @@ class WakaNotifications(val context: Context) {
         )
     }
 
-    fun showNotification(title: String, text: String,notificationId: Int) {
+    fun showNotification(title: String, text: String, notificationId: Int) {
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.wakawakalogofg) // Replace with your app's icon
+            .setSmallIcon(R.drawable.wakawakalogofg)
             .setContentTitle(title)
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(createTapActionPendingIntent())
+            .setAutoCancel(true)
+
+        with(NotificationManagerCompat.from(context)) {
+            if (ActivityCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                println("no permission for notification..")
+                return
+            }
+            notify(notificationId, builder.build())
+        }
+    }
+
+    fun showReminderNotification(title: String, text: String, notificationId: Int) {
+        val builder = NotificationCompat.Builder(context, REMINDER_CHANNEL_ID)
+            .setSmallIcon(R.drawable.wakawakalogofg)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(createTapActionPendingIntent())
             .setAutoCancel(true)
 

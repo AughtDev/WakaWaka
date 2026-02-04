@@ -189,12 +189,15 @@ fun HomeView(
                 Box(
                     modifier = Modifier
                 ) {
-                    ShareButton(
-                        context,
+                    Row(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .offset(y = (-12).dp, x = 18.dp)
-                    )
+                    ) {
+
+                        ShareButton(context, modifier = Modifier.width(32.dp))
+                        StatsButton( modifier = Modifier.width(32.dp) )
+                    }
                     Box(
                         modifier = Modifier.offset(y = 12.dp, x = -8.dp)
                     ) {
@@ -205,6 +208,7 @@ fun HomeView(
 //                            ProjectStreakDisplay(selectedProject, wakaDataHandler)
 //                        }
                     }
+
                 }
             }
 
@@ -214,7 +218,10 @@ fun HomeView(
             val primaryColor = MaterialTheme.colorScheme.primary
 
 
-            Log.d("waka", "Used cheat days for ${uiState.selectedProjectName}: $usedCheatDays, aggregate: $aggregateUsedCheatDays")
+            Log.d(
+                "waka",
+                "Used cheat days for ${uiState.selectedProjectName}: $usedCheatDays, aggregate: $aggregateUsedCheatDays"
+            )
 
             CalendarGraph(
                 projectName = uiState.selectedProjectName,

@@ -45,6 +45,15 @@ class WakaHelpers {
 
         val MIN_FETCH_INTERVAL = 1 * 60 * 1000 // update at most every 1 minute
 
+        //region REMINDER CONSTANTS
+        val REMINDER_6PM_HOUR = 18
+        val REMINDER_10PM_HOUR = 22
+        val REMINDER_6PM_NOTIFICATION_ID = 201
+        val REMINDER_10PM_NOTIFICATION_ID = 202
+        val REMINDER_AGGREGATE_NOTIFICATION_ID = 203
+        val REMINDER_PROJECTS_NOTIFICATION_ID = 204
+        //endregion
+
         //region INITIAL DATA
 
         val INITIAL_WAKA_STATISTICS = WakaStatistics(
@@ -53,7 +62,10 @@ class WakaHelpers {
         )
 
         val INITIAL_NOTIFICATION_DATA = NotificationData(
-            WakaHelpers.ZERO_DAY, WakaHelpers.ZERO_DAY, emptyMap(), emptyMap()
+            lastAggregateDailyTargetNotificationDate = WakaHelpers.ZERO_DAY,
+            lastAggregateWeeklyTargetNotificationDate = WakaHelpers.ZERO_DAY,
+            lastProjectDailyNotificationDates = emptyMap(),
+            lastProjectWeeklyNotificationDates = emptyMap()
         )
 
         //endregion

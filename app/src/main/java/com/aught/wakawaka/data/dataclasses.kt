@@ -207,7 +207,11 @@ data class NotificationData(
     val lastAggregateDailyTargetNotificationDate: String, // in the format YYYY-MM-DD
     val lastAggregateWeeklyTargetNotificationDate: String, // in the format YYYY-MM-DD
     val lastProjectDailyNotificationDates: Map<String, String>, // project_name to date in the format YYYY-MM-DD
-    val lastProjectWeeklyNotificationDates: Map<String, String> // project_name to date in the format YYYY-MM-DD
+    val lastProjectWeeklyNotificationDates: Map<String, String>, // project_name to date in the format YYYY-MM-DD
+    val last6pmReminderDate: String = WakaHelpers.ZERO_DAY, // in the format YYYY-MM-DD
+    val last10pmReminderDate: String = WakaHelpers.ZERO_DAY, // in the format YYYY-MM-DD
+    val reminder6pmShownToday: Boolean = false,
+    val reminder10pmShownToday: Boolean = false
 )
 
 // endregion
