@@ -107,6 +107,10 @@ class MainActivity : ComponentActivity() {
         // Schedule reminder workers for 6pm and 10pm
         scheduleReminderWorkers()
 
+        // Schedule forced fetches at each completion-tier cutoff so the progress map has an entry
+        // close to each boundary; the worker self-reschedules each day after firing.
+        WakaDataFetchWorker.scheduleAllTierFetches(this)
+
         super.onCreate(savedInstanceState)
 
         enableEdgeToEdge()

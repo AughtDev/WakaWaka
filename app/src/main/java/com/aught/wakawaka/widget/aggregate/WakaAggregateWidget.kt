@@ -32,7 +32,10 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
+import androidx.glance.Image
+import androidx.glance.ImageProvider
 import com.aught.wakawaka.MainActivity
+import com.aught.wakawaka.data.CompletionTier
 import com.aught.wakawaka.data.DataRequest
 import com.aught.wakawaka.data.GraphMode
 import com.aught.wakawaka.data.ProjectTargetCompletionData
@@ -47,8 +50,10 @@ import com.aught.wakawaka.widget.WakaWidgetHelpers
 import java.time.LocalDate
 import kotlin.math.min
 
-
 class WakaAggregateWidget : GlanceAppWidget() {
+    companion object {
+        const val NUM_BARS = 7
+    }
 
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -72,8 +77,8 @@ class WakaAggregateWidget : GlanceAppWidget() {
             GraphMode.Daily -> TimePeriod.DAY
             GraphMode.Weekly -> TimePeriod.WEEK
         }
-        val data = wakaDataHandler.getPeriodicDurationsInSeconds(dataRequest, timePeriod, 7)
-        val dates = getPeriodicDates(timePeriod, 7)
+        val data = wakaDataHandler.getPeriodicDurationsInSeconds(dataRequest, timePeriod, NUM_BARS)
+        val dates = getPeriodicDates(timePeriod, NUM_BARS)
 
         // Get cheat days for this data request
         val cheatDays = wakaDataHandler.getCheatDays(dataRequest, timePeriod)
@@ -133,6 +138,12 @@ class WakaAggregateWidget : GlanceAppWidget() {
 
         val projectTargetSummaries =
             wakaDataHandler.getProjectsTargetCompletionSummaryData(timePeriod)
+
+        val averageTier = if (graphMode.value == GraphMode.Daily) {
+            wakaDataHandler.getAverageCompletionTier()
+        } else null
+
+        val density = context.resources.displayMetrics.density
 
         Box(
             modifier = GlanceModifier.fillMaxSize().background(
@@ -230,6 +241,33 @@ class WakaAggregateWidget : GlanceAppWidget() {
                     }
 
 
+                    if (averageTier != null && averageTier != CompletionTier.None) {
+                        val crownHeightDp = 20
+                        val crownWidthDp = 28
+                        val crownBitmap = renderTierCrown(
+                            averageTier,
+                            (crownWidthDp * density).toInt(),
+                            (crownHeightDp * density).toInt()
+                        )
+                        if (crownBitmap != null) {
+                            Row(
+                                modifier = GlanceModifier.fillMaxWidth()
+                                    .padding(horizontal = 15.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Box(modifier = GlanceModifier.defaultWeight()) {}
+                                Image(
+                                    provider = ImageProvider(crownBitmap),
+                                    contentDescription = "Average completion tier",
+                                    modifier = GlanceModifier
+                                        .width(crownWidthDp.dp)
+                                        .height(crownHeightDp.dp)
+                                )
+                            }
+                        }
+                    }
+
                     Row(
                         modifier = GlanceModifier.fillMaxWidth()
                             .padding(horizontal = 15.dp, vertical = 0.dp),
@@ -238,7 +276,7 @@ class WakaAggregateWidget : GlanceAppWidget() {
                     ) {
                         Box(modifier = GlanceModifier.defaultWeight()) {}
                         projectTargetSummaries.values.map {
-                            Box (
+                            Box(
                                 GlanceModifier.padding(horizontal = 2.dp)
                             ) {
                                 WakaWidgetComponents.ProjectTargetCompletionDisplay(it, 25, 15, 6)
@@ -274,24 +312,31 @@ class WakaAggregateWidget : GlanceAppWidget() {
                                 else -> false
                             }
 
+                            val barWidthDp = (WakaWidgetHelpers.GRAPH_WIDTH / NUM_BARS) - 6
                             Column(
                                 modifier = GlanceModifier
 //                            .background(Color.Green)
-                                    .width((WakaWidgetHelpers.GRAPH_WIDTH / 7).dp)
+                                    .width((WakaWidgetHelpers.GRAPH_WIDTH / NUM_BARS).dp)
                                     .padding(horizontal = 3.dp),
                                 verticalAlignment = Alignment.Bottom
                             ) {
-                                // If it's a cheat day, always use primary color (as if target hit)
-                                val barColor =
-                                    if (
-                                        isCheatDay ||
+                                val targetMissed =
+                                    !(isCheatDay ||
                                         targetInHours == null ||
-                                        // if the day is in the exclusion list, use the primary color
                                         date.dayOfWeek.value in excludedDays ||
-                                        duration >= (targetInHours * 3600)
-                                    ) primaryColor
-                                    else
-                                        ColorProvider(day = Color.Gray, night = Color.Gray)
+                                        duration >= (targetInHours * 3600))
+
+                                // Only compute the tier in DAY mode; weekly bars keep gray/white.
+                                val tier = if (graphMode.value == GraphMode.Daily && !targetMissed) {
+                                    wakaDataHandler.getCompletionTier(DataRequest.Aggregate, date)
+                                } else null
+
+                                val barColor =
+                                    if (targetMissed) ColorProvider(day = Color.Gray, night = Color.Gray)
+                                    else primaryColor
+
+                                val useTierBitmap =
+                                    tier != null && tier != CompletionTier.None
 
                                 val barHeight = WakaWidgetHelpers.GRAPH_HEIGHT * min(
                                     1f,
@@ -331,10 +376,23 @@ class WakaAggregateWidget : GlanceAppWidget() {
                                     Box(
                                         modifier = GlanceModifier.fillMaxWidth()
                                             .height(barHeight.dp)
-                                            .background(barColor)
+                                            .let { if (useTierBitmap) it else it.background(barColor) }
                                             .cornerRadius(3.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
+                                        if (useTierBitmap) {
+                                            val barBitmap = renderTierBar(
+                                                tier!!,
+                                                (barWidthDp * density).toInt(),
+                                                (barHeight * density).toInt(),
+                                                (3 * density).toInt()
+                                            )
+                                            Image(
+                                                provider = ImageProvider(barBitmap),
+                                                contentDescription = null,
+                                                modifier = GlanceModifier.fillMaxSize()
+                                            )
+                                        }
                                         // If cheat day and circle fits in bar, show it centered
                                         if (isCheatDay && canFitCircleInBar) {
                                             Box(

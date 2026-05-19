@@ -6,16 +6,20 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import androidx.glance.appwidget.updateAll
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import com.aught.wakawaka.data.AggregateData
 import com.aught.wakawaka.data.AuthInterceptor
+import com.aught.wakawaka.data.CompletionTierConfig
 import com.aught.wakawaka.data.DailyAggregateData
 import com.aught.wakawaka.data.DataRequest
 import com.aught.wakawaka.data.DurationStats
 import com.aught.wakawaka.data.NotificationData
 import com.aught.wakawaka.data.ProjectSpecificData
 import com.aught.wakawaka.data.ProjectStats
-import com.aught.wakawaka.data.ProjectTargetCompletionData
 import com.aught.wakawaka.data.SettingsData
 import com.aught.wakawaka.data.StreakData
 import com.aught.wakawaka.data.SummariesResponse
@@ -27,13 +31,10 @@ import com.aught.wakawaka.data.WakaStatistics
 import com.aught.wakawaka.data.WakaURL
 import com.aught.wakawaka.extras.WakaNotifications
 import com.aught.wakawaka.utils.ColorUtils
-import com.aught.wakawaka.utils.JSONDateAdapter
 import com.aught.wakawaka.utils.getMoshi
 import com.aught.wakawaka.widget.aggregate.WakaAggregateWidget
 import com.aught.wakawaka.widget.project.WakaProjectWidget
-import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -122,6 +123,23 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
             Context.MODE_PRIVATE
         )
 
+        val force = inputData.getBoolean(INPUT_FORCE, false)
+        val tierHHMM = inputData.getInt(INPUT_TIER_HHMM, -1)
+
+        // Forced tier-boundary fetches short-circuit when today's aggregate target is already hit
+        // (the achieved tier is already locked in for the day), and reschedule themselves either way.
+        if (force) {
+            val aggregateData = loadAggregateData(applicationContext)
+            val projectData = loadProjectSpecificData(applicationContext)
+            val cheatData = loadCheatData(applicationContext)
+            val alreadyHit = WakaDataHandler(aggregateData, projectData, cheatData)
+                .targetHit(DataRequest.Aggregate, TimePeriod.DAY)
+            if (alreadyHit) {
+                if (tierHHMM > 0) scheduleTierFetch(applicationContext, tierHHMM)
+                return Result.success()
+            }
+        }
+
         // get last fetch timestamp
         val lastFetchTimestamp = prefs.getLong(WakaHelpers.LAST_FETCH_TIMESTAMP, 0)
         val currTimestamp = System.currentTimeMillis()
@@ -129,7 +147,7 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
         val durationSinceLastFetch = currTimestamp - lastFetchTimestamp
 
         // if the last fetch was less than WakaHelpers.MIN_FETCH_INTERVAL ago, return success else update the timestamp
-        if (durationSinceLastFetch < WakaHelpers.MIN_FETCH_INTERVAL) {
+        if (!force && durationSinceLastFetch < WakaHelpers.MIN_FETCH_INTERVAL) {
             println("Last fetch was less than ${WakaHelpers.MIN_FETCH_INTERVAL} ms ago, skipping fetch")
             // wait for 2 seconds
             kotlinx.coroutines.delay(2000)
@@ -183,8 +201,15 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
                 WakaAggregateWidget().updateAll(applicationContext)
                 WakaProjectWidget().updateAll(applicationContext)
 
+                if (force && tierHHMM > 0) {
+                    scheduleTierFetch(applicationContext, tierHHMM)
+                }
+
                 Result.success()
             } catch (e: Exception) {
+                if (force && tierHHMM > 0) {
+                    scheduleTierFetch(applicationContext, tierHHMM)
+                }
                 Result.failure()
 
             }
@@ -449,8 +474,16 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
             }
 
+            // get the current progress
+            val progress = (updatedAggregateDailyRecords[date]?.progress ?: mapOf()).toMutableMap()
+            // get the time in 24hr format e.g 1145 for 11:45 AM
+            val now = java.time.ZonedDateTime.now()
+            val timeKey = (now.hour * 100 + now.minute).toString()
+            progress[timeKey] = it.grandTotal.totalSeconds.roundToInt()
+
+
             val dailyAggregateData =
-                DailyAggregateData(date, it.grandTotal.totalSeconds.roundToInt(), dailyProjectsData)
+                DailyAggregateData(date, it.grandTotal.totalSeconds.roundToInt(), dailyProjectsData, progress)
 
             updatedAggregateDailyRecords[date] = dailyAggregateData;
         }
@@ -535,6 +568,47 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
     }
 
     companion object {
+        const val INPUT_FORCE = "force"
+        const val INPUT_TIER_HHMM = "tier_hhmm"
+
+        private fun tierFetchWorkName(hhmm: Int): String = "tier_fetch_$hhmm"
+
+        /**
+         * Enqueue a one-time forced fetch for the next occurrence of the given HHMM cutoff,
+         * offset by [CompletionTierConfig.TIER_FETCH_BUFFER_SECONDS] so we capture state just
+         * after the boundary closes.
+         */
+        fun scheduleTierFetch(context: Context, hhmm: Int) {
+            val hour = hhmm / 100
+            val minute = hhmm % 100
+            val now = java.time.ZonedDateTime.now(java.time.ZoneId.systemDefault())
+            var target = now.withHour(hour).withMinute(minute).withSecond(0).withNano(0)
+                .plusSeconds(CompletionTierConfig.TIER_FETCH_BUFFER_SECONDS.toLong())
+            if (!target.isAfter(now)) {
+                target = target.plusDays(1)
+            }
+            val delayMillis = java.time.Duration.between(now, target).toMillis()
+
+            val request = OneTimeWorkRequestBuilder<WakaDataFetchWorker>()
+                .setInitialDelay(delayMillis, java.util.concurrent.TimeUnit.MILLISECONDS)
+                .setInputData(workDataOf(INPUT_FORCE to true, INPUT_TIER_HHMM to hhmm))
+                .addTag(tierFetchWorkName(hhmm))
+                .build()
+
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                tierFetchWorkName(hhmm),
+                ExistingWorkPolicy.REPLACE,
+                request
+            )
+        }
+
+        /** Schedule a forced fetch for every cutoff in [CompletionTierConfig]. */
+        fun scheduleAllTierFetches(context: Context) {
+            for (hhmm in CompletionTierConfig.cutoffHHMMs()) {
+                scheduleTierFetch(context, hhmm)
+            }
+        }
+
         //region CALCULATIONS
 
         fun calculateDailyStreak(

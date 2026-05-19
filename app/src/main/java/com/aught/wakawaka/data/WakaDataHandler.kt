@@ -339,6 +339,90 @@ class WakaDataHandler(
     }
 
 
+    // region COMPLETION TIER
+
+    /**
+     * The HHMM clock time at which the day's cumulative seconds first reached the daily target.
+     *
+     * Returns:
+     *  - `null` when the day has no progress data at all (so the caller can decide: skip from
+     *    averages, render the bar as plain white/gray);
+     *  - `Int.MAX_VALUE` when progress data exists but the target was never hit;
+     *  - otherwise the smallest HHMM key in the progress map whose cumulative seconds met the target.
+     *
+     * For aggregate data the progress map lives on [DailyAggregateData.progress]. Project-specific
+     * data does not currently track intraday progress, so this returns null for project requests.
+     */
+    fun getCompletionHHMM(dataRequest: DataRequest, date: LocalDate): Int? {
+        val formattedDate = date.toString()
+        val progress: Map<String, Int> = when (dataRequest) {
+            is DataRequest.Aggregate ->
+                aggregateData?.dailyRecords?.get(formattedDate)?.progress ?: return null
+            is DataRequest.ProjectSpecific -> return null
+        }
+        if (progress.isEmpty()) return null
+
+        val targetHours = getTarget(dataRequest, TimePeriod.DAY)
+        val targetSeconds: Int = if (targetHours == null) 1 else (targetHours * 3600f).toInt()
+
+        val firstHit = progress.entries
+            .mapNotNull { e -> e.key.toIntOrNull()?.let { it to e.value } }
+            .sortedBy { it.first }
+            .firstOrNull { it.second >= targetSeconds }
+            ?.first
+
+        return firstHit ?: Int.MAX_VALUE
+    }
+
+    /**
+     * Tier for the given day's completion time. Returns null when there is no progress data,
+     * [CompletionTier.None] when the target was never hit or was hit only after the last cutoff.
+     */
+    fun getCompletionTier(dataRequest: DataRequest, date: LocalDate): CompletionTier? {
+        val hhmm = getCompletionHHMM(dataRequest, date) ?: return null
+        if (hhmm == Int.MAX_VALUE) return CompletionTier.None
+        return CompletionTierConfig.tierForHHMM(hhmm)
+    }
+
+    /**
+     * Average completion tier across the past [days] days (excluding today).
+     *
+     *  - Days with no progress data are skipped.
+     *  - Cheat days and excluded-weekday days for the daily streak are skipped.
+     *  - Days where data exists but the target was missed count as 24:00 (end-of-day).
+     *
+     * Returns null when no days were eligible.
+     */
+    fun getAverageCompletionTier(
+        dataRequest: DataRequest = DataRequest.Aggregate,
+        days: Int = CompletionTierConfig.COMPLETION_HISTORY_CONSIDERED
+    ): CompletionTier? {
+        val cheatDays = getCheatDays(dataRequest, TimePeriod.DAY)
+        val excludedDays = getExcludedDays(dataRequest, TimePeriod.DAY)
+        val today = LocalDate.now()
+        val endOfDayMinutes = 24 * 60
+
+        var minutesSum = 0L
+        var count = 0
+        for (i in 1..days) {
+            val date = today.minusDays(i.toLong())
+            val formatted = date.toString()
+            if (cheatDays.contains(formatted)) continue
+            if (excludedDays.contains(date.dayOfWeek.value)) continue
+            val hhmm = getCompletionHHMM(dataRequest, date) ?: continue
+            val minutes = if (hhmm == Int.MAX_VALUE) endOfDayMinutes
+            else CompletionTierConfig.hhmmToMinutes(hhmm)
+            minutesSum += minutes
+            count++
+        }
+
+        if (count == 0) return null
+        val avgMinutes = (minutesSum / count).toInt()
+        return CompletionTierConfig.tierForHHMM(CompletionTierConfig.minutesToHHMM(avgMinutes))
+    }
+
+    // endregion
+
     fun getProjectsTargetCompletionSummaryData(period: TimePeriod): Map<String, ProjectTargetCompletionData> {
         val result = mutableMapOf<String, ProjectTargetCompletionData>()
         for (projectName in sortedProjectList) {

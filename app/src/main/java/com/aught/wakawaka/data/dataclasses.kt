@@ -145,7 +145,10 @@ data class ProjectStats(
 data class DailyAggregateData(
     val date: String, // in the format YYYY-MM-DD
     val totalSeconds: Int,
-    val projects: List<ProjectStats>
+    val projects: List<ProjectStats>,
+    // the progress in time (24 hrs e.g 1145 for 11:45 AM) mapped to the total seconds recorded at that time
+    // to be updated on every fetch
+    val progress: Map<String,Int> = mapOf()
 )
 
 
