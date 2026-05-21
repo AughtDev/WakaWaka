@@ -3,6 +3,7 @@ package com.aught.wakawaka.workers
 import com.aught.wakawaka.data.WakaService
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.core.content.edit
 import androidx.glance.appwidget.updateAll
 import androidx.work.CoroutineWorker
@@ -476,11 +477,15 @@ class WakaDataFetchWorker(appContext: Context, workerParams: WorkerParameters) :
 
             // get the current progress
             val progress = (updatedAggregateDailyRecords[date]?.progress ?: mapOf()).toMutableMap()
+            // if the date is today
             // get the time in 24hr format e.g 1145 for 11:45 AM
-            val now = java.time.ZonedDateTime.now()
-            val timeKey = (now.hour * 100 + now.minute).toString()
-            progress[timeKey] = it.grandTotal.totalSeconds.roundToInt()
-
+            val isToday = date == LocalDate.now().format(WakaHelpers.Companion.getYYYYMMDDDateFormatter())
+            if (isToday) {
+                val now = java.time.ZonedDateTime.now()
+                val timeKey = (now.hour * 100 + now.minute).toString()
+                progress[timeKey] = it.grandTotal.totalSeconds.roundToInt()
+            }
+            Log.d("WakaDataFetchWorker", "Progress for $date: $progress")
 
             val dailyAggregateData =
                 DailyAggregateData(date, it.grandTotal.totalSeconds.roundToInt(), dailyProjectsData, progress)

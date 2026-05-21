@@ -1,6 +1,7 @@
 package com.aught.wakawaka.data
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.ui.graphics.Color
 import androidx.core.graphics.toColorInt
 import com.aught.wakawaka.workers.WakaDataFetchWorker
@@ -365,6 +366,7 @@ class WakaDataHandler(
         val targetHours = getTarget(dataRequest, TimePeriod.DAY)
         val targetSeconds: Int = if (targetHours == null) 1 else (targetHours * 3600f).toInt()
 
+        Log.d("Completion", "getCompletionHHMM: date=$date, targetSeconds=$targetSeconds, progress=$progress")
         val firstHit = progress.entries
             .mapNotNull { e -> e.key.toIntOrNull()?.let { it to e.value } }
             .sortedBy { it.first }
@@ -380,6 +382,7 @@ class WakaDataHandler(
      */
     fun getCompletionTier(dataRequest: DataRequest, date: LocalDate): CompletionTier? {
         val hhmm = getCompletionHHMM(dataRequest, date) ?: return null
+        Log.d("Completion", "getCompletionTier: date=$date, hhmm=$hhmm")
         if (hhmm == Int.MAX_VALUE) return CompletionTier.None
         return CompletionTierConfig.tierForHHMM(hhmm)
     }
